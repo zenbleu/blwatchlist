@@ -1,0 +1,190 @@
+Prompt #2 — Monthly BL Wrapped (Frontend / User Experience)
+
+> Implement the complete user experience for the Monthly BL Wrapped feature using the backend system that has already been implemented.
+
+This prompt is ONLY for the frontend, presentation, animations, transitions, and user experience. Do NOT redesign or modify the backend tracking logic from Prompt #1.
+
+
+---
+
+Goal
+
+Monthly BL Wrapped is a monthly celebration of the user's BL journey.
+
+It should feel warm, polished, rewarding, and memorable.
+
+The experience is inspired by Spotify Wrapped, but it must maintain the unique identity of the BL Watchlist app.
+
+It should never feel like a report or dashboard. Instead, it should feel like flipping through a beautiful storybook that reflects the user's BL month.
+
+
+---
+
+When It Appears
+
+If a Monthly Wrapped has not yet been viewed by the user:
+
+Automatically present it the first time the app is opened after that month has ended.
+
+The user may skip it.
+
+After skipping or finishing it, it must always remain accessible from a dedicated "Wrapped History" section.
+
+
+Do not repeatedly force the user to watch it after it has already been viewed.
+
+
+---
+
+Presentation Style
+
+The experience should be:
+
+Full-screen.
+
+Mobile-first.
+
+Smooth and immersive.
+
+Premium feeling.
+
+Easy to navigate.
+
+Optimized for touch controls.
+
+
+Every page should transition naturally into the next using elegant animations inspired by Spotify Wrapped while matching the existing BL Watchlist visual identity.
+
+Avoid clutter.
+
+Every screen should focus on one story or one statistic at a time.
+
+
+---
+
+Navigation
+
+Users should be able to:
+
+Tap to continue.
+
+Swipe between pages.
+
+Go back to previous pages.
+
+Pause and resume anytime.
+
+Exit the Wrapped.
+
+Replay it later from Wrapped History.
+
+
+
+---
+
+Monthly Wrapped Content
+
+Display only statistics that actually occurred during that month (expect Planned if it was on watchlist for so long)
+
+If a category has no activity, it should not appear.
+
+Examples include (but are not limited to):
+
+Monthly introduction
+
+Total BL entries added
+
+Completed titles
+
+Ongoing BL
+
+Planned BL
+
+Favorite additions
+
+Ratings given
+
+Highest-rated BL
+
+Average monthly rating
+
+Most watched country
+
+Collection growth
+
+Top 10 updates
+
+Achievement unlocks
+
+Rank progression
+
+New personal records
+
+Other meaningful monthly highlights
+
+
+The order should feel like a story instead of a statistics report.
+
+
+---
+
+Quiet Months
+
+If the month contains no BL activity:
+
+Generate a simplified Monthly Wrapped experience instead of skipping it.
+
+Keep it short and reflective.
+
+The experience should acknowledge that the month was part of the user's BL journey without presenting empty statistics.
+
+(Do not hardcode final wording; appropriate copy can be created during implementation.)
+
+
+---
+
+Ending
+
+Every Monthly Wrapped should conclude with a warm ending that celebrates the completed month and naturally welcomes the user's next BL journey.
+
+The ending should feel satisfying regardless of whether the month was very active or completely quiet.
+
+
+---
+
+Wrapped History
+
+Create a dedicated Wrapped History section where users can revisit every Monthly Wrapped they have unlocked.
+
+History should:
+
+Display all months chronologically.
+
+Preserve every Wrapped permanently.
+
+Allow replaying any previous month at any time.
+
+Clearly distinguish viewed and unviewed Wrapped summaries.
+
+
+
+---
+
+Performance
+
+Animations should remain smooth on lower-end Android devices.
+
+Avoid unnecessary heavy rendering or excessive animation complexity.
+
+Prioritize fluidity and responsiveness.
+
+
+---
+
+Future Compatibility
+
+Design the Monthly Wrapped presentation system so it can be reused for the future Annual BL Wrapped feature.
+
+Reuse common animation systems, navigation, transitions, and presentation architecture whenever possible while allowing Annual Wrapped to expand into a larger and more cinematic experience.
+
+The Monthly Wrapped should establish the visual language and interaction style that the Annual Wrapped will later build upon.

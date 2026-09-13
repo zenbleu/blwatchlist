@@ -1,0 +1,56 @@
+Okay good, now I have some new specific additions/changes:
+
+1. BL series & movies tab (General list)
+Existing functionality: the general list already have existing:
+
+- Actions buttons: Favorite, top10 (display the ranking no. if available), edit, remove
+- Preview card modal
+
+Only favorite, edit, remove MUST function. Top10 button is just a display.
+
+Required addition: APPLY the existing functionality on global search. When searching an entry, add:
+
+- Favorite, top10 (display the ranking no. if available), edit, remove
+- Preview card modal
+
+2. Planned Status Entry (General list)
+
+- If the entry status is Planned, add a calendar modal in Edit Entry modal that allow user to select a specific day of an entry to release.
+- add a Cancel button in calendar (if cancel, no changes/don't save changes, back to Edit Entry modal)
+- add a Done button in calendar (if done, save changes)
+- This will be only applied/appear if the entry is marked status as Planned. The calendar will be hidden if the status is Complete, Ongoing, Dropped. 
+- if the user selected a specific day in calendar, it automatically links to Release Calendar in Ongoing BL tab
+
+3. Ongoing BL tab (Release Calendar)
+- the Planned entry status will appear here, on the Upcoming area/section with it's specific day.
+- remove the ‘>' button for each titles in Upcoming area/section. Also remove it's functionality to preview card modal. It's purpose is only to display the entries and it's specific day.
+
+4. Favorite BL Of All Time tab (View-only modal)
+- add an X button to close the modal
+
+5. BL Watcher Profile (Achievement Showcase)
+
+Change/Add the ff(not in order):
+
+Current: Master Archive: Collect 250 BL titles (change into 200)
+
+(New) 🌌 Endless Collection: Collect 300 BL titles
+
+Current: Legendary Collection: Collect 500 BL titles (change into 💎 Extraordinary Curator: Collect 500 BL titles)
+
+(New) 👑 Legendary Collector: Collect 750 BL titles
+
+Current: Infinite Library: Collect 1000 BL titles (change into 🌈 Hall of Legends:
+Collect 1000 BL titles)
+
+🌍 World Traveler
+Requirement: Collect BL titles from all supported countries (Thailand, Japan, South Korea, Taiwan, China, US)
+
+🎞️ Movie Marathon: Collect 100 movies (change into 50)
+
+6. JSON file aligned for Achievement Showcase
+- I'll send a json file to ensure that these entries were aligned/achieved from achievements.
+- ensure that this also applies to every imported json files in the future.
+
+7. Settings (Importing notification)
+- remove notification “Importing... Milestones notification paused."

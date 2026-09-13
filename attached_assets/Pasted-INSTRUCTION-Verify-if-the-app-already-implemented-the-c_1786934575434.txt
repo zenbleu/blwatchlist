@@ -1,0 +1,74 @@
+INSTRUCTION: Verify if the app already implemented the changes below, if not implement them.
+
+Request Change: Separate Rating System to Favorite BL Of All Time
+
+Problem: The app already has existing rating system that ONLY rates entries that are marked as Favorites. This time we will separate them.
+
+Purpose: To rate all entries not just entries that are marked as Favorites.
+
+Instead of adding another tab for Rating system, we will turn it into this way:
+
+The current app displays action buttons in General List (BL Series & Movies tab):
+
+- Status
+- Favorite
+- Top 10
+- Edit
+- Remove
+
+We will add 'Rate' after Favorite action. These are the actions that will be displayed now:
+
+- Status
+- Favorite
+- Rate
+- Top 10
+- Edit
+- Remove
+
+How will 'Rate' action work: The entries were used to rate on Favorites tab when the user Edit the entry. We can copy this rating system modal on 'Rate' action from the Favorites tab. When user clicked 'Rate' action it will display the view mode card only first with the Edit button. When user clicked Edit button, it will show a rating system modal. DO NOT make a new rating system, it's already an EXISTING feature, just simply copy it (functionality, animation, design, or whatever it is) from the Favorites tab.
+
+Does rating system modal will be removed from the Favorites tab?
+- No. We can keep it as-is
+
+What will happen to Favorite function in General list?
+
+Current: When user clicked 'Favorite', it will display a rating system modal.
+Now: Simply add the entry as Favorite. It should automatically added into Favorite BL Of All Time tab.
+
+--------------------
+
+Request Logic Feature: Whenever or Wherever the user marked entry status as 'Completed', display a celebration modal.
+
+Whether an entry is currently marked as Planned or Dropped and the user changed it into Completed status, display a modal including:
+
+- Poster
+- Title
+- Year
+- a text "You have completed this [Series/Movie]. What are you gonna do?"
+- buttons: Rate, Favorite, Top 10, Later
+
+Buttons functions:
+
+Rate: display the existing rating modal that allows user to rate the entry.
+Favorite: add to favorites. If added, fill the button that displays 'Favorite' just like how Favorite action works in General list.
+Top 10: Navigate to Top 10 tab. The hamburger menu must be closed automatically.
+Later: No action executed, just close the modal.
+
+This will also be applied on Ongoing entries but the way it executes is different.
+
+In Ongoing Tab, the app already has the Final EP badge that relies on auto-track system and it displays when an ongoing entry is about to finish. We will use this to execute the celebration modal.
+
+We will executing it by adding a little message beside the Watched progress: "Have you finished watching this title?" when the user clicked the message, replace it with buttons 'Yes' or 'No'
+
+If yes, execute the celebration modal, otherwise the message will appear again.
+
+Ensure these hidden verification passes:
+- the Latest Aired and Currently watched episode is MATCHED
+- The Final EP badge is displayed
+- The auto-track system is accurate according on what day an entry will end.
+
+If user clicked yes WITHOUT passing all the verifications above DO NOT execute the modal instead replace the Yes or No buttons with a message "This series is currently airing. Please complete all available episodes."
+
+------
+
+Commit only modified files from the src/ to the main repo. DO NOT DEPLOY in this app, the bl watchlist is already working with the worflows: GitHub pages, Android Capacitor, and Windows App Build.

@@ -1,0 +1,202 @@
+# BL Watchlist Manager — Countdown Timer for Ongoing BL
+
+I want to add a new feature called **Countdown Timer** to the existing **Ongoing BL** system.
+
+This is an **addition only**. Preserve all existing functionality, UI, data structures, and behavior unless a minimal change is absolutely required to connect the countdown to the existing airing schedule.
+
+I have attached two screenshots as visual references:
+
+* **Photo 1:** This is the **exact visual/UI reference** for the countdown timer itself.
+* **Photo 2:** The red rectangle indicates the intended area where the countdown should appear on the Ongoing BL card.
+
+The red rectangle is only a placement guide. Do not reproduce the rectangle. Position the countdown naturally within that designated area so it fits properly.
+
+---
+
+## 1. Countdown Source — Use Existing Schedule
+
+The application already has:
+
+* Airing Days
+
+  * Monday
+  * Tuesday
+  * Wednesday
+  * Thursday
+  * Friday
+  * Saturday
+  * Sunday
+* A user-assigned **airing time**
+
+**Do NOT create a separate schedule, time field, or countdown configuration.**
+
+The countdown must use the **existing airing-day and assigned airing-time data**.
+
+The user's device/local time should be used to determine the countdown.
+
+---
+
+## 2. When the Countdown Appears
+
+The countdown should automatically become active when:
+
+* An entry's status is **Ongoing**, and
+* The entry is displayed in the **Ongoing BL tab**.
+
+The countdown is primarily a visual/reminder feature for Ongoing BL entries.
+
+Do not add countdown controls that require the user to manually activate it.
+
+---
+
+## 3. Multiple Airing Days
+
+If an entry airs on multiple days, always calculate the **next upcoming scheduled airing**.
+
+Example:
+
+**Schedule:**
+
+* Monday
+* Wednesday
+* Friday
+* 8:00 PM
+
+Then:
+
+* Monday 9:00 PM → countdown to Wednesday 8:00 PM
+* Wednesday 7:00 PM → countdown to Wednesday 8:00 PM
+* Wednesday 9:00 PM → countdown to Friday 8:00 PM
+* Friday 9:00 PM → countdown to the following Monday 8:00 PM
+
+The countdown must continuously determine the next valid airing occurrence.
+
+---
+
+## 4. Countdown Display
+
+Use the UI/design shown in **Screenshot 2**.
+
+Display:
+
+**Days : Hours : Minutes : Seconds**
+
+with the corresponding labels underneath:
+
+**days | hours | minutes | seconds**
+
+The countdown should update in real time.
+
+Do not unnecessarily redesign the provided reference UI.
+
+Make the implementation responsive so it remains visually comfortable.
+---
+
+## 5. When Countdown Reaches Zero
+
+When the countdown reaches:
+
+**0 : 0 : 0 : 0**
+
+the countdown must remain visually displayed at zero.
+
+**Do NOT automatically change the episode number.**
+
+**Do NOT automatically modify:**
+
+* Current Episode
+* Total Episodes
+* Watched Episode
+* Airing Days
+* Airing Time
+* Status
+
+The countdown is strictly a **reminder/visual feature**.
+
+---
+
+## 6. Celebration Modal
+
+When the countdown has reached zero:
+
+* Keep the countdown itself displayed at zero.
+* If the user **clicks the zeroed countdown**, open a celebration modal.
+* The modal must include:
+
+  * The countdown timer at zero
+  * A celebratory message encouraging the user to watch the episode(s) now
+  * Confetti animation
+
+Suggested message:
+
+**🎉 It's time to watch!**
+
+**The episode is airing now. Happy watching!**
+
+The modal should use the application's existing visual language and should feel polished without being excessively large or distracting.
+
+### Important behavior
+
+If the countdown has **NOT** reached zero:
+
+* Clicking the countdown must **NOT** trigger the celebration modal.
+
+Only a completed countdown can trigger the modal.
+
+---
+
+## 7. After the Celebration
+
+Once the user has opened and closed the celebration modal:
+
+* Do not keep the countdown permanently at zero.
+* Calculate the **next scheduled airing** using the existing Air Days + Airing Time.
+* Begin counting down toward that next airing.
+
+Example:
+
+Friday 8:00 PM arrives → countdown reaches zero → user clicks it → celebration modal appears → user closes modal → countdown begins toward the next scheduled airing.
+
+---
+
+## 8. Episode Tracking Must Remain Manual
+
+Do **NOT** automatically increase the episode number when the countdown reaches zero.
+
+For example:
+
+Current:
+
+**Watched 4 / 9**
+
+After countdown reaches zero:
+
+**Watched 4 / 9**
+
+It must remain unchanged until the user manually updates the existing episode progress.
+
+---
+
+# 9. Preserve Existing Ongoing BL Functionality
+
+**DO NOT TOUCH OR REBUILD unrelated functionality.
+
+The countdown should **read from the existing schedule data**, not replace it.
+
+---
+
+## FINAL INSTRUCTION
+
+**Add the Countdown Timer without disturbing the existing BL Watchlist Manager.**
+
+The existing **Air Days + Airing Time** are the source of truth.
+
+The countdown is only a **visual reminder**.
+
+**Do not automatically update episode progress.**
+
+**Do not create a second scheduling system.**
+
+**Do not modify unrelated functionality.**
+
+Use the attached screenshots as the visual reference, especially **Screenshots/photos for the countdown design** and for placement**.

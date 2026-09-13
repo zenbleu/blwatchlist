@@ -1,0 +1,212 @@
+Prompt #1 — Monthly BL Wrapped (Backend Logic)
+
+> Implement a new feature called "Monthly BL Wrapped" into the BL Watchlist app.
+
+This prompt is ONLY for the backend logic, data tracking, and generation system.
+
+Goal
+
+Monthly BL Wrapped is a monthly reflection system, not a productivity or goal system.
+
+It should celebrate the user's BL journey during a specific month by summarizing everything they naturally accomplished.
+
+The feature must never pressure users or make them feel like they failed. It simply reflects their activity.
+
+
+---
+
+Monthly Data Collection
+
+Throughout the month, automatically collect all user activities that occur naturally inside the app.
+
+Examples include (but are not limited to):
+
+BL entries added
+
+BL entries completed
+
+BL entries dropped
+
+BL entries planned
+
+BL entries ongoing
+
+Favorites added
+
+Favorites removed
+
+Ratings submitted
+
+Rating edits
+
+Top 10 drawer updates
+
+New yearly drawer created
+
+Achievement unlocked
+
+Collection title/rank progression
+
+Countries watched
+
+Movies watched
+
+Series watched
+
+Highest rated BL this month
+
+Lowest rated BL this month
+
+Average overall rating this month
+
+Most watched country
+
+Most common status
+
+New records achieved
+
+
+The architecture should be flexible so future monthly statistics can be added without changing the entire system.
+
+
+---
+
+Monthly Snapshot
+
+At the end of every calendar month, generate a permanent snapshot containing only data from that month.
+
+Once generated:
+
+The snapshot becomes read-only.
+
+It should never change even if the user edits or deletes entries later.
+
+It serves as a historical memory of that month.
+
+
+Example:
+
+July 2026 Wrapped always represents exactly what happened during July 2026.
+
+
+---
+
+Automatic Generation
+
+The app should automatically detect when a new month begins.
+
+If the previous month's Wrapped has not yet been generated:
+
+Generate it automatically.
+
+Save it permanently.
+
+Begin tracking a fresh dataset for the new month.
+
+
+No manual action from the user should be required.
+
+
+---
+
+First-Time Users
+
+If a user installs the app during the middle of a month:
+
+Begin tracking immediately.
+
+Only include activity after installation.
+
+Do not attempt to reconstruct earlier activity.
+
+
+
+---
+
+Offline Compatibility
+
+Since BL Watchlist is fully offline-first:
+
+Monthly Wrapped must work completely offline.
+
+Store all monthly snapshots inside IndexedDB/Dexie.
+
+No internet connection should ever be required.
+
+
+
+---
+
+Data Integrity
+
+Ensure:
+
+Only one Monthly Wrapped exists per month.
+
+Duplicate snapshots can never be created.
+
+Snapshot generation is safe even if the app closes unexpectedly.
+
+Corrupted or incomplete snapshots cannot occur.
+
+
+
+---
+
+Editing Past Data
+
+If users later:
+
+edit ratings,
+
+delete entries,
+
+change favorites,
+
+reorganize Top 10,
+
+
+previously generated Monthly Wrapped snapshots must remain unchanged.
+
+They represent historical memories, not live statistics.
+
+
+---
+
+Performance
+
+Monthly tracking must:
+
+have minimal impact on app performance,
+
+avoid recalculating the entire database every launch,
+
+use incremental tracking where possible,
+
+remain efficient even for collections containing thousands of BL entries.
+
+
+
+---
+
+Important Notes:
+
+Monthly BL Wrapped should only include categories that recorded activity during that month. Categories with zero activity must not be included in the generated summary.
+
+If the user does not open the app at the end of the month, the Monthly Wrapped must still be automatically generated and permanently saved. It should be presented the first time the user opens the app after that month has ended.
+
+If the user skips multiple months without opening the app, the system must generate a Monthly Wrapped snapshot for every missed month when the app is opened again.
+
+Months with absolutely no recorded activity must still generate a valid Monthly Wrapped snapshot. These snapshots should simply represent an inactive month and remain part of the user's historical journey.
+
+The backend should only generate and preserve the monthly data. How the Monthly Wrapped is visually displayed, animated, or presented to the user will be implemented separately in the frontend task (Prompt #2)
+
+----- 
+
+Future Scalability
+
+Design the Monthly Wrapped system as a reusable foundation.
+
+The upcoming Annual BL Wrapped feature should be able to reuse this architecture without requiring a complete rewrite. DO NOT IMPLEMENT annual bl wrapped feature YET, we will save this for later.
+
+Keep the implementation modular, maintainable, and extensible.

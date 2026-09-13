@@ -1,0 +1,140 @@
+Contextual Narrator Comments:
+
+To make the Monthly BL Wrapped feel more personal and engaging, every major category or statistic may display a short contextual narrator comment based on the user's activity.
+
+These comments should be:
+
+Short (1–2 sentences).
+
+Friendly, playful, and occasionally humorous.
+
+Encouraging rather than judgmental.
+
+Context-aware based on the displayed statistic.
+
+Randomly selected from multiple variations to avoid repetition.
+
+Never sarcastic in a way that makes users feel guilty or punished.
+
+Note: Only display ONE contextual comment per page/category, not multiple. That way, the comments stay impactful and don't overwhelm the statistics.
+
+Examples include (but are not limited to):
+
+📺 Completed BLs
+
+"Looks like binge mode was activated this month!"
+
+"Another month, another collection of unforgettable stories."
+
+"Your watchlist became a little shorter today."
+
+
+📡 Started Watching / Ongoing BLs
+
+"A brand-new journey has begun."
+
+"Looks like you've found another story worth following."
+
+"Here's hoping the next episode is worth the wait!"
+
+
+⭐ Ratings Given
+
+"Your opinions helped shape this month's BL journey."
+
+"Every rating tells part of your story."
+
+"Seems like you had plenty to say this month."
+
+
+❤️ Favorites Added
+
+"Some stories simply earn a permanent place in your heart."
+
+"Looks like a few BLs became unforgettable."
+
+"Not every BL becomes a favorite—but these did."
+
+
+🌏 Most Watched Country
+
+"This country's BL industry definitely stole the spotlight this month."
+
+"Looks like your passport only needed one destination this month."
+
+"Your BL journey spent plenty of time here."
+
+
+🏆 Top 10 Updates
+
+"Your all-time rankings have a new chapter."
+
+"Looks like the competition for your Top 10 just got tougher."
+
+"Some legends never leave... others just arrived."
+
+
+🎖 Achievement Unlocks
+
+"Congratulations! Another milestone has been reached."
+
+"Your BL journey just became even more impressive."
+
+"Every achievement tells a story of your growing collection."
+
+
+📈 Collection Growth
+
+"Your BL library continues to grow."
+
+"One month closer to an even bigger collection."
+
+"Every title adds another memory."
+
+
+👑 Rank Progression
+
+"You've taken another step as a true BL enthusiast."
+
+"Your dedication is starting to show."
+
+"Another milestone unlocked on your BL journey."
+
+
+📝 Planned BLs
+
+"😆 Plan to Watch" or "Plan to Ignore?"
+
+“🤭 You promised yourself you'd watch these BL's... remember?"
+
+“😅 You've been planning longer than some BLs take to air."
+
+⏸ Dropped BLs
+
+"Not every story is meant for everyone—and that's perfectly okay."
+
+"Sometimes moving on is the right choice."
+
+"Every dropped title makes room for a better discovery."
+
+
+🌙 Quiet Month (No Activity)
+
+"Every journey has its quiet chapters."
+
+"This month was peaceful, and that's perfectly okay."
+
+"Your next BL adventure will be waiting whenever you return."
+
+
+🎬 Ending
+
+"Another chapter of your BL journey has come to an end. See you next month!"
+
+"Thanks for spending another month with BL. More stories await."
+
+"Every month tells a different story. Let's see what next month brings."
+
+----------
+
+> Important: These narrator comments are intended to enhance the storytelling experience. They should never replace or alter the actual statistics being presented, and they must always remain secondary to the factual monthly data.

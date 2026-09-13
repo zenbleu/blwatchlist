@@ -1,0 +1,116 @@
+# Rating System — Specific Fix
+
+Please fix the existing **Rating System** according to the following behavior.
+
+### 1. Evaluation Checkboxes Must Remain Unchecked by Default
+
+**Do NOT automatically check the 7 evaluation checkboxes.**
+
+They must remain unchecked unless the user manually selects them.
+
+However, **unchecked evaluations must still be included in the Overall Rating calculation.**
+
+### 2. Evaluation Bonus Calculation
+
+The five base ratings are:
+
+* Storyline
+* Acting
+* Music
+* Chemistry
+* Cinematography
+
+The seven evaluation criteria are:
+
+* Originality
+* Flow & Pacing
+* Character Depth
+* Relationship Dynamics
+* Emotional Impact
+* Ending
+* Rewatch Value
+
+The evaluation system has a total of **0.7 points**, distributed across the seven criteria using the existing bonus values.
+
+Therefore, when **none of the seven evaluations are checked**, the full evaluation deduction must be applied.
+
+For example:
+
+```text
+All 5 base ratings = 10
+
+Base Rating = 10
+
+7 evaluations unchecked
+Evaluation deduction = 0.7
+
+Overall Rating = 10 - 0.7
+               = 9.3
+```
+
+Therefore, **10-rated base categories with all evaluation checkboxes unchecked must display 9.3, NOT 10.**
+
+When the user checks an evaluation criterion, its corresponding deduction/adjustment must be removed according to its existing predefined value.
+
+**Do not automatically check the boxes.**
+
+---
+
+### 3. Important Calculation Rule
+
+The checkbox state must affect the calculation, but:
+
+> **Unchecked ≠ ignored.**
+
+Unchecked evaluation criteria contribute their corresponding deduction.
+
+Checked evaluation criteria remove that deduction.
+
+Use the **existing established values in the current codebase**. Do not invent new weighting values.
+
+---
+
+### 4. Rating Display Format
+
+Do **NOT** force the Overall Rating to always display two decimal places.
+
+Use a natural number/decimal format:
+
+| Calculated Value |  Display |
+| ---------------: | -------: |
+|               10 |   **10** |
+|              9.5 |  **9.5** |
+|              9.3 |  **9.3** |
+|             8.75 | **8.75** |
+|             8.00 |    **8** |
+
+Remove unnecessary trailing zeros.
+
+**Do not display:**
+
+* `10.00`
+* `9.50`
+* `9.30`
+* `8.00`
+
+unless additional decimal precision is genuinely required by the calculation.
+
+---
+
+### 5. Do Not Touch Other Functionality
+
+This fix applies **ONLY** to the Overall Rating calculation and its display formatting.
+
+**Preserve everything else exactly as it currently works.**
+
+### Final Requirement
+
+Inspect the existing calculation, identify the incorrect behavior, and **fix it immediately**.
+
+After fixing, test at minimum:
+
+1. All five ratings = 10, all evaluations unchecked → **9.3**
+2. Check one evaluation → corresponding deduction is removed.
+3. Check all seven → base rating reaches the expected full score.
+4. Change individual base ratings → Overall Rating recalculates immediately.
+5. Verify the display removes unnecessary trailing zeros.
