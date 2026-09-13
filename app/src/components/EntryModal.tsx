@@ -114,7 +114,9 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
           <h2 className="text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
             {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
           </h2>
-          <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
+          {entry.season != null && (
+            <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
+          )}
         </div>
 
         {/* Status Badge - pill shaped */}
