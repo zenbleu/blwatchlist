@@ -14,6 +14,7 @@ import { saveToIndexedDB, loadFromIndexedDB } from '@/hooks/useIndexedDB';
 import type { Milestone, MilestoneType } from '@/components/MilestoneModal';
 import { trackWrappedEvent } from '@/lib/wrappedTracker';
 import { calculateEvaluationDeduction, calculateOverallRating } from '@/lib/rating';
+import { isSameEntryIdentity } from '@/lib/entry';
 
 const AIR_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
@@ -340,12 +341,10 @@ function ongoingChanged(previous: OngoingEntry | undefined, next: OngoingEntry):
     || JSON.stringify(previous.specialEpisodes || []) !== JSON.stringify(next.specialEpisodes || []);
 }
 
-function hasDuplicateSeason(entries: Entry[], candidate: Entry, excludeId?: string): boolean {
-  const normalizedTitle = candidate.title.trim().toLocaleLowerCase();
+function hasDuplicateEntry(entries: Entry[], candidate: Entry, excludeId?: string): boolean {
   return entries.some((entry) =>
     entry.id !== (excludeId || candidate.id) &&
-    entry.title.trim().toLocaleLowerCase() === normalizedTitle &&
-    (entry.season ?? null) === (candidate.season ?? null),
+    isSameEntryIdentity(entry, candidate),
   );
 }
 
@@ -355,7 +354,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return action.payload;
 
     case 'ADD_ENTRY': {
-      if (hasDuplicateSeason(state.entries, action.payload)) return state;
+      if (hasDuplicateEntry(state.entries, action.payload)) return state;
       const entry = {
         ...action.payload,
         lastUpdatedAt: nextEntryTimestamp(state.entries),
@@ -376,7 +375,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_ENTRY': {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
-      if (hasDuplicateSeason(state.entries, action.payload, action.payload.id)) return state;
+      if (hasDuplicateEntry(state.entries, action.payload, action.payload.id)) return state;
       const changed = entryContentChanged(oldEntry, action.payload);
       const entry = changed
         ? { ...action.payload, lastUpdatedAt: nextEntryTimestamp(state.entries) }

@@ -15,7 +15,7 @@ import { useApp } from '@/context/AppContext';
 import AirDaySelector from './AirDaySelector';
 import type { Entry, Status, AirDay, SpecialEpisode } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
-import { formatSeasonLabel } from '@/lib/entry';
+import { formatSeasonLabel, isSameEntryIdentity } from '@/lib/entry';
 
 const COUNTRIES = [
   'Thailand', 'Japan', 'South Korea', 'Taiwan', 'China', 'Hong Kong', 'Philippines',
@@ -128,11 +128,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setError('Title is required');
       return;
     }
-    const normalizedTitle = title.trim().toLocaleLowerCase();
     const duplicateSeason = state.entries.some((existing) =>
       existing.id !== entry?.id &&
-      existing.title.trim().toLocaleLowerCase() === normalizedTitle &&
-      (existing.season ?? null) === season,
+      isSameEntryIdentity(existing, { title, type, season }),
     );
     if (duplicateSeason) {
       setError(`An entry for ${title.trim()} — ${formatSeasonLabel(season)} already exists.`);
