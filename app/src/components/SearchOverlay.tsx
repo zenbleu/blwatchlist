@@ -97,7 +97,10 @@ const SearchResultCard = memo(function SearchResultCard({
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           {/* Favorite */}
           <button
-            onClick={() => onToggleFavorite(entry)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite(entry);
+            }}
             disabled={entry.status !== 'COMPLETE'}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium tap-active transition-colors ${
               favorited
@@ -113,7 +116,10 @@ const SearchResultCard = memo(function SearchResultCard({
           </button>
 
           <button
-            onClick={() => onRate(entry)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRate(entry);
+            }}
             disabled={entry.status !== 'COMPLETE'}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium tap-active transition-colors ${
               entry.status === 'COMPLETE' ? 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]' : 'bg-white/[0.04] text-[#555] cursor-not-allowed'
@@ -132,7 +138,10 @@ const SearchResultCard = memo(function SearchResultCard({
             </span>
           ) : (
             <button
-              onClick={() => onAddToTop10(entry)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onAddToTop10(entry);
+              }}
               disabled={!canAddToTop10 || entry.status !== 'COMPLETE'}
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1] tap-active disabled:opacity-30 disabled:cursor-not-allowed"
             >
@@ -143,7 +152,10 @@ const SearchResultCard = memo(function SearchResultCard({
 
           {/* Edit */}
           <button
-            onClick={() => onEdit(entry)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(entry);
+            }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1] tap-active"
           >
             <Pencil className="w-3 h-3" />
@@ -152,7 +164,10 @@ const SearchResultCard = memo(function SearchResultCard({
 
           {/* Delete */}
           <button
-            onClick={() => onDelete(entry.id)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(entry.id);
+            }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-white/[0.06] text-[#B3B3B3] hover:bg-red-500/15 hover:text-red-400 tap-active"
           >
             <Trash2 className="w-3 h-3" />
@@ -230,7 +245,9 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
 
   const handleRate = useCallback((entry: Entry) => {
     setFavEvalEntryId(entry.id);
-    setFavEvalMode('view');
+    // Rate is an action, so use the interactive evaluator mode just like
+    // the normal entry list. View mode only displays an existing evaluation.
+    setFavEvalMode('edit');
     setEvaluationType('rating');
     setFavEvalOpen(true);
   }, []);
@@ -247,10 +264,20 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     setDeleteConfirm(null);
   }, [dispatch]);
 
+  // The search surface sits above the app at z-[100]. Hide it while one of
+  // the reused dialogs is open so the dialog's normal z-50 portal remains
+  // interactive and the selected entry's modal state is preserved.
+  const searchSurfaceOpen =
+    isOpen &&
+    !viewModalOpen &&
+    !editModalOpen &&
+    !favEvalOpen &&
+    !deleteConfirm;
+
   return (
     <>
       <AnimatePresence>
-        {isOpen && (
+        {searchSurfaceOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
