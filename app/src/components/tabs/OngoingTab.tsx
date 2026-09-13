@@ -9,6 +9,7 @@ import { getOngoingSchedule } from "@/lib/episodeSchedule";
 import EntryModal from "../EntryModal";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
+import { formatSeasonLabel } from "@/lib/entry";
 
 const OngoingCard = memo(function OngoingCard({
   entryId,
@@ -20,7 +21,7 @@ const OngoingCard = memo(function OngoingCard({
   onFinishPrompt,
 }: {
   entryId: string;
-  entry: { title: string; poster: string | null; country: string };
+  entry: { title: string; season?: number; poster: string | null; country: string };
   ongoingData: OngoingEntry;
   schedule: ReturnType<typeof getOngoingSchedule>;
   onEpisodeChange: (entryId: string, field: "currentEpisode", value: number) => void;
@@ -77,7 +78,7 @@ const OngoingCard = memo(function OngoingCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-[#B3B3B3]">{entry.country}</p>
+          <p className="text-xs text-[#B3B3B3]">{formatSeasonLabel(entry.season)} · {entry.country}</p>
 
           {/* Episode Tracker */}
           <div className="mt-3 space-y-2">

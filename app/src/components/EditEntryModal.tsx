@@ -13,8 +13,9 @@ import {
 } from '@/components/ui/select';
 import { useApp } from '@/context/AppContext';
 import AirDaySelector from './AirDaySelector';
-import type { Entry, Status, AirDay } from '@/types';
+import type { Entry, Status, AirDay, SpecialEpisode } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
+import { formatSeasonLabel } from '@/lib/entry';
 
 const COUNTRIES = [
   'Thailand', 'Japan', 'South Korea', 'Taiwan', 'China', 'Hong Kong', 'Philippines',
@@ -32,11 +33,12 @@ interface EditEntryModalProps {
 }
 
 export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditEntryModalProps) {
-  const { dispatch, getOngoingByEntryId } = useApp();
+  const { state, dispatch, getOngoingByEntryId } = useApp();
 
   // Form state
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'Movie' | 'Series'>('Series');
+  const [season, setSeason] = useState<number | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [country, setCountry] = useState('Thailand');
   const [status, setStatus] = useState<Status>('COMPLETE');
@@ -46,6 +48,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [currentEp, setCurrentEp] = useState(0);
   const [totalEp, setTotalEp] = useState(1);
   const [releaseDates, setReleaseDates] = useState<string[]>([]);
+  const [specialEpisodes, setSpecialEpisodes] = useState<SpecialEpisode[]>([]);
   const [releaseCalendarOpen, setReleaseCalendarOpen] = useState(false);
   const [plannedDate, setPlannedDate] = useState('');
   const [error, setError] = useState('');
@@ -57,6 +60,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     if (entry) {
       setTitle(entry.title);
       setType(entry.type);
+      setSeason(entry.season ?? null);
       setYear(entry.year);
       setCountry(entry.country.replace(/\s*\p{Emoji}\s*/gu, '').trim());
       setStatus(entry.status);
@@ -68,16 +72,19 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         setCurrentEp(ongoing.currentEpisode);
         setTotalEp(ongoing.releaseDates?.length || 1);
         setReleaseDates(ongoing.releaseDates || []);
+        setSpecialEpisodes(ongoing.specialEpisodes || []);
       } else {
         setAirDays([]);
         setAirTime('00:00');
         setCurrentEp(0);
         setTotalEp(1);
         setReleaseDates([]);
+        setSpecialEpisodes([]);
       }
     } else {
       setTitle('');
       setType('Series');
+      setSeason(null);
       setYear(new Date().getFullYear());
       setCountry('Thailand');
       setStatus('COMPLETE');
@@ -88,6 +95,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setCurrentEp(0);
       setTotalEp(1);
       setReleaseDates([]);
+      setSpecialEpisodes([]);
     }
     setError('');
   }, [entry, ongoing]);
@@ -111,9 +119,23 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     setTotalEp(Math.max(1, dates.length));
   };
 
+  const handleSpecialEpisodesSave = (episodes: SpecialEpisode[]) => {
+    setSpecialEpisodes(episodes);
+  };
+
   const handleSave = () => {
     if (!title.trim()) {
       setError('Title is required');
+      return;
+    }
+    const normalizedTitle = title.trim().toLocaleLowerCase();
+    const duplicateSeason = state.entries.some((existing) =>
+      existing.id !== entry?.id &&
+      existing.title.trim().toLocaleLowerCase() === normalizedTitle &&
+      (existing.season ?? null) === season,
+    );
+    if (duplicateSeason) {
+      setError(`An entry for ${title.trim()} — ${formatSeasonLabel(season)} already exists.`);
       return;
     }
     setError('');
@@ -122,6 +144,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       id: entry?.id || `bl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: title.trim(),
       type,
+      ...(season !== null ? { season } : {}),
       year,
       country,
       status,
@@ -150,8 +173,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
           totalEpisodes: totalEp,
             airDays: airDays.length > 0 ? airDays : ['Monday'] as AirDay[],
             airTime,
-            trackingMode: 'calendar',
+           trackingMode: ongoing?.trackingMode || 'recurring',
             releaseDates,
+           specialEpisodes,
         }
       });
     }
@@ -241,6 +265,49 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
               />
             </div>
+          </div>
+
+          {/* Season */}
+          <div className="space-y-2">
+            <Label className="text-[#B3B3B3]">Season</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSeason(null)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                  season === null
+                    ? 'bg-[#E50914] text-white'
+                    : 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]'
+                }`}
+              >
+                Standalone
+              </button>
+              <button
+                type="button"
+                onClick={() => setSeason(season ?? 1)}
+                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                  season !== null
+                    ? 'bg-[#E50914] text-white'
+                    : 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]'
+                }`}
+              >
+                Season
+              </button>
+            </div>
+            {season !== null && (
+              <Input
+                type="number"
+                value={season}
+                onChange={e => setSeason(Math.max(1, parseInt(e.target.value) || 1))}
+                min={1}
+                max={999}
+                className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                aria-label="Season number"
+              />
+            )}
+            <p className="text-[10px] text-[#666]">
+              Keep each season as its own entry with its own poster, progress, and evaluation.
+            </p>
           </div>
 
           {/* Country */}
@@ -371,6 +438,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             onClose={() => setReleaseCalendarOpen(false)}
             releaseDates={releaseDates}
             onSave={handleReleaseDatesSave}
+            specialEpisodes={specialEpisodes}
+            onSpecialEpisodesSave={handleSpecialEpisodesSave}
           />
 
           {/* Cancel & Save Buttons */}

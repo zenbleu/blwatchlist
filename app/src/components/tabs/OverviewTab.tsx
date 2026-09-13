@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Tv, ChevronLeft, ChevronRight, Clock, Sparkles } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { formatSeasonLabel } from '@/lib/entry';
 import Poster from '../Poster';
 import EntryModal from '../EntryModal';
 import type { Entry } from '@/types';
@@ -222,6 +223,7 @@ function AiringTodayCarousel({
                     {isActive && (
                       <div className="absolute bottom-0 left-0 right-0 p-4">
                         <p className="text-white font-bold text-sm truncate">{item.entry.title}</p>
+                        <p className="text-[#777] text-[10px]">{formatSeasonLabel(item.entry.season)}</p>
                         <p className="text-[#B3B3B3] text-[11px] mt-1">
                           {item.ongoing.airDays.join(', ')}
                         </p>
@@ -320,6 +322,7 @@ function RecentlyAddedSection({
           >
             <Poster src={entry.poster} title={entry.title} size="lg" className="w-28 h-40 rounded-xl" />
             <p className="text-white text-xs font-medium mt-2 truncate">{entry.title}</p>
+            <p className="text-[#777] text-[10px]">{formatSeasonLabel(entry.season)}</p>
             <p className="text-[#888] text-[10px]">{entry.year}</p>
           </button>
         ))}
@@ -470,6 +473,7 @@ function CountryRewatchSections({ entries, onEntryClick }: { entries: Entry[]; o
               <button key={entry.id} onClick={() => onEntryClick(entry)} className="flex-shrink-0 w-28 text-left">
                 <Poster src={entry.poster} title={entry.title} size="lg" className="w-28 h-40 rounded-xl" />
                 <p className="text-white text-xs font-medium mt-2 truncate">{entry.title}</p>
+                <p className="text-[#777] text-[10px]">{formatSeasonLabel(entry.season)}</p>
                 <p className="text-[#888] text-[10px]">{entry.year}</p>
               </button>
             ))}

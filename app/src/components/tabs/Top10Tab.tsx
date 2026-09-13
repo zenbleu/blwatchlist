@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { formatSeasonLabel } from "@/lib/entry";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -63,7 +64,7 @@ const Top10Card = memo(function Top10Card({
   onRemove,
   onClick,
 }: {
-  entry: { title: string; poster: string | null; type: string; country: string };
+  entry: { title: string; season?: number; poster: string | null; type: string; country: string };
   rank: number;
   isEditMode: boolean;
   onRemove: () => void;
@@ -117,6 +118,7 @@ const Top10Card = memo(function Top10Card({
           </span>
           <span className="text-[11px] text-[#B3B3B3]">{entry.country}</span>
         </div>
+        <p className="mt-1 truncate text-[10px] text-[#777]">{formatSeasonLabel(entry.season)}</p>
       </div>
     </div>
   );

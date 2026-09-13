@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import type { Entry, OngoingEntry, AirDay } from "@/types";
+import type { Entry, OngoingEntry, AirDay, SpecialEpisode } from "@/types";
 import Poster from "./Poster";
 
 const WEEK_DAYS: AirDay[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -72,8 +72,9 @@ export default function CalendarSheet({
     const result: {
       date: Date;
       entry: Entry;
-      type: "ongoing" | "planned";
+      type: "ongoing" | "planned" | "special";
       ongoingData?: OngoingEntry;
+      specialEpisode?: SpecialEpisode;
     }[] = [];
 
     const now = new Date();
@@ -111,6 +112,21 @@ export default function CalendarSheet({
           const date = new Date(now);
           date.setDate(date.getDate() + daysUntil + 7);
           result.push({ date, entry, type: "ongoing", ongoingData });
+        }
+      }
+    }
+
+    // Specials are date-based calendar items and never affect regular episode progress.
+    for (const { entry, ongoingData } of ongoingEntries) {
+      for (const specialEpisode of ongoingData.specialEpisodes || []) {
+        const date = parseReleaseDate(specialEpisode.releaseDate);
+        if (!date) continue;
+        const daysUntil = Math.floor(
+          (date.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+            (24 * 60 * 60 * 1000),
+        );
+        if (daysUntil >= 0 && daysUntil <= 14) {
+          result.push({ date, entry, type: "special", ongoingData, specialEpisode });
         }
       }
     }
@@ -305,7 +321,9 @@ export default function CalendarSheet({
                   <div className="space-y-1.5">
                     {upcomingEntries.slice(0, 14).map((item, idx) => {
                       const epInfo =
-                        item.type === "ongoing" && item.ongoingData
+                        item.type === "special" && item.specialEpisode
+                          ? `Special ${item.specialEpisode.specialNumber} · ${item.specialEpisode.title}`
+                          : item.type === "ongoing" && item.ongoingData
                           ? `Ep ${item.ongoingData.currentEpisode + 1}/${item.ongoingData.totalEpisodes}`
                           : item.type === "planned"
                           ? "Premiere"
@@ -333,7 +351,11 @@ export default function CalendarSheet({
                               {epInfo && (
                                 <span className="text-[#444] mx-1">|</span>
                               )}
-                              {item.entry.country}
+                              {item.type === "special"
+                                ? item.specialEpisode?.watched
+                                  ? "Watched"
+                                  : "Special release"
+                                : item.entry.country}
                             </p>
                           </div>
                         </div>

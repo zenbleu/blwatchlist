@@ -10,6 +10,8 @@ export interface Entry {
   poster: string | null;
   title: string;
   type: 'Movie' | 'Series';
+  /** Optional season metadata. Omitted means this is a standalone entry. */
+  season?: number;
   year: number;
   country: string;
   status: Status;
@@ -17,6 +19,15 @@ export interface Entry {
   /** Timestamp of the most recent meaningful user update. */
   lastUpdatedAt: number;
   plannedDate?: string; // ISO date string (YYYY-MM-DD), only for PLANNED status
+}
+
+export interface SpecialEpisode {
+  id: string;
+  specialNumber: number;
+  title: string;
+  releaseDate: string;
+  releaseTime?: string;
+  watched: boolean;
 }
 
 export interface OngoingEntry {
@@ -34,6 +45,8 @@ export interface OngoingEntry {
   trackingMode?: OngoingTrackingMode;
   /** Dates on which one episode is scheduled to release, stored as YYYY-MM-DD. */
   releaseDates?: string[];
+  /** Specials belong to this season but do not count toward totalEpisodes. */
+  specialEpisodes?: SpecialEpisode[];
 }
 
 export interface FavoriteEntry {

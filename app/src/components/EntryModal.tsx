@@ -5,6 +5,7 @@ import { useApp } from '@/context/AppContext';
 import Poster from './Poster';
 import type { Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
+import { formatSeasonLabel } from '@/lib/entry';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -113,6 +114,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
           <h2 className="text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
             {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
           </h2>
+          <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
         </div>
 
         {/* Status Badge - pill shaped */}

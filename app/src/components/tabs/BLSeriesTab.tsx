@@ -9,6 +9,7 @@ import StatusBadge from "../StatusBadge";
 import EntryModal from "../EntryModal";
 import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
+import { formatSeasonLabel } from "@/lib/entry";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +89,9 @@ const EntryCard = memo(function EntryCard({
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
+            <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
+              {formatSeasonLabel(entry.season)}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {airingBadge && (

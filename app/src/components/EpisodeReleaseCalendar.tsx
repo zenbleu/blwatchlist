@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { CalendarDays, Check, Minus, Plus, RotateCcw, X } from 'lucide-react';
+import { CalendarDays, Check, Minus, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import type { SpecialEpisode } from '@/types';
 
 interface EpisodeReleaseCalendarProps {
   isOpen: boolean;
   onClose: () => void;
   releaseDates: string[];
   onSave: (releaseDates: string[]) => void;
+  specialEpisodes?: SpecialEpisode[];
+  onSpecialEpisodesSave?: (specialEpisodes: SpecialEpisode[]) => void;
 }
 
 function dateToKey(date: Date): string {
@@ -35,9 +38,20 @@ export default function EpisodeReleaseCalendar({
   onClose,
   releaseDates,
   onSave,
+  specialEpisodes = [],
+  onSpecialEpisodesSave,
 }: EpisodeReleaseCalendarProps) {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [episodeCounts, setEpisodeCounts] = useState<Record<string, number>>({});
+  const [editedSpecialEpisodes, setEditedSpecialEpisodes] = useState<SpecialEpisode[]>([]);
+  const [specialFormOpen, setSpecialFormOpen] = useState(false);
+  const [editingSpecialId, setEditingSpecialId] = useState<string | null>(null);
+  const [specialNumber, setSpecialNumber] = useState(1);
+  const [specialTitle, setSpecialTitle] = useState('');
+  const [specialDate, setSpecialDate] = useState('');
+  const [specialTime, setSpecialTime] = useState('');
+  const [specialWatched, setSpecialWatched] = useState(false);
+  const [specialError, setSpecialError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -51,7 +65,11 @@ export default function EpisodeReleaseCalendar({
     });
     setSelectedDates([...new Map(dates.map((date) => [dateToKey(date), date])).values()]);
     setEpisodeCounts(counts);
-  }, [isOpen, releaseDates]);
+    setEditedSpecialEpisodes(specialEpisodes);
+    setSpecialFormOpen(false);
+    setEditingSpecialId(null);
+    setSpecialError('');
+  }, [isOpen, releaseDates, specialEpisodes]);
 
   const handleSave = () => {
     const dates = selectedDates.flatMap((date) => {
@@ -59,6 +77,7 @@ export default function EpisodeReleaseCalendar({
       return Array.from({ length: episodeCounts[key] || 1 }, () => key);
     });
     onSave(dates.sort());
+    onSpecialEpisodesSave?.(editedSpecialEpisodes);
     onClose();
   };
 
@@ -78,6 +97,74 @@ export default function EpisodeReleaseCalendar({
     (total, date) => total + (episodeCounts[dateToKey(date)] || 1),
     0,
   );
+
+  const openNewSpecialForm = () => {
+    const nextNumber = editedSpecialEpisodes.reduce(
+      (highest, episode) => Math.max(highest, episode.specialNumber),
+      0,
+    ) + 1;
+    setEditingSpecialId(null);
+    setSpecialNumber(nextNumber);
+    setSpecialTitle('');
+    setSpecialDate('');
+    setSpecialTime('');
+    setSpecialWatched(false);
+    setSpecialError('');
+    setSpecialFormOpen(true);
+  };
+
+  const openEditSpecialForm = (special: SpecialEpisode) => {
+    setEditingSpecialId(special.id);
+    setSpecialNumber(special.specialNumber);
+    setSpecialTitle(special.title);
+    setSpecialDate(special.releaseDate);
+    setSpecialTime(special.releaseTime || '');
+    setSpecialWatched(special.watched);
+    setSpecialError('');
+    setSpecialFormOpen(true);
+  };
+
+  const saveSpecial = () => {
+    const trimmedTitle = specialTitle.trim();
+    if (!trimmedTitle || !specialDate || specialNumber < 1) {
+      setSpecialError('Add a special number, title, and release date.');
+      return;
+    }
+    const duplicateNumber = editedSpecialEpisodes.some(
+      (episode) =>
+        episode.id !== editingSpecialId && episode.specialNumber === specialNumber,
+    );
+    if (duplicateNumber) {
+      setSpecialError(`Special ${specialNumber} already exists for this season.`);
+      return;
+    }
+
+    const nextSpecial: SpecialEpisode = {
+      id: editingSpecialId || `special_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      specialNumber,
+      title: trimmedTitle,
+      releaseDate: specialDate,
+      ...(specialTime ? { releaseTime: specialTime } : {}),
+      watched: specialWatched,
+    };
+    setEditedSpecialEpisodes((current) =>
+      editingSpecialId
+        ? current.map((episode) => episode.id === editingSpecialId ? nextSpecial : episode)
+        : [...current, nextSpecial],
+    );
+    setSpecialFormOpen(false);
+    setEditingSpecialId(null);
+  };
+
+  const isSpecialReleased = (special: SpecialEpisode): boolean => {
+    const now = new Date();
+    const today = dateToKey(now);
+    if (special.releaseDate < today) return true;
+    if (special.releaseDate > today) return false;
+    if (!special.releaseTime) return true;
+    const [hours, minutes] = special.releaseTime.split(':').map(Number);
+    return now.getHours() * 60 + now.getMinutes() >= hours * 60 + minutes;
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -153,6 +240,148 @@ export default function EpisodeReleaseCalendar({
               })}
             </div>
           )}
+
+          {/* Special Episodes */}
+          <div className="border-t border-white/[0.08] pt-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Special Episodes</h3>
+                <p className="text-[11px] text-[#777] mt-0.5">
+                  Specials stay separate from the regular episode count.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openNewSpecialForm}
+                className="inline-flex items-center gap-1 rounded-lg bg-[#E50914]/15 px-2.5 py-1.5 text-xs font-semibold text-[#ff6b75] hover:bg-[#E50914]/25"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Special
+              </button>
+            </div>
+
+            {specialFormOpen && (
+              <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                <div className="grid grid-cols-[90px_1fr] gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[#888]">Number</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={specialNumber}
+                      onChange={(event) => setSpecialNumber(Math.max(1, parseInt(event.target.value) || 1))}
+                      className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 text-sm text-white outline-none focus:border-[#E50914]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[#888]">Title</label>
+                    <input
+                      value={specialTitle}
+                      onChange={(event) => setSpecialTitle(event.target.value)}
+                      placeholder="Behind the Scenes"
+                      className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 text-sm text-white placeholder:text-[#666] outline-none focus:border-[#E50914]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[#888]">Release date</label>
+                    <input
+                      type="date"
+                      value={specialDate}
+                      onChange={(event) => setSpecialDate(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 text-xs text-white outline-none [color-scheme:dark] focus:border-[#E50914]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[#888]">Release time <span className="text-[#666]">(optional)</span></label>
+                    <input
+                      type="time"
+                      value={specialTime}
+                      onChange={(event) => setSpecialTime(event.target.value)}
+                      className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 text-xs text-white outline-none [color-scheme:dark] focus:border-[#E50914]"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-xs text-[#B3B3B3]">
+                  <input
+                    type="checkbox"
+                    checked={specialWatched}
+                    onChange={(event) => setSpecialWatched(event.target.checked)}
+                    className="accent-[#E50914]"
+                  />
+                  Mark as watched
+                </label>
+                {specialError && <p className="text-xs text-red-400">{specialError}</p>}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSpecialFormOpen(false)}
+                    className="flex-1 border-white/10 text-[#B3B3B3] hover:bg-white/[0.06]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={saveSpecial}
+                    className="flex-1 bg-[#E50914] text-white hover:bg-[#E50914]/90"
+                  >
+                    {editingSpecialId ? 'Save Special' : 'Add Special'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {editedSpecialEpisodes.length === 0 ? (
+              <p className="rounded-lg bg-white/[0.03] px-3 py-3 text-center text-xs text-[#666]">
+                No special episodes added yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {[...editedSpecialEpisodes]
+                  .sort((a, b) => a.specialNumber - b.specialNumber)
+                  .map((special) => {
+                    const released = isSpecialReleased(special);
+                    const status = special.watched ? 'Watched' : released ? 'Released' : 'Upcoming';
+                    return (
+                      <div key={special.id} className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-3 py-2">
+                        <span className="text-base" aria-hidden="true">✨</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-white">
+                            Special {special.specialNumber} — {special.title}
+                          </p>
+                          <p className="text-[10px] text-[#777]">
+                            {special.releaseDate}
+                            {special.releaseTime ? ` · ${special.releaseTime}` : ''}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                          special.watched
+                            ? 'bg-green-500/15 text-green-300'
+                            : released
+                              ? 'bg-blue-500/15 text-blue-300'
+                              : 'bg-amber-500/15 text-amber-300'
+                        }`}>
+                          {status}
+                        </span>
+                        <button type="button" onClick={() => openEditSpecialForm(special)} className="rounded p-1 text-[#777] hover:bg-white/[0.08] hover:text-white" aria-label={`Edit special ${special.specialNumber}`}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditedSpecialEpisodes((current) => current.filter((episode) => episode.id !== special.id))}
+                          className="rounded p-1 text-[#777] hover:bg-red-500/15 hover:text-red-300"
+                          aria-label={`Delete special ${special.specialNumber}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-3 pt-1">
             <Button

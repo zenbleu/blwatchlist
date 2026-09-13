@@ -8,6 +8,7 @@ import type {
   Top10Drawer,
   AirDay,
   OngoingTrackingMode,
+  SpecialEpisode,
 } from '@/types';
 import { saveToIndexedDB, loadFromIndexedDB } from '@/hooks/useIndexedDB';
 import type { Milestone, MilestoneType } from '@/components/MilestoneModal';
@@ -77,11 +78,16 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     status = 'COMPLETE';
   }
 
+  const season = typeof e.season === 'number' && Number.isInteger(e.season) && e.season >= 1
+    ? e.season
+    : undefined;
+
   return {
     ...(e as unknown as Entry),
     status: status as Entry['status'],
     poster: (e.poster as string) ?? null,
     type: (e.type as 'Movie' | 'Series') || 'Series',
+    season,
     year: typeof e.year === 'number' ? e.year : new Date().getFullYear(),
     country: (e.country as string) || 'Unknown',
     title: (e.title as string) || 'Untitled',
@@ -90,6 +96,32 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     lastUpdatedAt: typeof e.lastUpdatedAt === 'number'
       ? e.lastUpdatedAt
       : (typeof e.createdAt === 'number' ? e.createdAt : Date.now()),
+  };
+}
+
+function migrateSpecialEpisode(raw: unknown, index: number): SpecialEpisode | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const special = raw as Record<string, unknown>;
+  const releaseDate = typeof special.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(special.releaseDate)
+    ? special.releaseDate
+    : '';
+  const specialNumber = typeof special.specialNumber === 'number'
+    ? Math.max(1, Math.floor(special.specialNumber))
+    : 0;
+  const title = typeof special.title === 'string' ? special.title.trim() : '';
+  if (!releaseDate || !specialNumber || !title) return null;
+
+  return {
+    id: typeof special.id === 'string' && special.id
+      ? special.id
+      : `special_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`,
+    specialNumber,
+    title,
+    releaseDate,
+    ...(typeof special.releaseTime === 'string' && /^\d{2}:\d{2}$/.test(special.releaseTime)
+      ? { releaseTime: special.releaseTime }
+      : {}),
+    watched: Boolean(special.watched),
   };
 }
 
@@ -120,6 +152,11 @@ export function migrateOngoing(o: Record<string, unknown>): OngoingEntry | null 
           (date): date is string =>
             typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date),
         ).sort()
+      : [],
+    specialEpisodes: Array.isArray(o.specialEpisodes)
+      ? o.specialEpisodes
+        .map((special, index) => migrateSpecialEpisode(special, index))
+        .filter((special): special is SpecialEpisode => special !== null)
       : [],
   };
 }
@@ -268,6 +305,7 @@ function entryContentChanged(previous: Entry, next: Entry): boolean {
     || previous.country !== next.country
     || previous.status !== next.status
     || previous.poster !== next.poster
+    || previous.season !== next.season
     || previous.plannedDate !== next.plannedDate;
 }
 
@@ -298,7 +336,17 @@ function ongoingChanged(previous: OngoingEntry | undefined, next: OngoingEntry):
     || previous.airTime !== next.airTime
     || previous.premiereEpisodeCount !== next.premiereEpisodeCount
     || previous.airDays.join('|') !== next.airDays.join('|')
-    || (previous.releaseDates || []).join('|') !== (next.releaseDates || []).join('|');
+    || (previous.releaseDates || []).join('|') !== (next.releaseDates || []).join('|')
+    || JSON.stringify(previous.specialEpisodes || []) !== JSON.stringify(next.specialEpisodes || []);
+}
+
+function hasDuplicateSeason(entries: Entry[], candidate: Entry, excludeId?: string): boolean {
+  const normalizedTitle = candidate.title.trim().toLocaleLowerCase();
+  return entries.some((entry) =>
+    entry.id !== (excludeId || candidate.id) &&
+    entry.title.trim().toLocaleLowerCase() === normalizedTitle &&
+    (entry.season ?? null) === (candidate.season ?? null),
+  );
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -307,6 +355,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return action.payload;
 
     case 'ADD_ENTRY': {
+      if (hasDuplicateSeason(state.entries, action.payload)) return state;
       const entry = {
         ...action.payload,
         lastUpdatedAt: nextEntryTimestamp(state.entries),
@@ -327,6 +376,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_ENTRY': {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
+      if (hasDuplicateSeason(state.entries, action.payload, action.payload.id)) return state;
       const changed = entryContentChanged(oldEntry, action.payload);
       const entry = changed
         ? { ...action.payload, lastUpdatedAt: nextEntryTimestamp(state.entries) }

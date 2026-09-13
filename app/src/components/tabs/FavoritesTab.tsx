@@ -6,6 +6,7 @@ import Poster from "../Poster";
 import RatingCircle from "../RatingCircle";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import { formatRating } from "@/lib/rating";
+import { formatSeasonLabel } from "@/lib/entry";
 type SortOption = "ratingDesc" | "ratingAsc" | "yearDesc" | "yearAsc" | "titleAZ" | "titleZA";
 type FilterOption = "all" | "movies" | "series";
 
@@ -198,6 +199,7 @@ export default function FavoritesTab() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-white text-sm font-semibold truncate">{entry.title}</h3>
                 <p className="text-[#888] text-xs mt-0.5">{entry.year} &middot; {entry.country}</p>
+                <p className="text-[#B3B3B3] text-[10px] mt-1">{formatSeasonLabel(entry.season)}</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   {/* Status badge */}
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${cardStatusConfig?.bg} ${cardStatusConfig?.text}`}>

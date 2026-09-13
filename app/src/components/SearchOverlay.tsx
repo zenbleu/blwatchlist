@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { Entry } from '@/types';
+import { formatSeasonLabel } from '@/lib/entry';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -81,6 +82,9 @@ const SearchResultCard = memo(function SearchResultCard({
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
+            <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
+              {formatSeasonLabel(entry.season)}
+            </span>
           </div>
           <StatusBadge status={entry.status} />
         </div>

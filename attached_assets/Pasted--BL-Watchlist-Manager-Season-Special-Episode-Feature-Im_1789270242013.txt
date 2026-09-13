@@ -1,0 +1,85 @@
+# BL Watchlist Manager — Season + Special Episode Feature
+
+Implement two additions to the existing BL Watchlist Manager: **Season Support** and **Special Episodes in the Release Calendar**.
+
+**Preserve all existing functionality and UI. Do not rebuild or modify unrelated features.**
+
+### 1. Season Support
+
+Add an optional **Season** field to BL Series & Movies entries:
+
+* Standalone
+* Season 1
+* Season 2
+* Season 3, etc.
+* Allow higher/custom season numbers if needed.
+
+A season must remain an **independent entry** with its own:
+
+* Poster
+* Release year
+* Status
+* Favorite/evaluation
+* Episode progress
+* Airing schedule
+* Top 10 eligibility/ranking
+
+Example:
+
+> KinnPorsche — Season 1 — 2022 — Complete
+> KinnPorsche — Season 2 — 2026 — Ongoing
+
+Do **not** include "Season 1" inside the actual title name. Store/display it as separate metadata.
+
+Prevent accidental duplicate season entries for the same title/season.
+
+Season information must appear naturally on entry cards and in relevant detail/edit views.
+
+### 2. Special Episodes
+
+Special episodes must **NOT be separate BL Watchlist entries**.
+
+They belong to their corresponding **season** and should be managed inside the existing **Release Calendar**.
+
+Add a separate section:
+
+**Regular Episodes**
+
+* Existing episode calendar/progress remains unchanged.
+
+**Special Episodes**
+
+* `+ Add Special`
+* Special number
+* Special title
+* Release date
+* Optional release time
+* Released/upcoming status
+
+Example:
+
+> ✨ Special 1 — Behind the Scenes — June 28
+> ✨ Special 2 — Director's Cut — July 5
+
+Special episodes should **not affect the main `Watched X / Total Episodes` counter**. They should have their own watched/released state within the Release Calendar.
+
+### 3. Schedule & Countdown Compatibility
+
+Regular episode scheduling continues using the existing:
+
+**Air Days + Airing Time + Countdown**
+
+Do not replace or interfere with the existing recurring airing schedule.
+
+Special Episodes may have their own release date/time in the Release Calendar, but they must **not override the main airing schedule or countdown**.
+
+### 4. Important Preservation Rules
+
+* Existing entries must remain valid.
+* Existing JSON import/export must remain compatible.
+* Existing Favorites, Top 10, Ongoing BL, Statistics, Overview, and Settings must continue working.
+* A season counts as **one entry**, just like any existing BL entry.
+* Do not create a new tab for Seasons or Special Episodes.
+* Keep the design responsive on **desktop**.
+
+**Only implement the Season and Special Episode features. Do not touch unrelated working components.**
