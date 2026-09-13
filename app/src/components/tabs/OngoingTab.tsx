@@ -78,7 +78,9 @@ const OngoingCard = memo(function OngoingCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-[#B3B3B3]">{formatSeasonLabel(entry.season)} · {entry.country}</p>
+          <p className="text-xs text-[#B3B3B3]">
+            {entry.season != null ? `${formatSeasonLabel(entry.season)} · ` : ''}{entry.country}
+          </p>
 
           {/* Episode Tracker */}
           <div className="mt-3 space-y-2">

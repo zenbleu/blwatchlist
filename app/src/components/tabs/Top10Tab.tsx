@@ -118,7 +118,9 @@ const Top10Card = memo(function Top10Card({
           </span>
           <span className="text-[11px] text-[#B3B3B3]">{entry.country}</span>
         </div>
-        <p className="mt-1 truncate text-[10px] text-[#777]">{formatSeasonLabel(entry.season)}</p>
+        {entry.season != null && (
+          <p className="mt-1 truncate text-[10px] text-[#777]">{formatSeasonLabel(entry.season)}</p>
+        )}
       </div>
     </div>
   );
