@@ -17,6 +17,7 @@ const OngoingCard = memo(function OngoingCard({
   ongoingData,
   schedule,
   onEpisodeChange,
+  onSpecialWatchedChange,
   onEntryClick,
   onFinishPrompt,
 }: {
@@ -25,17 +26,23 @@ const OngoingCard = memo(function OngoingCard({
   ongoingData: OngoingEntry;
   schedule: ReturnType<typeof getOngoingSchedule>;
   onEpisodeChange: (entryId: string, field: "currentEpisode", value: number) => void;
+  onSpecialWatchedChange: (entryId: string, specialId: string, watched: boolean) => void;
   onEntryClick: (entry: Entry) => void;
   onFinishPrompt: (entryId: string, schedule: ReturnType<typeof getOngoingSchedule>, ongoingData: OngoingEntry) => boolean;
 }) {
   const isAiringToday = schedule.isAiringToday;
-  const showBadge = isAiringToday || schedule.isFinalEpisodeScheduledToday;
+  const isSpecialEpisodeToday = schedule.isSpecialEpisodeScheduledToday;
+  const showBadge = isAiringToday || isSpecialEpisodeToday || schedule.isFinalEpisodeScheduledToday;
   const progressTotal = schedule.totalEpisodes || ongoingData.totalEpisodes;
+  const specialEpisodes = ongoingData.specialEpisodes || [];
+  const watchedSpecialEpisodes = specialEpisodes.filter((special) => special.watched).length;
+  const overallWatched = ongoingData.currentEpisode + watchedSpecialEpisodes;
+  const overallTotal = progressTotal + specialEpisodes.length;
   const showCountdown =
     schedule.isConfigured &&
     schedule.airedEpisode !== null &&
     schedule.airedEpisode < schedule.totalEpisodes;
-  const progress = progressTotal > 0 ? (ongoingData.currentEpisode / progressTotal) * 100 : 0;
+  const progress = overallTotal > 0 ? (overallWatched / overallTotal) * 100 : 0;
   const [isAskingFinished, setIsAskingFinished] = useState(false);
   const [verificationError, setVerificationError] = useState(false);
 
@@ -47,9 +54,11 @@ const OngoingCard = memo(function OngoingCard({
       className={`p-3 rounded-xl bg-[#141414] relative overflow-hidden ${
         schedule.isFinalEpisodeScheduledToday
           ? "glow-border-amber pulse-glow-amber"
-          : isAiringToday
-            ? "glow-border-red pulse-glow"
-            : ""
+          : isSpecialEpisodeToday
+            ? "glow-border-amber pulse-glow-amber"
+            : isAiringToday
+              ? "glow-border-red pulse-glow"
+              : ""
       }`}
     >
       {showCountdown && (
@@ -72,9 +81,17 @@ const OngoingCard = memo(function OngoingCard({
             <p className="text-base font-bold truncate">{entry.title}</p>
             {showBadge && (
               <span className={`shrink-0 whitespace-nowrap text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                schedule.isFinalEpisodeScheduledToday ? "bg-amber-500" : "bg-[#E50914]"
+                 schedule.isFinalEpisodeScheduledToday
+                   ? "bg-orange-500"
+                   : isSpecialEpisodeToday
+                     ? "bg-yellow-400 text-black"
+                     : "bg-[#E50914]"
               }`}>
-                {schedule.isFinalEpisodeScheduledToday ? "Final EP" : "Airing Today"}
+                 {schedule.isFinalEpisodeScheduledToday
+                   ? "Final EP"
+                   : isSpecialEpisodeToday
+                     ? "Special Episode"
+                     : "Airing Today"}
               </span>
             )}
           </div>
@@ -85,7 +102,7 @@ const OngoingCard = memo(function OngoingCard({
           {/* Episode Tracker */}
           <div className="mt-3 space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[#B3B3B3]">Watched</span>
+              <span className="text-xs text-[#B3B3B3]">Regular</span>
               <input
                 type="number"
                 value={ongoingData.currentEpisode}
@@ -103,6 +120,9 @@ const OngoingCard = memo(function OngoingCard({
                 min={1}
               />
             </div>
+            <p className="text-xs text-[#B3B3B3]">
+              All episodes watched: <span className="font-medium text-white">{overallWatched} / {overallTotal}</span>
+            </p>
 
             {schedule.isConfigured ? (
               <p className="text-xs text-[#B3B3B3]">
@@ -136,6 +156,30 @@ const OngoingCard = memo(function OngoingCard({
                 />
               </div>
             </div>
+
+            {specialEpisodes.length > 0 && (
+              <div className="space-y-1.5 border-t border-white/[0.06] pt-2">
+                <span className="block text-xs text-[#B3B3B3]">
+                  Special Episodes: {watchedSpecialEpisodes} / {specialEpisodes.length}
+                </span>
+                {specialEpisodes.map((special) => (
+                  <label
+                    key={special.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg bg-white/[0.03] px-2 py-1.5 text-xs text-[#B3B3B3]"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={special.watched}
+                      onChange={(event) => onSpecialWatchedChange(entryId, special.id, event.target.checked)}
+                      className="accent-[#E50914]"
+                    />
+                    <span className={special.watched ? "text-white line-through decoration-white/40" : "text-white"}>
+                      Special {special.specialNumber}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -260,7 +304,9 @@ export default function OngoingTab() {
     // Apply filter
     if (filter === "today") {
       result = result.filter(({ schedule }) =>
-        schedule.isAiringToday || schedule.isFinalEpisodeScheduledToday
+        schedule.isAiringToday ||
+        schedule.isSpecialEpisodeScheduledToday ||
+        schedule.isFinalEpisodeScheduledToday
       );
     } else if (filter !== "all") {
       result = result.filter(({ ongoingData }) => matchesAirDay(ongoingData, filter as AirDay));
@@ -270,8 +316,8 @@ export default function OngoingTab() {
     result = [...result].sort((a, b) => {
       switch (sort) {
         case "airDay": {
-          const aHasToday = a.schedule.isAiringToday || a.schedule.isFinalEpisodeScheduledToday ? 0 : 1;
-          const bHasToday = b.schedule.isAiringToday || b.schedule.isFinalEpisodeScheduledToday ? 0 : 1;
+          const aHasToday = a.schedule.isAiringToday || a.schedule.isSpecialEpisodeScheduledToday || a.schedule.isFinalEpisodeScheduledToday ? 0 : 1;
+          const bHasToday = b.schedule.isAiringToday || b.schedule.isSpecialEpisodeScheduledToday || b.schedule.isFinalEpisodeScheduledToday ? 0 : 1;
           return aHasToday - bHasToday || a.entry.title.localeCompare(b.entry.title);
         }
         case "year": return b.entry.year - a.entry.year;
@@ -297,6 +343,24 @@ export default function OngoingTab() {
     dispatch({
       type: "UPDATE_ONGOING",
       payload: { ...existing, [field]: Math.max(0, value) },
+    });
+  }, [state.ongoing, dispatch]);
+
+  const handleSpecialWatchedChange = useCallback((
+    entryId: string,
+    specialId: string,
+    watched: boolean,
+  ) => {
+    const existing = state.ongoing.find((ongoing) => ongoing.entryId === entryId);
+    if (!existing) return;
+    dispatch({
+      type: "UPDATE_ONGOING",
+      payload: {
+        ...existing,
+        specialEpisodes: (existing.specialEpisodes || []).map((special) =>
+          special.id === specialId ? { ...special, watched } : special,
+        ),
+      },
     });
   }, [state.ongoing, dispatch]);
 
@@ -537,6 +601,7 @@ export default function OngoingTab() {
             ongoingData={ongoingData}
             schedule={schedule}
             onEpisodeChange={handleEpisodeChange}
+            onSpecialWatchedChange={handleSpecialWatchedChange}
             onEntryClick={setSelectedEntry}
             onFinishPrompt={handleFinishPrompt}
           />

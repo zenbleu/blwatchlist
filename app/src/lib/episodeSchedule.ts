@@ -6,6 +6,8 @@ export interface OngoingSchedule {
   /** Total episodes represented by the active schedule. */
   totalEpisodes: number;
   isAiringToday: boolean;
+  /** Whether a special episode is scheduled for the current local calendar day. */
+  isSpecialEpisodeScheduledToday: boolean;
   /** Whether the final scheduled episode falls on the current local calendar day. */
   isFinalEpisodeScheduledToday: boolean;
   isFinalEpisodeAiringToday: boolean;
@@ -57,7 +59,7 @@ function hasReachedAirTime(now: Date, airTime = '00:00'): boolean {
 }
 
 function getCalendarSchedule(
-  ongoing: Pick<OngoingEntry, 'totalEpisodes' | 'releaseDates' | 'airTime'>,
+  ongoing: Pick<OngoingEntry, 'totalEpisodes' | 'releaseDates' | 'airTime' | 'specialEpisodes'>,
   now: Date,
 ): OngoingSchedule {
   // Keep duplicate dates: multiple episodes can release on the same day
@@ -68,6 +70,8 @@ function getCalendarSchedule(
     .sort();
   const todayKey = dateKey(now);
   const airingTimeReached = hasReachedAirTime(now, ongoing.airTime);
+  const isSpecialEpisodeScheduledToday = (ongoing.specialEpisodes || [])
+    .some((special) => special.releaseDate === todayKey);
   const releasedThroughToday = releaseDates.filter(
     (value) => value < todayKey || (value === todayKey && airingTimeReached),
   ).length;
@@ -82,6 +86,7 @@ function getCalendarSchedule(
     totalEpisodes,
     airedEpisode: Math.min(totalEpisodes, releasedThroughToday),
     isAiringToday,
+    isSpecialEpisodeScheduledToday,
     isFinalEpisodeScheduledToday:
       isScheduledToday &&
       releasedBeforeToday < totalEpisodes &&
@@ -134,6 +139,7 @@ export function getOngoingSchedule(
     | 'premiereEpisodeCount'
     | 'trackingMode'
     | 'releaseDates'
+    | 'specialEpisodes'
   >,
   now = new Date(),
 ): OngoingSchedule {
@@ -144,6 +150,8 @@ export function getOngoingSchedule(
     Math.floor(ongoing.premiereEpisodeCount ?? 1),
   );
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const isSpecialEpisodeScheduledToday = (ongoing.specialEpisodes || [])
+    .some((special) => special.releaseDate === dateKey(today));
   if (ongoing.trackingMode === 'calendar') {
     return getCalendarSchedule(ongoing, now);
   }
@@ -163,6 +171,7 @@ export function getOngoingSchedule(
       airedEpisode: null,
       totalEpisodes: ongoing.totalEpisodes,
       isAiringToday,
+      isSpecialEpisodeScheduledToday,
       isFinalEpisodeScheduledToday: false,
       isFinalEpisodeAiringToday: false,
       isFinalEpisodeAired: false,
@@ -204,6 +213,7 @@ export function getOngoingSchedule(
     totalEpisodes: ongoing.totalEpisodes,
     airedEpisode,
     isAiringToday,
+    isSpecialEpisodeScheduledToday,
     isFinalEpisodeScheduledToday:
       isScheduledToday &&
       today >= firstAirDate &&

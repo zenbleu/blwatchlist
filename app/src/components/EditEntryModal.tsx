@@ -436,6 +436,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
           <EpisodeReleaseCalendar
             isOpen={releaseCalendarOpen}
             onClose={() => setReleaseCalendarOpen(false)}
+            parentTitle={title}
             releaseDates={releaseDates}
             onSave={handleReleaseDatesSave}
             specialEpisodes={specialEpisodes}

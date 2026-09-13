@@ -8,6 +8,7 @@ import type { SpecialEpisode } from '@/types';
 interface EpisodeReleaseCalendarProps {
   isOpen: boolean;
   onClose: () => void;
+  parentTitle: string;
   releaseDates: string[];
   onSave: (releaseDates: string[]) => void;
   specialEpisodes?: SpecialEpisode[];
@@ -36,6 +37,7 @@ function keyToDate(value: string): Date | null {
 export default function EpisodeReleaseCalendar({
   isOpen,
   onClose,
+  parentTitle,
   releaseDates,
   onSave,
   specialEpisodes = [],
@@ -47,10 +49,8 @@ export default function EpisodeReleaseCalendar({
   const [specialFormOpen, setSpecialFormOpen] = useState(false);
   const [editingSpecialId, setEditingSpecialId] = useState<string | null>(null);
   const [specialNumber, setSpecialNumber] = useState(1);
-  const [specialTitle, setSpecialTitle] = useState('');
   const [specialDate, setSpecialDate] = useState('');
   const [specialTime, setSpecialTime] = useState('');
-  const [specialWatched, setSpecialWatched] = useState(false);
   const [specialError, setSpecialError] = useState('');
 
   useEffect(() => {
@@ -65,11 +65,15 @@ export default function EpisodeReleaseCalendar({
     });
     setSelectedDates([...new Map(dates.map((date) => [dateToKey(date), date])).values()]);
     setEpisodeCounts(counts);
-    setEditedSpecialEpisodes(specialEpisodes);
+    const automaticSpecialTitle = `${parentTitle.trim()} (Special Episode)`;
+    setEditedSpecialEpisodes(specialEpisodes.map((special) => ({
+      ...special,
+      title: automaticSpecialTitle,
+    })));
     setSpecialFormOpen(false);
     setEditingSpecialId(null);
     setSpecialError('');
-  }, [isOpen, releaseDates, specialEpisodes]);
+  }, [isOpen, parentTitle, releaseDates, specialEpisodes]);
 
   const handleSave = () => {
     const dates = selectedDates.flatMap((date) => {
@@ -105,10 +109,8 @@ export default function EpisodeReleaseCalendar({
     ) + 1;
     setEditingSpecialId(null);
     setSpecialNumber(nextNumber);
-    setSpecialTitle('');
     setSpecialDate('');
     setSpecialTime('');
-    setSpecialWatched(false);
     setSpecialError('');
     setSpecialFormOpen(true);
   };
@@ -116,18 +118,15 @@ export default function EpisodeReleaseCalendar({
   const openEditSpecialForm = (special: SpecialEpisode) => {
     setEditingSpecialId(special.id);
     setSpecialNumber(special.specialNumber);
-    setSpecialTitle(special.title);
     setSpecialDate(special.releaseDate);
     setSpecialTime(special.releaseTime || '');
-    setSpecialWatched(special.watched);
     setSpecialError('');
     setSpecialFormOpen(true);
   };
 
   const saveSpecial = () => {
-    const trimmedTitle = specialTitle.trim();
-    if (!trimmedTitle || !specialDate || specialNumber < 1) {
-      setSpecialError('Add a special number, title, and release date.');
+    if (!specialDate || specialNumber < 1) {
+      setSpecialError('Add a special number and release date.');
       return;
     }
     const duplicateNumber = editedSpecialEpisodes.some(
@@ -142,10 +141,12 @@ export default function EpisodeReleaseCalendar({
     const nextSpecial: SpecialEpisode = {
       id: editingSpecialId || `special_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       specialNumber,
-      title: trimmedTitle,
+      title: `${parentTitle.trim()} (Special Episode)`,
       releaseDate: specialDate,
       ...(specialTime ? { releaseTime: specialTime } : {}),
-      watched: specialWatched,
+      watched: editingSpecialId
+        ? editedSpecialEpisodes.find((episode) => episode.id === editingSpecialId)?.watched ?? false
+        : false,
     };
     setEditedSpecialEpisodes((current) =>
       editingSpecialId
@@ -275,12 +276,9 @@ export default function EpisodeReleaseCalendar({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] text-[#888]">Title</label>
-                    <input
-                      value={specialTitle}
-                      onChange={(event) => setSpecialTitle(event.target.value)}
-                      placeholder="Behind the Scenes"
-                      className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 text-sm text-white placeholder:text-[#666] outline-none focus:border-[#E50914]"
-                    />
+                    <div className="flex h-9 items-center rounded-lg border border-white/10 bg-white/[0.03] px-2 text-sm text-[#B3B3B3]">
+                      {parentTitle.trim()} (Special Episode)
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -303,15 +301,6 @@ export default function EpisodeReleaseCalendar({
                     />
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-xs text-[#B3B3B3]">
-                  <input
-                    type="checkbox"
-                    checked={specialWatched}
-                    onChange={(event) => setSpecialWatched(event.target.checked)}
-                    className="accent-[#E50914]"
-                  />
-                  Mark as watched
-                </label>
                 {specialError && <p className="text-xs text-red-400">{specialError}</p>}
                 <div className="flex gap-2">
                   <Button

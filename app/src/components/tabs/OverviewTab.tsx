@@ -230,12 +230,18 @@ function AiringTodayCarousel({
                           {item.ongoing.airDays.join(', ')}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                            item.schedule.isFinalEpisodeScheduledToday
-                              ? 'text-amber-300 bg-amber-500/20'
-                              : 'text-[#E50914] bg-[#E50914]/20'
-                          }`}>
-                            {item.schedule.isFinalEpisodeScheduledToday ? 'Final EP' : 'Airing Today'}
+                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                             item.schedule.isFinalEpisodeScheduledToday
+                               ? 'text-orange-300 bg-orange-500/20'
+                               : item.schedule.isSpecialEpisodeScheduledToday
+                                 ? 'text-yellow-300 bg-yellow-400/20'
+                                 : 'text-[#E50914] bg-[#E50914]/20'
+                           }`}>
+                             {item.schedule.isFinalEpisodeScheduledToday
+                               ? 'Final EP'
+                               : item.schedule.isSpecialEpisodeScheduledToday
+                                 ? 'Special Episode'
+                                 : 'Airing Today'}
                           </span>
                         </div>
                         <div className="mt-1 space-y-0.5 text-[10px]">
@@ -506,7 +512,11 @@ export default function OverviewTab() {
   const airingToday = useMemo(() => {
     return state.ongoing
       .map(o => ({ ongoing: o, schedule: getOngoingSchedule(o, now) }))
-      .filter(({ schedule }) => schedule.isAiringToday || schedule.isFinalEpisodeScheduledToday)
+       .filter(({ schedule }) =>
+         schedule.isAiringToday ||
+         schedule.isSpecialEpisodeScheduledToday ||
+         schedule.isFinalEpisodeScheduledToday,
+       )
       .map(o => {
         const entry = state.entries.find(e => e.id === o.ongoing.entryId);
           return entry

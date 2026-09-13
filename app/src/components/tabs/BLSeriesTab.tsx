@@ -58,7 +58,7 @@ const EntryCard = memo(function EntryCard({
   onDelete: (id: string) => void;
   onView: (entry: Entry) => void;
   canAddToTop10: boolean;
-  airingBadge: "Airing Today" | "Final EP" | null;
+  airingBadge: "Airing Today" | "Final EP" | "Special Episode" | null;
 }) {
   const completed = entry.status === 'COMPLETE';
   return (
@@ -98,7 +98,11 @@ const EntryCard = memo(function EntryCard({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {airingBadge && (
               <span className={`whitespace-nowrap text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                airingBadge === "Final EP" ? "bg-amber-500" : "bg-[#E50914]"
+                 airingBadge === "Final EP"
+                   ? "bg-orange-500"
+                   : airingBadge === "Special Episode"
+                     ? "bg-yellow-400 text-black"
+                     : "bg-[#E50914]"
               }`}>
                 {airingBadge}
               </span>
@@ -234,7 +238,9 @@ export default function BLSeriesTab() {
       const ongoing = state.ongoing.find((item) => item.entryId === entry.id);
       if (!ongoing) return false;
       const schedule = getOngoingSchedule(ongoing, now);
-      return schedule.isAiringToday || schedule.isFinalEpisodeScheduledToday;
+      return schedule.isAiringToday ||
+        schedule.isSpecialEpisodeScheduledToday ||
+        schedule.isFinalEpisodeScheduledToday;
     };
 
     entries = [...entries].sort((a, b) => {
@@ -394,6 +400,8 @@ export default function BLSeriesTab() {
               const schedule = ongoing ? getOngoingSchedule(ongoing, now) : null;
               const airingBadge = schedule?.isFinalEpisodeScheduledToday
                 ? "Final EP"
+                : schedule?.isSpecialEpisodeScheduledToday
+                  ? "Special Episode"
                 : schedule?.isAiringToday
                   ? "Airing Today"
                   : null;

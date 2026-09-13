@@ -2,3 +2,4 @@
 - [wrapped-architecture](wrapped-architecture.md) — Monthly BL Wrapped uses a separate BLWrappedDB to avoid touching main app data
 - [appstate-type-mismatch](appstate-type-mismatch.md) — AppState type is narrower than runtime state; importMode/milestoneQueue/celebratedMilestones exist at runtime but not in the type
 - [vite-workflow-port](vite-workflow-port.md) — Invoke Vite directly when pnpm forwards an extra separator, or the preview may bind its configured port instead
+- [nested-app-install](nested-app-install.md) — For imported projects under app/, install from that directory with its lockfile; workspace package callbacks may target the wrong root
