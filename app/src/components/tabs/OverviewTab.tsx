@@ -197,7 +197,11 @@ function AiringTodayCarousel({
                         src={item.entry.poster}
                         alt={item.entry.title}
                         className="w-full h-full object-cover"
-                        loading="lazy"
+                        // These cards are visible in the initial 3D carousel,
+                        // but their transforms can confuse browser lazy-load
+                        // visibility checks until the user interacts.
+                        loading="eager"
+                        decoding="async"
                         draggable={false}
                       />
                     ) : (
