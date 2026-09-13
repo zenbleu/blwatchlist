@@ -101,101 +101,47 @@ const OngoingCard = memo(function OngoingCard({
           </p>
 
           {/* Episode Tracker */}
-          <div className="mt-3 space-y-2.5">
-            <div className="grid gap-2 sm:grid-cols-3">
-              {/* Manual progress: the only editable metric. */}
-              <div className="rounded-lg border border-[#E50914]/25 bg-[#E50914]/[0.06] p-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#ff7a82]">
-                    Your progress
-                  </span>
-                  <span className="rounded-full bg-[#E50914]/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#ff9aa0]">
-                    Editable
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-[#B3B3B3]">Regular episodes</p>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <input
-                    aria-label={`Watched regular episodes for ${entry.title}`}
-                    type="number"
-                    value={ongoingData.currentEpisode}
-                    onChange={(e) => onEpisodeChange(entryId, "currentEpisode", parseInt(e.target.value) || 0)}
-                    className="h-8 w-12 rounded-md border border-[#E50914]/40 bg-black/25 text-center text-sm font-bold text-white outline-none focus:border-[#E50914]"
-                    min={0}
-                  />
-                  <span className="text-xs text-[#777]">/</span>
-                  <input
-                    aria-label={`Total regular episodes for ${entry.title}`}
-                    type="number"
-                    value={progressTotal}
-                    readOnly
-                    disabled
-                    className="h-8 w-12 rounded-md border border-white/10 bg-white/[0.06] text-center text-sm font-bold text-white outline-none"
-                    min={1}
-                  />
-                </div>
-                <p className="mt-1.5 text-[10px] text-[#888]">Manual watch count</p>
-              </div>
-
-              {/* Combined progress: includes specials, but is never editable here. */}
-              <div className="rounded-lg border border-cyan-400/20 bg-cyan-400/[0.05] p-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-200">
-                    Total watched
-                  </span>
-                  <span className="rounded-full bg-cyan-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-cyan-200/80">
-                    Combined
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-[#B3B3B3]">All episodes watched</p>
-                <p className="mt-1.5 text-xl font-bold leading-none tabular-nums text-white">
-                  {overallWatched}
-                  <span className="mx-1 text-sm font-normal text-cyan-100/45">/</span>
-                  <span className="text-sm font-semibold text-cyan-100/80">{overallTotal}</span>
-                </p>
-                <p className="mt-1.5 text-[10px] text-[#888]">Regular + special episodes</p>
-              </div>
-
-              {/* Schedule progress: derived from release dates, never from watched state. */}
-              <div className="rounded-lg border border-amber-300/20 bg-amber-300/[0.05] p-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-200">
-                    Release status
-                  </span>
-                  <span className="rounded-full bg-amber-300/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200/80">
-                    Automatic
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-[#B3B3B3]">Latest aired</p>
-                {schedule.isConfigured ? (
-                  <p className="mt-1.5 text-xl font-bold leading-none tabular-nums text-white">
-                    Ep {schedule.airedEpisode}
-                    <span className="mx-1 text-sm font-normal text-amber-100/45">/</span>
-                    <span className="text-sm font-semibold text-amber-100/80">{progressTotal}</span>
-                  </p>
-                ) : (
-                  <p className="mt-1.5 text-sm font-semibold text-amber-200">Not configured</p>
-                )}
-                <p className="mt-1.5 text-[10px] text-[#888]">
-                  {schedule.isConfigured ? "Based on release schedule" : "Add the episode 1 release date"}
-                </p>
-              </div>
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#B3B3B3]">Regular</span>
+              <input
+                type="number"
+                value={ongoingData.currentEpisode}
+                onChange={(e) => onEpisodeChange(entryId, "currentEpisode", parseInt(e.target.value) || 0)}
+                className="w-10 h-7 bg-white/[0.06] border border-white/10 rounded text-center text-sm text-white focus:border-[#E50914] outline-none"
+                min={0}
+              />
+              <span className="text-xs text-[#B3B3B3]">/</span>
+              <input
+                type="number"
+                value={progressTotal}
+                readOnly
+                disabled
+                className="w-10 h-7 bg-white/[0.06] border border-white/10 rounded text-center text-sm text-white focus:border-[#E50914] outline-none"
+                min={1}
+              />
             </div>
 
-            {/* Combined progress bar */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.12em]">
-                <span className="text-[#777]">Overall watch progress</span>
-                <span className="tabular-nums text-cyan-200/70">{overallWatched} / {overallTotal}</span>
-              </div>
-              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+            {schedule.isConfigured ? (
+              <p className="text-xs text-[#B3B3B3]">
+                Latest aired: <span className="text-white font-medium">
+                  Ep {schedule.airedEpisode} / {progressTotal}
+                </span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-amber-300/80">
+                Add the episode 1 release date to auto-track aired episodes.
+              </p>
+            )}
+
+            {/* Progress Bar */}
+            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-[#E50914] via-fuchsia-500 to-cyan-300"
+                className="h-full bg-[#E50914] rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(100, progress)}%` }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               />
-              </div>
             </div>
 
             <div className="pt-1">
@@ -214,6 +160,9 @@ const OngoingCard = memo(function OngoingCard({
                 <span className="block text-xs text-[#B3B3B3]">
                   Special Episodes: {watchedSpecialEpisodes} / {specialEpisodes.length}
                 </span>
+                <p className="text-xs text-[#B3B3B3]">
+                  All episodes watched: <span className="font-medium text-white">{overallWatched} / {overallTotal}</span>
+                </p>
                 {specialEpisodes.map((special) => (
                   <label
                     key={special.id}
