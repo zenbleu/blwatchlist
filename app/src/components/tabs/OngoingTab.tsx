@@ -103,7 +103,7 @@ const OngoingCard = memo(function OngoingCard({
           {/* Episode Tracker */}
           <div className="mt-3 space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-[#B3B3B3]">Regular</span>
+              <span className="text-xs text-[#B3B3B3]">Watched</span>
               <input
                 type="number"
                 value={ongoingData.currentEpisode}
