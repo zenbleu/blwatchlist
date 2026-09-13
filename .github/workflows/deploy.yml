@@ -37,6 +37,8 @@ jobs:
           pnpm install --no-frozen-lockfile
 
       - name: Build static site
+        env:
+          VITE_DEPLOY_TARGET: github-pages
         run: |
           cd app
           pnpm exec tsc -b

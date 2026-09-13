@@ -27,11 +27,21 @@ jobs:
         with:
           version: 9.15.5
 
+      - name: Install web app dependencies
+        working-directory: app
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build bundled web app
+        working-directory: app
+        run: |
+          pnpm exec tsc -b
+          pnpm exec vite build
+
       - name: Verify bundled web app exists
         shell: pwsh
         run: |
           if (-not (Test-Path "app/dist/index.html")) {
-            throw "The checked-in web bundle is missing: app/dist/index.html"
+            throw "The web bundle build failed: app/dist/index.html is missing"
           }
 
       - name: Install desktop packaging dependencies
