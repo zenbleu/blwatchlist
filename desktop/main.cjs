@@ -1,7 +1,7 @@
 const path = require('node:path');
 const { app, BrowserWindow } = require('electron');
 
-const REMOTE_APP_URL = 'https://howyoulikethatbitch.github.io/blwatchlist/';
+const REMOTE_APP_URL = 'https://zenbleu.github.io/blwatchlist/';
 
 function getBundledDistPath() {
   return app.isPackaged
