@@ -8,7 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { AirDay } from "@/types";
+import type { AirDay, SpecialEpisode } from "@/types";
+import { getNextTimedSpecialEpisodeReleaseAt } from "@/lib/episodeSchedule";
 
 interface CountdownParts {
   days: number;
@@ -65,8 +66,37 @@ function getNextAiringAt(now: Date, airDays: AirDay[], airTime?: string): Date |
   return null;
 }
 
-function getScheduleKey(airDays: AirDay[], airTime?: string): string {
-  return `${airDays.join(",")}|${airTime || ""}`;
+function getNextCountdownTarget(
+  now: Date,
+  airDays: AirDay[],
+  airTime: string | undefined,
+  includeRegularSchedule: boolean,
+  specialEpisodes: SpecialEpisode[],
+): Date | null {
+  const regularTarget = includeRegularSchedule
+    ? getNextAiringAt(now, airDays, airTime)
+    : null;
+  const specialTarget = getNextTimedSpecialEpisodeReleaseAt(now, specialEpisodes);
+
+  if (!regularTarget) return specialTarget;
+  if (!specialTarget) return regularTarget;
+  return regularTarget.getTime() <= specialTarget.getTime() ? regularTarget : specialTarget;
+}
+
+function getScheduleKey(
+  airDays: AirDay[],
+  airTime: string | undefined,
+  specialEpisodes: SpecialEpisode[],
+  includeRegularSchedule: boolean,
+): string {
+  const regularKey = `${airDays.join(",")}|${airTime || ""}`;
+  if (specialEpisodes.length === 0) return regularKey;
+
+  const specialKey = specialEpisodes
+    .map((special) => `${special.id}:${special.releaseDate}:${special.releaseTime || ""}`)
+    .sort()
+    .join("|");
+  return `${regularKey}|regular:${includeRegularSchedule ? "yes" : "no"}|specials:${specialKey}`;
 }
 
 function readStoredTarget(entryId: string, scheduleKey: string): Date | null {
@@ -113,12 +143,25 @@ function getInitialTarget(
   now: Date,
   airDays: AirDay[],
   airTime?: string,
+  includeRegularSchedule = true,
+  specialEpisodes: SpecialEpisode[] = [],
 ): Date | null {
-  const scheduleKey = getScheduleKey(airDays, airTime);
+  const scheduleKey = getScheduleKey(
+    airDays,
+    airTime,
+    specialEpisodes,
+    includeRegularSchedule,
+  );
   const storedTarget = readStoredTarget(entryId, scheduleKey);
   if (storedTarget) return storedTarget;
 
-  const nextTarget = getNextAiringAt(now, airDays, airTime);
+  const nextTarget = getNextCountdownTarget(
+    now,
+    airDays,
+    airTime,
+    includeRegularSchedule,
+    specialEpisodes,
+  );
   storeTarget(entryId, scheduleKey, nextTarget);
   return nextTarget;
 }
@@ -204,15 +247,31 @@ export default function OngoingCountdown({
   entryId,
   airDays,
   airTime,
+  includeRegularSchedule = true,
+  specialEpisodes = [],
 }: {
   entryId: string;
   airDays: AirDay[];
   airTime?: string;
+  includeRegularSchedule?: boolean;
+  specialEpisodes?: SpecialEpisode[];
 }) {
   const [now, setNow] = useState(() => new Date());
-  const scheduleKey = getScheduleKey(airDays, airTime);
+  const scheduleKey = getScheduleKey(
+    airDays,
+    airTime,
+    specialEpisodes,
+    includeRegularSchedule,
+  );
   const [target, setTarget] = useState<Date | null>(() =>
-    getInitialTarget(entryId, new Date(), airDays, airTime),
+    getInitialTarget(
+      entryId,
+      new Date(),
+      airDays,
+      airTime,
+      includeRegularSchedule,
+      specialEpisodes,
+    ),
   );
   const [isCelebrationOpen, setIsCelebrationOpen] = useState(false);
 
@@ -232,7 +291,13 @@ export default function OngoingCountdown({
     if (!isZero) return;
 
     const resetNow = new Date();
-    const nextTarget = getNextAiringAt(resetNow, airDays, airTime);
+    const nextTarget = getNextCountdownTarget(
+      resetNow,
+      airDays,
+      airTime,
+      includeRegularSchedule,
+      specialEpisodes,
+    );
     setIsCelebrationOpen(true);
     setNow(resetNow);
     setTarget(nextTarget);

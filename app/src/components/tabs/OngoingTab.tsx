@@ -5,7 +5,11 @@ import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
 import type { AirDay, Entry, OngoingEntry } from "@/types";
 import AirDaySelector from "../AirDaySelector";
-import { getOngoingSchedule, isOngoingTitleComplete } from "@/lib/episodeSchedule";
+import {
+  getNextTimedSpecialEpisodeReleaseAt,
+  getOngoingSchedule,
+  isOngoingTitleComplete,
+} from "@/lib/episodeSchedule";
 import EntryModal from "../EntryModal";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
@@ -39,10 +43,13 @@ const OngoingCard = memo(function OngoingCard({
   const overallWatched = ongoingData.currentEpisode + watchedSpecialEpisodes;
   const overallTotal = progressTotal + specialEpisodes.length;
   const canPromptForCompletion = isOngoingTitleComplete(schedule, ongoingData);
-  const showCountdown =
+  const hasRegularCountdown =
     schedule.isConfigured &&
     schedule.airedEpisode !== null &&
     schedule.airedEpisode < schedule.totalEpisodes;
+  const hasTimedSpecialCountdown =
+    getNextTimedSpecialEpisodeReleaseAt(new Date(), specialEpisodes) !== null;
+  const showCountdown = hasRegularCountdown || hasTimedSpecialCountdown;
   const progress = overallTotal > 0 ? (overallWatched / overallTotal) * 100 : 0;
   const [isAskingFinished, setIsAskingFinished] = useState(false);
   const [verificationError, setVerificationError] = useState(false);
@@ -65,10 +72,15 @@ const OngoingCard = memo(function OngoingCard({
       {showCountdown && (
         <div className="absolute top-2 right-2 z-10">
           <OngoingCountdown
-            key={`${ongoingData.airDays.join(",")}|${ongoingData.airTime || ""}`}
+            key={`${ongoingData.airDays.join(",")}|${ongoingData.airTime || ""}|regular:${hasRegularCountdown ? "yes" : "no"}|${specialEpisodes
+              .map((special) => `${special.id}:${special.releaseDate}:${special.releaseTime || ""}`)
+              .sort()
+              .join("|")}`}
             entryId={entryId}
             airDays={ongoingData.airDays}
             airTime={ongoingData.airTime}
+            includeRegularSchedule={hasRegularCountdown}
+            specialEpisodes={specialEpisodes}
           />
         </div>
       )}

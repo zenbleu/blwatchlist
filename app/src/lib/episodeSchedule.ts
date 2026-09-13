@@ -1,4 +1,4 @@
-import type { AirDay, OngoingEntry } from '@/types';
+import type { AirDay, OngoingEntry, SpecialEpisode } from '@/types';
 
 export interface OngoingSchedule {
   /** The latest episode that should have been released by the current date. */
@@ -60,6 +60,44 @@ function parseDateOnly(value: string): Date | null {
     return null;
   }
   return date;
+}
+
+function parseReleaseTime(value: string): { hours: number; minutes: number } | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return { hours, minutes };
+}
+
+/**
+ * Returns a timed special release as a local Date.
+ *
+ * Date-only specials intentionally return null. Their existing schedule
+ * behavior is date-based, so assigning them midnight here would invent a
+ * release time that the user did not configure.
+ */
+export function getTimedSpecialEpisodeReleaseAt(
+  special: Pick<SpecialEpisode, 'releaseDate' | 'releaseTime'>,
+): Date | null {
+  if (!special.releaseTime) return null;
+  const releaseDate = parseDateOnly(special.releaseDate);
+  const releaseTime = parseReleaseTime(special.releaseTime);
+  if (!releaseDate || !releaseTime) return null;
+
+  releaseDate.setHours(releaseTime.hours, releaseTime.minutes, 0, 0);
+  return releaseDate;
+}
+
+export function getNextTimedSpecialEpisodeReleaseAt(
+  now: Date,
+  specialEpisodes: readonly Pick<SpecialEpisode, 'releaseDate' | 'releaseTime'>[],
+): Date | null {
+  return specialEpisodes
+    .map(getTimedSpecialEpisodeReleaseAt)
+    .filter((releaseAt): releaseAt is Date => releaseAt !== null && releaseAt.getTime() >= now.getTime())
+    .sort((a, b) => a.getTime() - b.getTime())[0] || null;
 }
 
 function dateKey(date: Date): string {
