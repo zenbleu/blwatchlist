@@ -1,0 +1,83 @@
+name: Android Build (Capacitor)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('app/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        working-directory: app
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build web app (production)
+        working-directory: app
+        run: |
+          pnpm exec tsc -b
+          pnpm exec vite build
+
+      - name: Add Android platform
+        working-directory: app
+        run: npx cap add android
+
+      - name: Generate Android icons and splash screens
+        working-directory: app
+        run: |
+          mkdir -p assets
+          cp public/apple-touch-icon.png assets/logo.png
+          pnpm exec capacitor-assets generate --android --iconBackgroundColor '#0a0a0a' --iconBackgroundColorDark '#0a0a0a' --splashBackgroundColor '#0a0a0a' --splashBackgroundColorDark '#0a0a0a'
+
+      - name: Sync web assets into Android
+        working-directory: app
+        run: npx cap sync android
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        working-directory: app/android
+        run: ./gradlew assembleDebug
+
+      - name: Rename APK artifact
+        run: |
+          mv app/android/app/build/outputs/apk/debug/app-debug.apk app/android/app/build/outputs/apk/debug/bl-watchlist.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bl-watchlist
+          path: app/android/app/build/outputs/apk/debug/bl-watchlist.apk

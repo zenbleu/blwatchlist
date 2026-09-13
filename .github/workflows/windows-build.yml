@@ -1,0 +1,49 @@
+name: Build Windows Desktop App
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Package BL Watchlist for Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.5
+
+      - name: Verify bundled web app exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "app/dist/index.html")) {
+            throw "The checked-in web bundle is missing: app/dist/index.html"
+          }
+
+      - name: Install desktop packaging dependencies
+        working-directory: desktop
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Windows installer
+        working-directory: desktop
+        run: pnpm run package:win
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: bl-watchlist-windows
+          path: desktop/release/*.exe
