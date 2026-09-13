@@ -16,6 +16,27 @@ export interface OngoingSchedule {
   isConfigured: boolean;
 }
 
+/**
+ * Returns true only when every episode belonging to the title is watched.
+ *
+ * Regular episodes are user-controlled, while specials are tracked separately
+ * and are intentionally included here because they count toward title
+ * completion even though they do not change the regular episode schedule.
+ */
+export function isOngoingTitleComplete(
+  schedule: OngoingSchedule,
+  ongoing: Pick<OngoingEntry, 'currentEpisode' | 'specialEpisodes'>,
+): boolean {
+  const specialEpisodes = ongoing.specialEpisodes || [];
+  const allSpecialEpisodesWatched = specialEpisodes.every((special) => special.watched);
+
+  return schedule.isFinalEpisodeAired
+    && schedule.isConfigured
+    && schedule.airedEpisode === schedule.totalEpisodes
+    && ongoing.currentEpisode === schedule.airedEpisode
+    && allSpecialEpisodesWatched;
+}
+
 const AIR_DAYS_BY_INDEX: Record<number, AirDay> = {
   0: 'Sunday',
   1: 'Monday',
