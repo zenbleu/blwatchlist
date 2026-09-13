@@ -152,7 +152,11 @@ export function getOngoingSchedule(
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const isSpecialEpisodeScheduledToday = (ongoing.specialEpisodes || [])
     .some((special) => special.releaseDate === dateKey(today));
-  if (ongoing.trackingMode === 'calendar') {
+  // Release-calendar dates are the complete source of truth whenever they
+  // exist. Older entries can contain releaseDates while still carrying the
+  // default recurring tracking mode, so relying on trackingMode alone makes
+  // those entries incorrectly ask for a firstAirDate.
+  if (ongoing.trackingMode === 'calendar' || ongoing.releaseDates?.length) {
     return getCalendarSchedule(ongoing, now);
   }
 

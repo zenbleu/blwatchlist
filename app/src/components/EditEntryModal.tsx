@@ -173,7 +173,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
           totalEpisodes: totalEp,
             airDays: airDays.length > 0 ? airDays : ['Monday'] as AirDay[],
             airTime,
-           trackingMode: ongoing?.trackingMode || 'recurring',
+            trackingMode: releaseDates.length > 0 ? 'calendar' : (ongoing?.trackingMode || 'recurring'),
             releaseDates,
            specialEpisodes,
         }
