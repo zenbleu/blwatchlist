@@ -1,0 +1,3 @@
+- [pnpm-tar-override](pnpm-tar-override.md) — tar@6.2.1 blocked by Replit firewall; override to ^7.0.0 in package.json pnpm.overrides
+- [wrapped-architecture](wrapped-architecture.md) — Monthly BL Wrapped uses a separate BLWrappedDB to avoid touching main app data
+- [appstate-type-mismatch](appstate-type-mismatch.md) — AppState type is narrower than runtime state; importMode/milestoneQueue/celebratedMilestones exist at runtime but not in the type
