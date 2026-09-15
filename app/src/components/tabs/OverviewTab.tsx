@@ -349,7 +349,7 @@ function RecentlyAddedSection({
 /* ============================================================
    Curated Rewatch Picks
    ============================================================ */
-function RewatchStackCard({
+function RewatchPosterCard({
   entry,
   rating,
   isFavorite = false,
@@ -367,79 +367,131 @@ function RewatchStackCard({
       type="button"
       onClick={onClick}
       aria-label={`View details for ${entry.title}`}
-      className="group relative block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808]"
+      className="group relative block w-[min(74vw,220px)] shrink-0 snap-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808] sm:w-[210px] lg:w-[clamp(210px,17.5vw,250px)]"
     >
-      {/* Offset layers create the physical stacked-card depth without obscuring the card content. */}
+      {/* Offset poster backs create the same visible depth as the reference deck. */}
       <span
         aria-hidden="true"
-        className="absolute inset-x-3 top-2 bottom-[-8px] rounded-2xl border border-white/[0.05] bg-[#151515] shadow-xl transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1"
+        className="absolute inset-y-3 right-[-10px] left-3 rounded-2xl border border-white/[0.05] bg-[#171717] shadow-xl transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1"
       />
       <span
         aria-hidden="true"
-        className="absolute inset-x-1 top-1 bottom-[-4px] rounded-2xl border border-white/[0.06] bg-[#1c1c1c] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+        className="absolute inset-y-1 right-[-5px] left-1 rounded-2xl border border-white/[0.08] bg-[#242424] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
       />
 
-      <div className="relative min-h-[218px] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#111] shadow-2xl transition-all duration-300 group-hover:-translate-y-1 group-hover:border-white/[0.2] group-hover:shadow-red-950/20">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(229,9,20,0.18),transparent_42%)] opacity-70 transition-opacity duration-300 group-hover:opacity-100" />
-        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-white/[0.03] to-transparent" />
+      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#151515] shadow-2xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-white/[0.25] group-hover:shadow-red-950/40">
+        <Poster
+          src={entry.poster}
+          title={entry.title}
+          size="lg"
+          className="!h-full !w-full !rounded-2xl transition-transform duration-500 group-hover:scale-[1.03]"
+        />
 
-        <div className="relative flex min-h-[218px] gap-4 p-3 sm:gap-5 sm:p-4">
-          <div className="relative h-[190px] w-[128px] shrink-0 overflow-hidden rounded-xl bg-[#1a1a1a] shadow-xl sm:h-[190px] sm:w-[134px]">
-            <Poster
-              src={entry.poster}
-              title={entry.title}
-              size="lg"
-              className="!h-full !w-full !rounded-xl"
-            />
-            {isFavorite && (
-              <div className="absolute left-2 top-2 rounded-full bg-[#E50914] px-2 py-1 text-[9px] font-bold text-white shadow-lg">
-                <span className="flex items-center gap-1">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  Top
-                </span>
-              </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/95" />
+        <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+        {isFavorite && (
+          <div className="absolute left-3 top-3 rounded-full bg-[#E50914] px-2.5 py-1 text-[9px] font-bold text-white shadow-lg">
+            <span className="flex items-center gap-1">
+              <Sparkles className="h-2.5 w-2.5" />
+              Top
+            </span>
+          </div>
+        )}
+
+        <div className="absolute right-3 top-3 rounded-full bg-black/60 p-1.5 shadow-lg backdrop-blur-md">
+          {hasRating ? (
+            <RatingCircle rating={rating} size={44} />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/20 text-xs font-semibold text-white/60">
+              —
+            </div>
+          )}
+        </div>
+
+        <div className="absolute inset-x-4 bottom-4">
+          <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/60">
+            Rewatch pick
+          </p>
+          <h3 className="line-clamp-2 text-base font-bold leading-tight text-white transition-colors group-hover:text-[#ff6670] sm:text-lg">
+            {entry.title}
+          </h3>
+          <p className="mt-1.5 text-[11px] text-white/75">
+            {entry.year}
+            <span className="mx-1.5 text-white/35">•</span>
+            {entry.type}
+            {entry.season != null && (
+              <>
+                <span className="mx-1.5 text-white/35">•</span>
+                {formatSeasonLabel(entry.season)}
+              </>
             )}
-          </div>
-
-          <div className="flex min-w-0 flex-1 flex-col py-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#777]">
-                  Rewatch pick
-                </p>
-                <h3 className="line-clamp-2 text-base font-bold leading-tight text-white transition-colors group-hover:text-[#ff5a62] sm:text-lg">
-                  {entry.title}
-                </h3>
-              </div>
-
-              <div className="shrink-0 rounded-full bg-black/30 p-1.5 backdrop-blur-sm">
-                {hasRating ? (
-                  <RatingCircle rating={rating} size={48} />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#333] text-xs font-semibold text-[#666]">
-                    —
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-auto space-y-1.5 pt-4 text-xs text-[#999]">
-              <p className="text-[#d0d0d0]">
-                {entry.year}
-                <span className="mx-2 text-[#444]">•</span>
-                {entry.type}
-              </p>
-              {entry.season != null && (
-                <p className="text-[#777]">{formatSeasonLabel(entry.season)}</p>
-              )}
-              <span className="inline-flex rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-[#aaa] transition-colors group-hover:border-[#E50914]/30 group-hover:text-white">
-                View details
-              </span>
-            </div>
-          </div>
+          </p>
         </div>
       </div>
     </button>
+  );
+}
+
+function RewatchPosterCarousel({
+  entries,
+  favorites,
+  ratingByEntryId,
+  onEntryClick,
+}: {
+  entries: Entry[];
+  favorites?: Entry[];
+  ratingByEntryId: ReadonlyMap<string, number>;
+  onEntryClick: (entry: Entry) => void;
+}) {
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const scrollCarousel = (direction: -1 | 1) => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+    carousel.scrollBy({
+      left: direction * Math.max(240, carousel.clientWidth * 0.72),
+      behavior: 'smooth',
+    });
+  };
+
+  return (
+    <div className="relative">
+      {entries.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={() => scrollCarousel(-1)}
+            aria-label="Show previous rewatch picks"
+            className="absolute left-1 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-[#E50914] md:flex"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollCarousel(1)}
+            aria-label="Show more rewatch picks"
+            className="absolute right-1 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-[#E50914] md:flex"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
+
+      <div
+        ref={carouselRef}
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-5 pt-2 scrollbar-hide sm:gap-5"
+      >
+        {entries.map((entry) => (
+          <RewatchPosterCard
+            key={entry.id}
+            entry={entry}
+            rating={ratingByEntryId.get(entry.id) ?? 0}
+            isFavorite={favorites?.some((favorite) => favorite.id === entry.id)}
+            onClick={() => onEntryClick(entry)}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -511,20 +563,12 @@ function RewatchPicksSection({
         <Sparkles className="w-4 h-4 text-yellow-400" />
         <h2 className="text-white font-bold text-base">Top Rewatch Picks</h2>
       </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {picks.map((entry) => {
-          const isFav = favorites.some(f => f.id === entry.id);
-          return (
-            <RewatchStackCard
-              key={entry.id}
-              entry={entry}
-              rating={ratingByEntryId.get(entry.id) ?? 0}
-              isFavorite={isFav}
-              onClick={() => onEntryClick(entry)}
-            />
-          );
-        })}
-      </div>
+      <RewatchPosterCarousel
+        entries={picks}
+        favorites={favorites}
+        ratingByEntryId={ratingByEntryId}
+        onEntryClick={onEntryClick}
+      />
     </div>
   );
 }
@@ -575,16 +619,11 @@ function CountryRewatchSections({
             <Sparkles className="w-4 h-4 text-yellow-400" />
             <h2 className="text-white font-bold text-base">{group.title}</h2>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {group.entries.map((entry) => (
-              <RewatchStackCard
-                key={entry.id}
-                entry={entry}
-                rating={ratingByEntryId.get(entry.id) ?? 0}
-                onClick={() => onEntryClick(entry)}
-              />
-            ))}
-          </div>
+          <RewatchPosterCarousel
+            entries={group.entries}
+            ratingByEntryId={ratingByEntryId}
+            onEntryClick={onEntryClick}
+          />
         </div>
       ))}
     </div>
