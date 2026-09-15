@@ -4,6 +4,7 @@ import { Tv, ChevronLeft, ChevronRight, Clock, Sparkles } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatSeasonLabel } from '@/lib/entry';
 import Poster from '../Poster';
+import RatingCircle from '../RatingCircle';
 import EntryModal from '../EntryModal';
 import type { Entry } from '@/types';
 import { getOngoingSchedule } from '@/lib/episodeSchedule';
@@ -348,13 +349,109 @@ function RecentlyAddedSection({
 /* ============================================================
    Curated Rewatch Picks
    ============================================================ */
+function RewatchStackCard({
+  entry,
+  rating,
+  isFavorite = false,
+  onClick,
+}: {
+  entry: Entry;
+  rating: number;
+  isFavorite?: boolean;
+  onClick: () => void;
+}) {
+  const hasRating = Number.isFinite(rating) && rating > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`View details for ${entry.title}`}
+      className="group relative block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808]"
+    >
+      {/* Offset layers create the physical stacked-card depth without obscuring the card content. */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-3 top-2 bottom-[-8px] rounded-2xl border border-white/[0.05] bg-[#151515] shadow-xl transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1"
+      />
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-1 top-1 bottom-[-4px] rounded-2xl border border-white/[0.06] bg-[#1c1c1c] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+      />
+
+      <div className="relative min-h-[218px] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#111] shadow-2xl transition-all duration-300 group-hover:-translate-y-1 group-hover:border-white/[0.2] group-hover:shadow-red-950/20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(229,9,20,0.18),transparent_42%)] opacity-70 transition-opacity duration-300 group-hover:opacity-100" />
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-white/[0.03] to-transparent" />
+
+        <div className="relative flex min-h-[218px] gap-4 p-3 sm:gap-5 sm:p-4">
+          <div className="relative h-[190px] w-[128px] shrink-0 overflow-hidden rounded-xl bg-[#1a1a1a] shadow-xl sm:h-[190px] sm:w-[134px]">
+            <Poster
+              src={entry.poster}
+              title={entry.title}
+              size="lg"
+              className="!h-full !w-full !rounded-xl"
+            />
+            {isFavorite && (
+              <div className="absolute left-2 top-2 rounded-full bg-[#E50914] px-2 py-1 text-[9px] font-bold text-white shadow-lg">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Top
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col py-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#777]">
+                  Rewatch pick
+                </p>
+                <h3 className="line-clamp-2 text-base font-bold leading-tight text-white transition-colors group-hover:text-[#ff5a62] sm:text-lg">
+                  {entry.title}
+                </h3>
+              </div>
+
+              <div className="shrink-0 rounded-full bg-black/30 p-1.5 backdrop-blur-sm">
+                {hasRating ? (
+                  <RatingCircle rating={rating} size={48} />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#333] text-xs font-semibold text-[#666]">
+                    —
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-auto space-y-1.5 pt-4 text-xs text-[#999]">
+              <p className="text-[#d0d0d0]">
+                {entry.year}
+                <span className="mx-2 text-[#444]">•</span>
+                {entry.type}
+              </p>
+              {entry.season != null && (
+                <p className="text-[#777]">{formatSeasonLabel(entry.season)}</p>
+              )}
+              <span className="inline-flex rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-[#aaa] transition-colors group-hover:border-[#E50914]/30 group-hover:text-white">
+                View details
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 function RewatchPicksSection({
   entries,
   favorites,
+  ratingByEntryId,
   onEntryClick
 }: {
   entries: Entry[];
   favorites: Entry[];
+  ratingByEntryId: ReadonlyMap<string, number>;
   onEntryClick: (entry: Entry) => void;
 }) {
   const [today, setToday] = useState(() => new Date().toDateString());
@@ -414,29 +511,17 @@ function RewatchPicksSection({
         <Sparkles className="w-4 h-4 text-yellow-400" />
         <h2 className="text-white font-bold text-base">Top Rewatch Picks</h2>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {picks.map((entry) => {
           const isFav = favorites.some(f => f.id === entry.id);
           return (
-            <button
+            <RewatchStackCard
               key={entry.id}
+              entry={entry}
+              rating={ratingByEntryId.get(entry.id) ?? 0}
+              isFavorite={isFav}
               onClick={() => onEntryClick(entry)}
-              className="flex-shrink-0 w-28 text-left"
-            >
-              <div className="relative">
-                <Poster src={entry.poster} title={entry.title} size="lg" className="w-28 h-40 rounded-xl" />
-                {isFav && (
-                  <div className="absolute top-1.5 right-1.5 bg-[#E50914] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                    <span className="flex items-center gap-0.5">
-                      <Sparkles className="w-2.5 h-2.5" />
-                      Top
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className="text-white text-xs font-medium mt-2 truncate">{entry.title}</p>
-              <p className="text-[#888] text-[10px]">{entry.year}</p>
-            </button>
+            />
           );
         })}
       </div>
@@ -453,7 +538,15 @@ const REWATCH_GROUPS = [
   { country: 'Other', title: 'Mainstream BLs That Live in Our Heads Rent-Free' },
 ] as const;
 
-function CountryRewatchSections({ entries, onEntryClick }: { entries: Entry[]; onEntryClick: (entry: Entry) => void }) {
+function CountryRewatchSections({
+  entries,
+  ratingByEntryId,
+  onEntryClick,
+}: {
+  entries: Entry[];
+  ratingByEntryId: ReadonlyMap<string, number>;
+  onEntryClick: (entry: Entry) => void;
+}) {
   const [today, setToday] = useState(() => new Date().toDateString());
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -482,16 +575,14 @@ function CountryRewatchSections({ entries, onEntryClick }: { entries: Entry[]; o
             <Sparkles className="w-4 h-4 text-yellow-400" />
             <h2 className="text-white font-bold text-base">{group.title}</h2>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {group.entries.map((entry) => (
-              <button key={entry.id} onClick={() => onEntryClick(entry)} className="flex-shrink-0 w-28 text-left">
-                <Poster src={entry.poster} title={entry.title} size="lg" className="w-28 h-40 rounded-xl" />
-                <p className="text-white text-xs font-medium mt-2 truncate">{entry.title}</p>
-                {entry.season != null && (
-                  <p className="text-[#777] text-[10px]">{formatSeasonLabel(entry.season)}</p>
-                )}
-                <p className="text-[#888] text-[10px]">{entry.year}</p>
-              </button>
+              <RewatchStackCard
+                key={entry.id}
+                entry={entry}
+                rating={ratingByEntryId.get(entry.id) ?? 0}
+                onClick={() => onEntryClick(entry)}
+              />
             ))}
           </div>
         </div>
@@ -546,6 +637,13 @@ export default function OverviewTab() {
       .filter(Boolean) as Entry[];
   }, [state.favorites, state.entries]);
 
+  const ratingByEntryId = useMemo(() => {
+    const ratings = new Map<string, number>();
+    state.favorites.forEach((rating) => ratings.set(rating.entryId, rating.overallRating));
+    state.ratings.forEach((rating) => ratings.set(rating.entryId, rating.overallRating));
+    return ratings;
+  }, [state.favorites, state.ratings]);
+
   return (
     <div className="space-y-8 w-full">
       {/* Airing Today Hero - 3D Coverflow */}
@@ -564,11 +662,13 @@ export default function OverviewTab() {
       <RewatchPicksSection
         entries={state.entries}
         favorites={favoritedEntries}
+        ratingByEntryId={ratingByEntryId}
         onEntryClick={setSelectedEntry}
       />
 
       <CountryRewatchSections
         entries={state.entries}
+        ratingByEntryId={ratingByEntryId}
         onEntryClick={setSelectedEntry}
       />
 

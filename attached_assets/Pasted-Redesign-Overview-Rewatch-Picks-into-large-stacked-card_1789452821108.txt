@@ -1,0 +1,41 @@
+Redesign Overview Rewatch Picks into large stacked cards
+
+I want to redesign the Top Rewatch Picks and the other country/category-based rewatch-pick sections in Overview. The current small poster grid is too plain and wastes a lot of horizontal desktop space.
+
+Please inspect the existing Overview implementation and redesign these sections using the attached GIF as the visual reference for the large stacked-card concept.
+
+New design
+Replace the current small poster-only cards with large horizontal stacked cards that make much better use of the available desktop width.
+Each card should prominently feature the entry's poster/artwork as the main visual.
+Use a layered/stacked-card treatment similar to the attached GIF, with depth and overlap rather than a simple flat grid.
+The design should feel polished and visually rich while still matching the existing BL Watchlist dark theme.
+Cards should be substantially larger than the current poster cards and make effective use of the wide desktop viewport.
+Keep the sections themselves and their existing titles/categories.
+Card information
+
+Each card should display useful information about the entry rather than only the poster:
+
+Poster
+Title
+Year
+Media type/season where applicable
+Displayed overall rating positioned at the upper-right of the card
+
+The rating should use the app's existing calculated/stored overall rating. Do not create a separate rating system or change the existing rating calculation.
+
+Interaction
+Clicking a stacked card should open/show the details for that specific entry.
+Make sure the interaction is clearly associated with the entire card, not just the poster.
+Preserve the existing behavior for any existing actions/badges associated with an entry.
+Responsive behavior
+The main goal is to significantly improve the desktop-view use of horizontal space.
+On large desktop screens, cards should be large enough to take advantage of the available width rather than leaving most of the right side empty.
+Adapt the layout appropriately for smaller screens instead of forcing the desktop dimensions onto mobile.
+Important constraints
+Use the attached GIF only as a visual/design reference for the stacked-card presentation; do not copy unrelated UI from it.
+Do not redesign the rest of Overview.
+Do not change the underlying rewatch-pick selection logic, ranking logic, ratings, or stored data.
+Reuse existing entry/detail components and data wherever possible.
+Do not introduce a completely different visual language from the existing app.
+Avoid unnecessary changes outside these rewatch-pick sections.
+Please inspect the existing implementation first and make the design fit the current architecture rather than creating duplicate entry-detail logic.
