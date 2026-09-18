@@ -42,17 +42,18 @@ export default function PWAUpdatePrompt() {
   };
 
   const visible = needRefresh && !dismissed;
+  const isDesktopShell = Boolean(window.blDesktopUpdater);
 
   return (
     <AnimatePresence>
-      {visible && (
+      {visible && !isDesktopShell && (
         <motion.div
           key="pwa-update-prompt"
           initial={{ opacity: 0, y: 80, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 60, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-sm"
+          className="fixed bottom-5 right-5 z-[9999] w-[min(360px,calc(100vw-2rem))]"
         >
           <div
             className="relative flex items-start gap-4 rounded-2xl border border-[#E50914]/30 bg-[#141414] px-4 py-4 shadow-2xl shadow-black/60 backdrop-blur-sm"
@@ -68,10 +69,10 @@ export default function PWAUpdatePrompt() {
             {/* Text */}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white leading-snug">
-                New Version Available
+                A new update is ready.
               </p>
               <p className="mt-0.5 text-xs text-zinc-400 leading-relaxed">
-                A fresh update of BL Watchlist is ready. Reload to get the latest features instantly.
+                The latest version of BL Watchlist is ready to install.
               </p>
 
               {/* Action buttons */}
@@ -82,7 +83,7 @@ export default function PWAUpdatePrompt() {
                   className="h-8 gap-1.5 bg-[#E50914] hover:bg-[#c40812] text-white text-xs font-semibold px-3 rounded-lg transition-colors"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  Update Version
+                  Update Now
                 </Button>
                 <Button
                   size="sm"

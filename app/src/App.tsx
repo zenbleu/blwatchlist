@@ -13,6 +13,7 @@ import { AnnualWrappedPresentationContainer } from '@/components/wrapped/AnnualW
 import AnnualWrappedHistory from '@/components/wrapped/AnnualWrappedHistory';
 import FavoriteEvaluation from '@/components/FavoriteEvaluation';
 import CompletionCelebrationModal from '@/components/CompletionCelebrationModal';
+import DesktopUpdatePrompt from '@/components/DesktopUpdatePrompt';
 // Overview is the landing tab — keep it eager so first paint is instant
 import OverviewTab from '@/components/tabs/OverviewTab';
 import './App.css';
@@ -220,6 +221,7 @@ function App() {
         <AnnualWrappedProvider>
           <AppContent />
           <PWAUpdatePrompt />
+          <DesktopUpdatePrompt />
         </AnnualWrappedProvider>
       </WrappedProvider>
     </AppProvider>
