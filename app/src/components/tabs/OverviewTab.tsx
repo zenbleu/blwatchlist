@@ -369,17 +369,7 @@ function RewatchPosterCard({
       aria-label={`View details for ${entry.title}`}
       className="group relative block w-[min(74vw,220px)] shrink-0 snap-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808] sm:w-[210px] lg:w-[clamp(210px,17.5vw,250px)]"
     >
-      {/* Offset poster backs create the same visible depth as the reference deck. */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-3 right-[-10px] left-3 rounded-2xl border border-white/[0.05] bg-[#171717] shadow-xl transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1"
-      />
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-1 right-[-5px] left-1 rounded-2xl border border-white/[0.08] bg-[#242424] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-      />
-
-      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#151515] shadow-2xl transition-all duration-300 group-hover:-translate-y-2 group-hover:border-white/[0.25] group-hover:shadow-red-950/40">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#151515] shadow-xl transition-all duration-300 group-hover:-translate-y-1 group-hover:border-white/[0.25]">
         <Poster
           src={entry.poster}
           title={entry.title}
@@ -444,41 +434,9 @@ function RewatchPosterCarousel({
   ratingByEntryId: ReadonlyMap<string, number>;
   onEntryClick: (entry: Entry) => void;
 }) {
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const scrollCarousel = (direction: -1 | 1) => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-    carousel.scrollBy({
-      left: direction * Math.max(240, carousel.clientWidth * 0.72),
-      behavior: 'smooth',
-    });
-  };
-
   return (
-    <div className="relative">
-      {entries.length > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={() => scrollCarousel(-1)}
-            aria-label="Show previous rewatch picks"
-            className="absolute left-1 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-[#E50914] md:flex"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollCarousel(1)}
-            aria-label="Show more rewatch picks"
-            className="absolute right-1 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-[#E50914] md:flex"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </>
-      )}
-
+    <div>
       <div
-        ref={carouselRef}
         className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-5 pt-2 scrollbar-hide sm:gap-5"
       >
         {entries.map((entry) => (
