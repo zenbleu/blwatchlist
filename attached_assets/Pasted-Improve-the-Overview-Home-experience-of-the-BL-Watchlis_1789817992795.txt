@@ -1,0 +1,101 @@
+Improve the Overview/Home experience of the BL Watchlist Manager.
+
+First inspect the existing Overview implementation and the current app architecture before making changes. Preserve the existing design language, functionality, state management, IndexedDB persistence, entry/detail interactions, rating calculations, ongoing schedule logic, and the recently implemented Rewatch Picks redesign.
+
+The goal is to make Overview feel like a useful personal BL dashboard rather than simply a collection of sections.
+
+Use this hierarchy:
+
+1. PERSONAL SNAPSHOT
+At the top of Overview, add a compact personal watchlist summary showing the most useful high-level metrics:
+- Total BLs
+- Currently Watching / Ongoing
+- Completed
+- Planned
+- Favorites
+- Average Rating
+
+Keep this compact and visually integrated into the existing Overview design. Do not turn the page into a dashboard full of oversized statistic cards.
+
+2. CONTINUE WATCHING
+Add a prominent "Continue Watching" section for titles that the user has started but has not completed.
+
+Each item should show:
+- Poster
+- Title
+- Current watched episode / total regular episodes
+- Progress percentage or compact progress indicator
+- Relevant status information
+
+Prioritize titles that are actually in progress. Do not include completed, planned, or dropped entries.
+
+Clicking an item should use the existing entry/detail interaction so the user can continue managing that title without introducing a separate navigation system.
+
+3. UPCOMING RELEASES
+Add an "Upcoming Releases" section that gives the user a quick view of what is coming next.
+
+Use the existing episode schedule logic and release-date logic already used by Ongoing BL. Do not create a second scheduling system.
+
+Show useful information such as:
+- Poster/title
+- Upcoming episode or Special Episode
+- Release date/time when available
+- Countdown when appropriate
+
+Prioritize the nearest upcoming releases. Keep this section compact enough that Overview remains a dashboard rather than becoming a second Ongoing BL page.
+
+4. RECENTLY COMPLETED
+Add a "Recently Completed" section showing titles the user has recently finished.
+
+Use an attractive horizontal poster-based layout consistent with the visual language of the existing Overview.
+
+Include useful metadata such as:
+- Poster
+- Title
+- Year/type if already available
+- Overall rating when available
+
+Clicking should continue to use the existing entry/detail interaction.
+
+5. PRESERVE AND INTEGRATE EXISTING OVERVIEW SECTIONS
+Do not remove useful existing Overview sections.
+
+Keep the recently implemented portrait-oriented Rewatch Picks design:
+- Large portrait posters
+- Layered backing cards
+- Bottom title/metadata overlay
+- Compact rating badge
+- Existing Top favorite badge
+- Horizontal carousel behavior
+- Country/category groupings
+- Existing shuffle/selection logic
+
+Keep the existing discovery/personal sections unless there is a strong structural reason to reposition them.
+
+Organize the overall page so the flow feels approximately:
+
+Personal Snapshot
+→ Continue Watching
+→ Upcoming Releases
+→ Recently Completed
+→ Existing personal/discovery/re-watch sections
+
+The exact placement of existing sections can be adjusted to create a coherent hierarchy.
+
+IMPORTANT PRODUCT BOUNDARIES:
+- Overview should answer: "What is happening with my BL watchlist, and what should I pay attention to?"
+- Ongoing BL should remain the detailed release-management and episode-tracking experience.
+- Do not duplicate the full Ongoing BL interface inside Overview.
+- Do not replace the existing Ongoing BL functionality.
+- Reuse existing schedule calculations, completion logic, special-episode handling, ratings, favorites, and entry state.
+- Respect the current distinction between regular episodes and Special Episodes.
+- Do not change the rating system.
+- Do not change duplicate-entry rules.
+- Do not change data models unless genuinely necessary.
+- Do not redesign the entire application.
+- Avoid oversized cards, excessive colored metric panels, or visually noisy dashboard elements.
+- Preserve responsive behavior for desktop and smaller screens.
+- Preserve existing entry click/detail/modal behavior.
+- Preserve local-first persistence and existing state architecture.
+
+Use the existing components and patterns where appropriate rather than creating parallel implementations of functionality that already exists.
