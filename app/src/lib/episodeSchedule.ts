@@ -412,7 +412,7 @@ function getNextSpecialRelease(
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const upcoming = specials
     .filter((special) => !special.watched)
-    .map((special) => {
+    .map((special): UpcomingRelease | null => {
       const releaseDate = parseDateOnly(special.releaseDate);
       if (!releaseDate || releaseDate < today) return null;
 
