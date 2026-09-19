@@ -1,13 +1,28 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Tv, ChevronLeft, ChevronRight, Clock, Sparkles } from 'lucide-react';
+import {
+  Tv,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Sparkles,
+  BarChart3,
+  Play,
+  CalendarClock,
+  CheckCircle2,
+  Heart,
+  Star,
+} from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatSeasonLabel } from '@/lib/entry';
 import Poster from '../Poster';
 import RatingCircle from '../RatingCircle';
 import EntryModal from '../EntryModal';
-import type { Entry } from '@/types';
-import { getOngoingSchedule } from '@/lib/episodeSchedule';
+import type { Entry, OngoingEntry } from '@/types';
+import { getNextUpcomingRelease, getOngoingSchedule, type UpcomingRelease } from '@/lib/episodeSchedule';
+import { formatRating } from '@/lib/rating';
+
+const RECENTLY_ADDED_WINDOW = 24 * 60 * 60 * 1000;
 
 function dailySeed(day: string, salt = '') {
   let seed = 0;
@@ -297,6 +312,259 @@ function AiringTodayCarousel({
 }
 
 /* ============================================================
+   Personal Watchlist Snapshot
+   ============================================================ */
+function PersonalSnapshot({
+  total,
+  ongoing,
+  completed,
+  planned,
+  favorites,
+  averageRating,
+}: {
+  total: number;
+  ongoing: number;
+  completed: number;
+  planned: number;
+  favorites: number;
+  averageRating: number | null;
+}) {
+  const metrics = [
+    { label: 'Total BLs', value: total, icon: BarChart3, color: 'text-white' },
+    { label: 'Watching', value: ongoing, icon: Play, color: 'text-red-300' },
+    { label: 'Completed', value: completed, icon: CheckCircle2, color: 'text-emerald-300' },
+    { label: 'Planned', value: planned, icon: CalendarClock, color: 'text-amber-300' },
+    { label: 'Favorites', value: favorites, icon: Heart, color: 'text-pink-300' },
+    {
+      label: 'Avg. rating',
+      value: averageRating === null ? '—' : formatRating(averageRating),
+      icon: Star,
+      color: 'text-yellow-300',
+    },
+  ];
+
+  return (
+    <section className="rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-3 sm:px-4">
+      <div className="mb-2.5 flex items-center gap-2">
+        <BarChart3 className="h-4 w-4 text-[#E50914]" />
+        <h2 className="text-sm font-bold text-white">Your watchlist</h2>
+        <span className="text-[11px] text-[#666]">personal snapshot</span>
+      </div>
+      <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.07] overflow-hidden rounded-xl border border-white/[0.06] bg-black/10 sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
+        {metrics.map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="flex min-w-0 items-center gap-2 px-3 py-2.5 lg:px-3.5">
+            <Icon className={`h-3.5 w-3.5 shrink-0 ${color}`} />
+            <div className="min-w-0">
+              <p className="text-[10px] leading-none text-[#777]">{label}</p>
+              <p className="mt-1 text-sm font-bold leading-none text-white">{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ContinueWatchingSection({
+  items,
+  onEntryClick,
+}: {
+  items: {
+    entry: Entry;
+    ongoingData: OngoingEntry;
+    schedule: ReturnType<typeof getOngoingSchedule>;
+  }[];
+  onEntryClick: (entry: Entry) => void;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center gap-2">
+        <Play className="h-4 w-4 text-[#E50914]" />
+        <h2 className="text-base font-bold text-white">Continue Watching</h2>
+        <span className="text-xs text-[#666]">{items.length} in progress</span>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-5 text-center">
+          <p className="text-sm text-[#777]">Nothing in progress right now.</p>
+          <p className="mt-1 text-xs text-[#555]">Titles you start watching will appear here.</p>
+        </div>
+      ) : (
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {items.slice(0, 6).map(({ entry, ongoingData, schedule }) => {
+            const totalEpisodes = schedule.totalEpisodes || ongoingData.totalEpisodes;
+            const watchedEpisodes = Math.min(totalEpisodes, Math.max(0, ongoingData.currentEpisode));
+            const progress = totalEpisodes > 0 ? (watchedEpisodes / totalEpisodes) * 100 : 0;
+            const watchedSpecials = (ongoingData.specialEpisodes || []).filter((special) => special.watched).length;
+            const specialCount = (ongoingData.specialEpisodes || []).length;
+            const status = schedule.isSpecialEpisodeScheduledToday
+              ? 'Special episode today'
+              : schedule.isAiringToday
+                ? 'Airing today'
+                : schedule.isConfigured && schedule.airedEpisode !== null
+                  ? `Latest aired: Ep ${schedule.airedEpisode}`
+                  : 'In progress';
+
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onEntryClick(entry)}
+                className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/[0.07] bg-[#141414] p-3 text-left transition-colors hover:border-white/[0.16] hover:bg-white/[0.055]"
+              >
+                <Poster src={entry.poster} title={entry.title} size="md" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-bold text-white group-hover:text-[#ff6670]">{entry.title}</p>
+                    <span className="shrink-0 rounded-full bg-[#E50914]/15 px-2 py-0.5 text-[9px] font-semibold text-red-200">
+                      Watching
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#B3B3B3]">
+                    Ep {watchedEpisodes} / {totalEpisodes}
+                    {specialCount > 0 && ` · Specials ${watchedSpecials}/${specialCount}`}
+                  </p>
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-[#E50914] transition-all"
+                      style={{ width: `${Math.min(100, progress)}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 truncate text-[10px] text-[#777]">{status}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function formatReleaseDate(date: Date, now: Date): string {
+  if (date.toDateString() === now.toDateString()) return 'Today';
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatReleaseCountdown(release: UpcomingRelease, now: Date): string {
+  if (!release.hasExactTime) return formatReleaseDate(release.releaseAt, now);
+  const difference = release.releaseAt.getTime() - now.getTime();
+  if (difference <= 0) return 'Available now';
+
+  const totalMinutes = Math.ceil(difference / 60_000);
+  const days = Math.floor(totalMinutes / 1_440);
+  const hours = Math.floor((totalMinutes % 1_440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `in ${days}d ${hours}h`;
+  if (hours > 0) return `in ${hours}h ${minutes}m`;
+  return `in ${minutes}m`;
+}
+
+function UpcomingReleasesSection({
+  releases,
+  now,
+  onEntryClick,
+}: {
+  releases: { entry: Entry; ongoingData: OngoingEntry; release: UpcomingRelease }[];
+  now: Date;
+  onEntryClick: (entry: Entry) => void;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center gap-2">
+        <CalendarClock className="h-4 w-4 text-[#E50914]" />
+        <h2 className="text-base font-bold text-white">Upcoming Releases</h2>
+        <span className="text-xs text-[#666]">what&apos;s next</span>
+      </div>
+
+      {releases.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-5 text-center">
+          <p className="text-sm text-[#777]">No upcoming releases on your current watchlist.</p>
+        </div>
+      ) : (
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {releases.slice(0, 6).map(({ entry, release }) => {
+            const releaseTitle = release.type === 'special'
+              ? `Special ${release.specialEpisode?.specialNumber ?? ''} · ${release.specialEpisode?.title ?? 'Special Episode'}`
+              : `Episode ${release.episodeNumber ?? 'next'} / ${entry.type === 'Series' ? 'series' : 'title'}`;
+
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onEntryClick(entry)}
+                className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/[0.07] bg-[#141414] p-3 text-left transition-colors hover:border-white/[0.16] hover:bg-white/[0.055]"
+              >
+                <Poster src={entry.poster} title={entry.title} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-white group-hover:text-[#ff6670]">{entry.title}</p>
+                  <p className="mt-1 truncate text-[10px] text-[#B3B3B3]">{releaseTitle}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
+                    <span className="text-[#E50914]">{formatReleaseDate(release.releaseAt, now)}</span>
+                    <span className="truncate text-[#777]">{formatReleaseCountdown(release, now)}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RecentlyCompletedSection({
+  entries,
+  ratingByEntryId,
+  onEntryClick,
+}: {
+  entries: Entry[];
+  ratingByEntryId: ReadonlyMap<string, number>;
+  onEntryClick: (entry: Entry) => void;
+}) {
+  if (entries.length === 0) return null;
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center gap-2">
+        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+        <h2 className="text-base font-bold text-white">Recently Completed</h2>
+        <span className="text-xs text-[#666]">freshly finished</span>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+        {entries.slice(0, 10).map((entry) => {
+          const rating = ratingByEntryId.get(entry.id);
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => onEntryClick(entry)}
+              className="group relative w-28 shrink-0 text-left"
+            >
+              <div className="relative">
+                <Poster src={entry.poster} title={entry.title} size="lg" className="h-40 w-28 rounded-xl" />
+                {rating !== undefined && (
+                  <div className="absolute right-1.5 top-1.5 rounded-full bg-black/70 backdrop-blur-sm">
+                    <RatingCircle rating={rating} size={30} />
+                  </div>
+                )}
+              </div>
+              <p className="mt-2 truncate text-xs font-medium text-white group-hover:text-[#ff6670]">{entry.title}</p>
+              <p className="mt-0.5 truncate text-[10px] text-[#777]">
+                {entry.year} · {entry.type}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
    Recently Added Entries (24h window)
    ============================================================ */
 function RecentlyAddedSection({
@@ -306,12 +574,11 @@ function RecentlyAddedSection({
   entries: Entry[];
   onEntryClick: (entry: Entry) => void;
 }) {
-  const now = Date.now();
-  const twentyFourHours = 24 * 60 * 60 * 1000;
+  const [now] = useState(() => Date.now());
 
   const recentEntries = useMemo(() => {
     return entries
-      .filter(e => now - e.createdAt < twentyFourHours)
+      .filter(e => now - e.createdAt < RECENTLY_ADDED_WINDOW)
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 10);
   }, [entries, now]);
@@ -641,8 +908,94 @@ export default function OverviewTab() {
     return ratings;
   }, [state.favorites, state.ratings]);
 
+  const ongoingItems = useMemo(() => {
+    return state.entries
+      .filter((entry) => entry.status === 'ONGOING')
+      .map((entry) => {
+        const ongoingData = state.ongoing.find((ongoing) => ongoing.entryId === entry.id);
+        return ongoingData
+          ? { entry, ongoingData, schedule: getOngoingSchedule(ongoingData, now) }
+          : null;
+      })
+      .filter(Boolean) as {
+        entry: Entry;
+        ongoingData: OngoingEntry;
+        schedule: ReturnType<typeof getOngoingSchedule>;
+      }[];
+  }, [state.entries, state.ongoing, now]);
+
+  const continueWatching = useMemo(() => {
+    return [...ongoingItems].sort((a, b) => {
+      const aHasStarted = a.ongoingData.currentEpisode > 0 ||
+        (a.ongoingData.specialEpisodes || []).some((special) => special.watched);
+      const bHasStarted = b.ongoingData.currentEpisode > 0 ||
+        (b.ongoingData.specialEpisodes || []).some((special) => special.watched);
+      return Number(bHasStarted) - Number(aHasStarted)
+        || b.entry.lastUpdatedAt - a.entry.lastUpdatedAt
+        || a.entry.title.localeCompare(b.entry.title);
+    });
+  }, [ongoingItems]);
+
+  const upcomingReleases = useMemo(() => {
+    return ongoingItems
+      .map(({ entry, ongoingData }) => {
+        const release = getNextUpcomingRelease(ongoingData, now);
+        return release ? { entry, ongoingData, release } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a!.release.releaseAt.getTime() - b!.release.releaseAt.getTime()) as {
+        entry: Entry;
+        ongoingData: OngoingEntry;
+        release: UpcomingRelease;
+      }[];
+  }, [ongoingItems, now]);
+
+  const recentlyCompleted = useMemo(() => {
+    return state.entries
+      .filter((entry) => entry.status === 'COMPLETE')
+      .sort((a, b) =>
+        (b.lastUpdatedAt || b.createdAt) - (a.lastUpdatedAt || a.createdAt),
+      );
+  }, [state.entries]);
+
+  const averageRating = useMemo(() => {
+    const values = [...ratingByEntryId.values()].filter((rating) => Number.isFinite(rating) && rating > 0);
+    if (values.length === 0) return null;
+    return values.reduce((sum, rating) => sum + rating, 0) / values.length;
+  }, [ratingByEntryId]);
+
   return (
     <div className="space-y-8 w-full">
+      {/* Personal Snapshot */}
+      <PersonalSnapshot
+        total={state.entries.length}
+        ongoing={state.entries.filter((entry) => entry.status === 'ONGOING').length}
+        completed={state.entries.filter((entry) => entry.status === 'COMPLETE').length}
+        planned={state.entries.filter((entry) => entry.status === 'PLANNED').length}
+        favorites={state.favorites.length}
+        averageRating={averageRating}
+      />
+
+      {/* Continue Watching */}
+      <ContinueWatchingSection
+        items={continueWatching}
+        onEntryClick={setSelectedEntry}
+      />
+
+      {/* Upcoming Releases */}
+      <UpcomingReleasesSection
+        releases={upcomingReleases}
+        now={now}
+        onEntryClick={setSelectedEntry}
+      />
+
+      {/* Recently Completed */}
+      <RecentlyCompletedSection
+        entries={recentlyCompleted}
+        ratingByEntryId={ratingByEntryId}
+        onEntryClick={setSelectedEntry}
+      />
+
       {/* Airing Today Hero - 3D Coverflow */}
       <AiringTodayCarousel
         airingToday={airingToday}

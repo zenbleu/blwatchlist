@@ -11,7 +11,7 @@ cd app
 pnpm dev
 ```
 
-The development server runs on port 3000.
+The development server runs on port 5000 in the Replit workflow.
 
 ## User preferences
 

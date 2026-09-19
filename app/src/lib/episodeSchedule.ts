@@ -16,6 +16,14 @@ export interface OngoingSchedule {
   isConfigured: boolean;
 }
 
+export interface UpcomingRelease {
+  releaseAt: Date;
+  type: 'episode' | 'special';
+  episodeNumber?: number;
+  specialEpisode?: SpecialEpisode;
+  hasExactTime: boolean;
+}
+
 /**
  * Returns true only when every episode belonging to the title is watched.
  *
@@ -304,4 +312,158 @@ export function isValidDateOnly(value: string): boolean {
 
 export function getDateOnly(date = new Date()): string {
   return dateKey(date);
+}
+
+function getReleaseAt(date: Date, airTime?: string): { releaseAt: Date; hasExactTime: boolean } {
+  const releaseAt = new Date(date);
+  const parsedTime = airTime ? parseReleaseTime(airTime) : null;
+
+  if (parsedTime) {
+    releaseAt.setHours(parsedTime.hours, parsedTime.minutes, 0, 0);
+    return { releaseAt, hasExactTime: true };
+  }
+
+  releaseAt.setHours(0, 0, 0, 0);
+  return { releaseAt, hasExactTime: false };
+}
+
+function getNextRegularEpisodeRelease(
+  ongoing: Pick<
+    OngoingEntry,
+    | 'firstAirDate'
+    | 'airTime'
+    | 'airDays'
+    | 'totalEpisodes'
+    | 'premiereEpisodeCount'
+    | 'trackingMode'
+    | 'releaseDates'
+    | 'specialEpisodes'
+    | 'currentEpisode'
+  >,
+  now: Date,
+): UpcomingRelease | null {
+  const schedule = getOngoingSchedule(ongoing, now);
+  const totalEpisodes = schedule.totalEpisodes || ongoing.totalEpisodes;
+  const airedEpisode = schedule.airedEpisode ?? ongoing.currentEpisode;
+
+  if (totalEpisodes <= 0 || airedEpisode >= totalEpisodes) return null;
+
+  if (ongoing.trackingMode === 'calendar' || ongoing.releaseDates?.length) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dates = [...(ongoing.releaseDates || [])]
+      .filter((value) => parseDateOnly(value) !== null)
+      .sort();
+
+    for (let index = 0; index < dates.length; index += 1) {
+      if (index + 1 <= airedEpisode) continue;
+      const releaseDate = parseDateOnly(dates[index]);
+      if (!releaseDate || releaseDate < today) continue;
+
+      const { releaseAt, hasExactTime } = getReleaseAt(releaseDate, ongoing.airTime);
+      if (releaseAt.getTime() < now.getTime()) continue;
+
+      return {
+        releaseAt,
+        type: 'episode',
+        episodeNumber: index + 1,
+        hasExactTime,
+      };
+    }
+
+    return null;
+  }
+
+  const firstAirDate = ongoing.firstAirDate ? parseDateOnly(ongoing.firstAirDate) : null;
+  const airDays = new Set(ongoing.airDays);
+
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const candidateDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    const isPremiereDay = Boolean(firstAirDate && candidateDate.getTime() === firstAirDate.getTime());
+    const isScheduledDay = isPremiereDay || airDays.has(
+      AIR_DAYS_BY_INDEX[candidateDate.getDay()],
+    );
+
+    if (!isScheduledDay || (firstAirDate && candidateDate < firstAirDate)) {
+      continue;
+    }
+
+    const { releaseAt, hasExactTime } = getReleaseAt(candidateDate, ongoing.airTime);
+    if (releaseAt.getTime() < now.getTime()) continue;
+
+    const episodeNumber = isPremiereDay
+      ? Math.max(1, airedEpisode + 1)
+      : Math.max(1, airedEpisode + 1);
+
+    return {
+      releaseAt,
+      type: 'episode',
+      episodeNumber: Math.min(totalEpisodes, episodeNumber),
+      hasExactTime,
+    };
+  }
+
+  return null;
+}
+
+function getNextSpecialRelease(
+  specials: readonly SpecialEpisode[],
+  now: Date,
+): UpcomingRelease | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const upcoming = specials
+    .filter((special) => !special.watched)
+    .map((special) => {
+      const releaseDate = parseDateOnly(special.releaseDate);
+      if (!releaseDate || releaseDate < today) return null;
+
+      const { releaseAt, hasExactTime } = getReleaseAt(releaseDate, special.releaseTime);
+      if (hasExactTime && releaseAt.getTime() < now.getTime()) return null;
+      if (!hasExactTime && releaseDate.getTime() === today.getTime()) {
+        return {
+          releaseAt: now,
+          type: 'special' as const,
+          specialEpisode: special,
+          hasExactTime: false,
+        };
+      }
+      return {
+        releaseAt,
+        type: 'special' as const,
+        specialEpisode: special,
+        hasExactTime,
+      };
+    })
+    .filter((release): release is UpcomingRelease => release !== null)
+    .sort((a, b) => a.releaseAt.getTime() - b.releaseAt.getTime());
+
+  return upcoming[0] || null;
+}
+
+/**
+ * Returns the nearest unwatched regular or special release for an ongoing title.
+ * This is a compact read-only view of the same schedule data used by Ongoing BL.
+ */
+export function getNextUpcomingRelease(
+  ongoing: Pick<
+    OngoingEntry,
+    | 'firstAirDate'
+    | 'airTime'
+    | 'airDays'
+    | 'totalEpisodes'
+    | 'premiereEpisodeCount'
+    | 'trackingMode'
+    | 'releaseDates'
+    | 'specialEpisodes'
+    | 'currentEpisode'
+  >,
+  now = new Date(),
+): UpcomingRelease | null {
+  const regularRelease = getNextRegularEpisodeRelease(ongoing, now);
+  const specialRelease = getNextSpecialRelease(ongoing.specialEpisodes || [], now);
+
+  if (!regularRelease) return specialRelease;
+  if (!specialRelease) return regularRelease;
+  return regularRelease.releaseAt.getTime() <= specialRelease.releaseAt.getTime()
+    ? regularRelease
+    : specialRelease;
 }
