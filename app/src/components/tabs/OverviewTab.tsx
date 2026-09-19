@@ -966,6 +966,12 @@ export default function OverviewTab() {
 
   return (
     <div className="space-y-8 w-full">
+      {/* Airing Today Hero - 3D Coverflow */}
+      <AiringTodayCarousel
+        airingToday={airingToday}
+        onEntryClick={setSelectedEntry}
+      />
+
       {/* Personal Snapshot */}
       <PersonalSnapshot
         total={state.entries.length}
@@ -993,12 +999,6 @@ export default function OverviewTab() {
       <RecentlyCompletedSection
         entries={recentlyCompleted}
         ratingByEntryId={ratingByEntryId}
-        onEntryClick={setSelectedEntry}
-      />
-
-      {/* Airing Today Hero - 3D Coverflow */}
-      <AiringTodayCarousel
-        airingToday={airingToday}
         onEntryClick={setSelectedEntry}
       />
 
