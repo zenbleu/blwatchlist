@@ -840,6 +840,8 @@ export default function FavoriteEvaluation({
               <EpisodeRatingGrid
                 ratings={entry.episodeRatings}
                 totalEpisodes={Math.max(1, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))}
+                poster={entry.poster}
+                entryTitle={entry.title}
                 editable={isEditable}
                 onChange={(episodeNumber, value) => {
                   dispatch({

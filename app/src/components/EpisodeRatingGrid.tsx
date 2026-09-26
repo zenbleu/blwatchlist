@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Check, MessageSquareText, X } from 'lucide-react';
 import type { EpisodeRating } from '@/types';
+import Poster from './Poster';
 
 interface EpisodeRatingGridProps {
   ratings?: Record<string, EpisodeRating>;
@@ -9,6 +10,8 @@ interface EpisodeRatingGridProps {
   editable?: boolean;
   onChange?: (episodeNumber: number, value?: EpisodeRating) => void;
   compact?: boolean;
+  poster?: string | null;
+  entryTitle?: string;
 }
 
 function ratingColor(rating: number): string {
@@ -138,6 +141,8 @@ export default function EpisodeRatingGrid({
   editable = false,
   onChange,
   compact = false,
+  poster = null,
+  entryTitle = 'Entry',
 }: EpisodeRatingGridProps) {
   const episodeCount = Math.max(1, totalEpisodes, ...Object.keys(ratings).map(Number).filter(Number.isFinite));
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
@@ -174,11 +179,61 @@ export default function EpisodeRatingGrid({
   return (
     <div className="relative space-y-2">
       <div className="overflow-x-auto pb-1 scrollbar-hide">
-        <div className={`flex min-w-max items-end ${compact ? 'gap-1.5' : 'gap-2'}`}>
+        <div className={compact ? 'flex min-w-max items-end gap-1.5' : 'divide-y divide-white/[0.08] overflow-hidden rounded-xl border border-white/[0.08] bg-black/20'}>
           {episodes.map((episodeNumber) => {
             const episode = ratings[String(episodeNumber)];
             const isAvailable = airedEpisode === null || episodeNumber <= airedEpisode;
             const isSelected = selectedEpisode === episodeNumber;
+
+            if (!compact) {
+              return (
+                <div key={episodeNumber} className="p-2.5">
+                  <button
+                    type="button"
+                    disabled={!editable || !isAvailable}
+                    onClick={() => setSelectedEpisode(isSelected ? null : episodeNumber)}
+                    className={`flex w-full items-start gap-3 text-left transition-colors ${
+                      editable && isAvailable ? 'cursor-pointer hover:bg-white/[0.04]' : 'cursor-default'
+                    } ${isSelected ? 'rounded-lg bg-white/[0.05] ring-1 ring-[#E50914]/60' : ''}`}
+                    aria-label={`${episode ? `Episode ${episodeNumber}, rated ${episode.rating}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
+                  >
+                    <div className="relative shrink-0">
+                      <Poster src={poster} title={`${entryTitle} episode ${episodeNumber}`} size="md" />
+                      <span className="absolute left-1 top-1 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        E{episodeNumber}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {entryTitle} · Episode #{episodeNumber}
+                          </p>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[#777]">
+                            {isAvailable ? `Episode ${episodeNumber}` : 'Upcoming episode'}
+                          </p>
+                        </div>
+                        {episode ? (
+                          <span className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-yellow-400">
+                            ★ {episode.rating.toFixed(1)}/10
+                          </span>
+                        ) : (
+                          <span className="shrink-0 whitespace-nowrap text-[10px] text-[#777]">
+                            {editable && isAvailable ? 'Rate episode' : 'Not rated'}
+                          </span>
+                        )}
+                      </div>
+                      <p className={`mt-2 line-clamp-2 text-xs leading-relaxed ${
+                        episode?.commentary ? 'text-[#c8c8c8]' : 'text-[#666]'
+                      }`}>
+                        {episode?.commentary || (isAvailable ? 'No commentary added yet.' : 'This episode is not available to rate yet.')}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              );
+            }
+
             return (
               <div key={episodeNumber} className="flex flex-col items-center gap-1">
                 <span className="text-[10px] font-medium text-[#888]">E{episodeNumber}</span>
