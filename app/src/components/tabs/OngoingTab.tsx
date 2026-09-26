@@ -11,6 +11,7 @@ import {
   isOngoingTitleComplete,
 } from "@/lib/episodeSchedule";
 import EntryModal from "../EntryModal";
+import EpisodeRatingGrid from "../EpisodeRatingGrid";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
 import { formatSeasonLabel } from "@/lib/entry";
@@ -20,16 +21,16 @@ const OngoingCard = memo(function OngoingCard({
   entry,
   ongoingData,
   schedule,
-  onEpisodeChange,
+  onEpisodeRating,
   onSpecialWatchedChange,
   onEntryClick,
   onFinishPrompt,
 }: {
   entryId: string;
-  entry: { title: string; season?: number; poster: string | null; country: string };
+  entry: Entry;
   ongoingData: OngoingEntry;
   schedule: ReturnType<typeof getOngoingSchedule>;
-  onEpisodeChange: (entryId: string, field: "currentEpisode", value: number) => void;
+  onEpisodeRating: (entryId: string, episodeNumber: number, value?: { rating: number; commentary?: string }) => void;
   onSpecialWatchedChange: (entryId: string, specialId: string, watched: boolean) => void;
   onEntryClick: (entry: Entry) => void;
   onFinishPrompt: (entryId: string, schedule: ReturnType<typeof getOngoingSchedule>, ongoingData: OngoingEntry) => boolean;
@@ -116,23 +117,23 @@ const OngoingCard = memo(function OngoingCard({
           <div className="mt-3 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs text-[#B3B3B3]">Watched</span>
-              <input
-                type="number"
-                value={ongoingData.currentEpisode}
-                onChange={(e) => onEpisodeChange(entryId, "currentEpisode", parseInt(e.target.value) || 0)}
-                className="w-10 h-7 bg-white/[0.06] border border-white/10 rounded text-center text-sm text-white focus:border-[#E50914] outline-none"
-                min={0}
-              />
+              <span className="inline-flex h-7 min-w-10 items-center justify-center rounded border border-white/10 bg-white/[0.04] px-2 text-sm text-white">
+                {ongoingData.currentEpisode}
+              </span>
               <span className="text-xs text-[#B3B3B3]">/</span>
-              <input
-                type="number"
-                value={progressTotal}
-                readOnly
-                disabled
-                className="w-10 h-7 bg-white/[0.06] border border-white/10 rounded text-center text-sm text-white focus:border-[#E50914] outline-none"
-                min={1}
-              />
+              <span className="inline-flex h-7 min-w-10 items-center justify-center rounded border border-white/10 bg-white/[0.04] px-2 text-sm text-white">
+                {progressTotal}
+              </span>
             </div>
+
+            <EpisodeRatingGrid
+              ratings={entry.episodeRatings}
+              totalEpisodes={progressTotal}
+              airedEpisode={schedule.airedEpisode}
+              editable
+              compact
+              onChange={(episodeNumber, value) => onEpisodeRating(entryId, episodeNumber, value)}
+            />
 
             {schedule.isConfigured ? (
               <p className="text-xs text-[#B3B3B3]">
@@ -350,14 +351,20 @@ export default function OngoingTab() {
     return state.entries.filter((e) => e.status === "PLANNED" && e.year >= currentYear);
   }, [state.entries]);
 
-  const handleEpisodeChange = useCallback((entryId: string, field: "currentEpisode", value: number) => {
-    const existing = state.ongoing.find((o) => o.entryId === entryId);
-    if (!existing) return;
+  const handleEpisodeRating = useCallback((
+    entryId: string,
+    episodeNumber: number,
+    value?: { rating: number; commentary?: string },
+  ) => {
     dispatch({
-      type: "UPDATE_ONGOING",
-      payload: { ...existing, [field]: Math.max(0, value) },
+      type: "UPDATE_EPISODE_RATING",
+      payload: {
+        entryId,
+        episodeNumber,
+        ...(value ?? {}),
+      },
     });
-  }, [state.ongoing, dispatch]);
+  }, [dispatch]);
 
   const handleSpecialWatchedChange = useCallback((
     entryId: string,
@@ -608,7 +615,7 @@ export default function OngoingTab() {
             entry={entry}
             ongoingData={ongoingData}
             schedule={schedule}
-            onEpisodeChange={handleEpisodeChange}
+            onEpisodeRating={handleEpisodeRating}
             onSpecialWatchedChange={handleSpecialWatchedChange}
             onEntryClick={setSelectedEntry}
             onFinishPrompt={handleFinishPrompt}

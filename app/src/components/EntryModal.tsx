@@ -5,7 +5,10 @@ import { useApp } from '@/context/AppContext';
 import Poster from './Poster';
 import type { Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
+import { getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
+import { getOngoingSchedule } from '@/lib/episodeSchedule';
+import EpisodeRatingGrid from './EpisodeRatingGrid';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -14,15 +17,23 @@ interface EntryModalProps {
 }
 
 export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) {
-  const { dispatch, isFavorited, getRatingByEntryId } = useApp();
+  const { dispatch, isFavorited, getRatingByEntryId, getOngoingByEntryId } = useApp();
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [showEpisodeSummary, setShowEpisodeSummary] = useState(false);
 
   const favorited = entry ? isFavorited(entry.id) : false;
   const rating = entry ? getRatingByEntryId(entry.id) : null;
+  const ongoing = entry ? getOngoingByEntryId(entry.id) : undefined;
+  const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
+  const episodeCount = entry
+    ? Math.max(1, ongoing?.totalEpisodes || 0, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))
+    : 1;
+  const episodeSchedule = ongoing ? getOngoingSchedule(ongoing, new Date()) : null;
 
   // Reset image loaded state when entry changes
   useEffect(() => {
     setImageLoaded(false);
+    setShowEpisodeSummary(false);
   }, [entry?.id]);
 
   const handleToggleFavorite = () => {
@@ -47,7 +58,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
       <DialogContent
         showCloseButton={true}
         closeButtonClassName="top-4 right-4 z-20"
-        className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[320px] sm:max-w-[360px] p-0 overflow-hidden shadow-2xl"
+         className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] p-0 overflow-hidden shadow-2xl"
       >
         {/* Top Bar: Heart (top-left) + Rating (top-right, before X button) */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-4">
@@ -75,6 +86,13 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               </span>
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setShowEpisodeSummary((open) => !open)}
+            className="absolute left-1/2 top-4 -translate-x-1/2 rounded-lg bg-black/45 px-2 py-1 text-[10px] font-semibold text-[#ddd] backdrop-blur-sm hover:bg-black/70 hover:text-white"
+          >
+            Episode Summary {showEpisodeSummary ? '⌃' : '>'}
+          </button>
         </div>
 
         {/* Poster - centered, large, dominant */}
@@ -136,6 +154,34 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
           <span className="text-[#444]">|</span>
           <span className="text-[#B3B3B3]">{entry.country}</span>
         </div>
+
+        {showEpisodeSummary && (
+          <div className="mx-4 mb-5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-white">Episode Summary</p>
+                <p className="text-[10px] text-[#777]">
+                  {episodeAverage === null ? 'Rate each episode to calculate Storyline.' : `Average episode rating: ${formatRating(episodeAverage)}`}
+                </p>
+              </div>
+              <span className="text-[10px] text-[#666]">{episodeCount} episodes</span>
+            </div>
+            <EpisodeRatingGrid
+              ratings={entry.episodeRatings}
+              totalEpisodes={episodeCount}
+              airedEpisode={episodeSchedule?.airedEpisode ?? null}
+              editable
+              onChange={(episodeNumber, value) => {
+                dispatch({
+                  type: 'UPDATE_EPISODE_RATING',
+                  payload: value
+                    ? { entryId: entry.id, episodeNumber, ...value }
+                    : { entryId: entry.id, episodeNumber },
+                });
+              }}
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

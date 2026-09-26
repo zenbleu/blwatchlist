@@ -5,6 +5,11 @@ export type Status = 'COMPLETE' | 'ONGOING' | 'DROPPED' | 'PLANNED';
 export type AirDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 export type OngoingTrackingMode = 'recurring' | 'calendar';
 
+export interface EpisodeRating {
+  rating: number;
+  commentary?: string;
+}
+
 export interface Entry {
   id: string;
   poster: string | null;
@@ -19,6 +24,8 @@ export interface Entry {
   /** Timestamp of the most recent meaningful user update. */
   lastUpdatedAt: number;
   plannedDate?: string; // ISO date string (YYYY-MM-DD), only for PLANNED status
+  /** Episode ratings keyed by episode number. */
+  episodeRatings?: Record<string, EpisodeRating>;
 }
 
 export interface SpecialEpisode {
@@ -55,14 +62,25 @@ export interface FavoriteEntry {
   acting: number;
   music: number;
   chemistry: number;
+  /** Revised core category. Kept alongside cinematography for old backups. */
+  production: number;
+  /** Legacy core field retained so existing backups and statistics remain readable. */
   cinematography: number;
   originality: boolean;
-  flowAndPacing: boolean;
   characterDepth: boolean;
   relationshipDynamics: boolean;
+  outstandingChemistry: boolean;
+  naturalSkinship: boolean;
+  secondaryCouple: boolean;
+  soundtrack: boolean;
+  /** Revised bonus category; distinct from the core Production score. */
+  cinematographyBonus: boolean;
   emotionalImpact: boolean;
   ending: boolean;
+  comfortAura: boolean;
   rewatchValue: boolean;
+  /** Legacy bonus field retained for imports created before the revised system. */
+  flowAndPacing?: boolean;
   gapPenalty: number;
   overallRating: number;
 }
@@ -178,6 +196,7 @@ export type AppAction =
   | { type: 'UPDATE_RATING'; payload: FavoriteEntry }
   | { type: 'REMOVE_RATING'; payload: string }
   | { type: 'UPDATE_ONGOING'; payload: OngoingEntry }
+  | { type: 'UPDATE_EPISODE_RATING'; payload: { entryId: string; episodeNumber: number; rating?: number; commentary?: string } }
   | { type: 'ADD_TO_TOP10'; payload: { year: number; entryId: string } }
   | { type: 'REMOVE_FROM_TOP10'; payload: { year: number; entryId: string } }
   | { type: 'REORDER_TOP10'; payload: { year: number; entries: Top10Entry[]; updatedEntryId?: string } }

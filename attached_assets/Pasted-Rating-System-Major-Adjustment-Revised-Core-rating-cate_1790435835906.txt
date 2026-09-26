@@ -1,0 +1,86 @@
+Rating System: Major Adjustment
+
+[Revised] Core rating categories:
+
+Storyline - The narrative focus, plot depth, or content intensity assigned to a story's plot.
+Acting - Actors' lead performance, technical skill, emotional range, and ability to fully embody a character.
+Chemistry - The perceived connection, energetic resonance, and mutual responsiveness between two characters.
+Music - How well the music supports the story, builds emotion, and defines the show's atmosphere.
+Production - The technical, auditory, and visual crafts seamlessly work together to construct the project.
+
+[Addition] Add a symbol [ⓘ] beside each category where when the computer cursor hovers this symbol, it displays the description of a category.
+
+IMPORTANT: Retain original UI star rating design.
+
+[Revised] Bonus Evaluation Categories:
+
+Originality: Broke away from standard and cliché tropes.
+Character Depth: The characters had genuine flaws, realistic motives, and grew significantly by the final episode.
+Relationship Dynamics: The recurring pattern of behaviors, communication, and emotional interactions that take place between two characters.
+Outstanding Chemistry: The actors had an electric connection that felt completely natural and elevated every scene they shared in or off-cam.
+Natural Skinship: The physical affection (hugs, kisses, comfort) felt authentic and emotionally resonant, not awkward or stiff.
+Secondary Couple (Side CP) or Supporting Characters: The supporting characters/couple were genuinely engaging and didn't feel like filler material to stretch the runtime.
+Soundtrack (OST): The BGM and theme songs perfectly enhanced the emotional beats and stayed stuck in the head long after.
+Cinematography: Gorgeous color grading, beautiful lighting, and creative camera work that made the show feel premium.
+Emotional Impact: How intensely the show moves, saddens, excites, or engages the audience beyond its technical quality.
+Ending: No sudden open-ended trauma, rushed time-skips, or forced tragedies; the story stuck the landing.
+Comfort Aura: The show provides an elite, stress-free atmosphere that makes it a perfect escape to watch on.
+Rewatch Value: How enjoyable, rewarding, or necessary it is to watch multiple times.
+
+[Addition] Add a symbol [ⓘ] beside each category where when the computer cursor hovers this symbol, it displays the description of a category.
+
+IMPORTANT: Retain the original checkboxes.
+
+====================================================================
+
+[Addition] Add an episode rating tracker on ongoing tab. Place the episode grids below after Watched Current EP/Total EP.
+
+The Design Concept: "The Color-Coded Heatmap Grid": Instead of a long, clunky list of sliders or text fields that take up the whole screen, you can use a grid of compact squares (identical to the 1st photo attached).
+
+1st photo: For ongoing tab (place after watched progress)
+2nd photo: For episode summary area (put it on top)
+
+The Square: Each square represents an episode number.
+The Interaction: Clicking a square opens a small popover to change its rating (1–10). Ensure it is still editable whenever the user changes it's mind.
+The Color Depth: The color of the square changes dynamically based on its rating (use/align with app color design). Low scores (1–4) maybe grey, average scores (5–7) light yellow, and high masterpieces (8–10) glow bright yellow. 
+The Unwatched State: Unwatched episodes stay blank/translucent with a dotted border. This will also applicable to episodes that haven't aired yet (source: episode calendar).
+
+IMPORTANT: The current episodes tracker (by user) was editable by Watched Current EP/Total EP. This time, the current ep won't be editable now. We will use the new episode tracker (grids) to modify an entry progress by rating it. This will serve now as the user's episode tracker. Nothing will be removed. The old user's episode progress will remain and visible however it is not editable and should calculate the current episode from new episode rating tracker. 
+
+[Addition] In card-view modal, add [Episode Summary >] at the right top where clicking it shows all episode ratings and user commentary.
+
+What will be displayed:
+- Poster
+- Title
+- Rating
+- Season badge (if available)
+- Special Episode badge (if available)
+- Commentary/Rating description
+- Top-rated badge (8.0 above)
+
+
+NOTE: Since other existing entries didn't have ongoing progress, allow user to modify episode ratings at the episode summary area.
+
+==================================================================
+
+We will change how the 5 core rating categories and bonus evaluation will affect the overall rating of an entry which is fixed at 10.
+
+We will use a hybrid approach: use the new episode tracker data to directly calculate one specific core category, while keeping the other four strictly subjective.
+
+🎬 Storyline (Calculated): This should be the direct average of all episode ratings. Plot and Pacing are inherently structural. If individual episodes dragged or felt like filler, episode scores will naturally reflect that, creating a highly accurate mathematical representation of the show's overall storytelling flow.
+👩‍❤️‍👨 Chemistry and Acting (Manual): Keep this manual. A show might have a terrible, messy plot (low episode scores), but the actors' raw chemistry might be completely off the charts. The user should be able to give this a 10/10 regardless of what happened in individual episodes.
+🎨 Production and Music (Manual): Keep this manual. Color grading, soundtracks, and set designs are usually consistent throughout the series. There's no need to calculate this from individual episodes.
+
+The "Crown / Hall of Fame" Visual Visualizer
+
+If there's an entry where the base score is already at a 9.8 or 9.9, checking multiple bonus boxes will hit the mathematical cap of 10.0 that we built into the formula. I prefer to strictly keep the mathematical score capped at 10.0, so i want to use the extra bonus points to unlock a unique visual tier or badge on the UI instead. 
+
+How it works: If the final score hits 10.0 AND the user has checked more bonus boxes (12 checkboxes in total), a special badge tag lights up next to the title.
+
+Tier Tags:
+Masterpiece - 12/12 checked boxes
+Highly Recommended - 8 or more checked boxes
+Top Rated - 5 or more checked boxes
+Hit - 3 or more checked boxes
+
+The tags of a specific can appear across every areas of the app.

@@ -4,7 +4,16 @@ import { Heart, Pencil, Trash2, Check, X } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useApp } from '@/context/AppContext';
 import type { FavoriteEntry } from '@/types';
-import { calculateOverallRating, formatRating } from '@/lib/rating';
+import {
+  BONUS_RATING_DESCRIPTIONS,
+  CORE_RATING_DESCRIPTIONS,
+  calculateOverallRating,
+  formatRating,
+  getBonusCount,
+  getEpisodeAverage,
+  getRatingTier,
+} from '@/lib/rating';
+import EpisodeRatingGrid from './EpisodeRatingGrid';
 
 /* ============================================================
    Animated Counter Hook
@@ -260,11 +269,13 @@ function InteractiveHalfStar({
    ============================================================ */
 function CategoryStarRating({
   label,
+  description,
   value,
   onChange,
   editable,
 }: {
   label: string;
+  description?: string;
   value: number;
   onChange?: (val: number) => void;
   editable: boolean;
@@ -319,7 +330,18 @@ function CategoryStarRating({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-[#B3B3B3] font-medium">{label}</span>
+        <span className="flex items-center gap-1 text-xs text-[#B3B3B3] font-medium">
+          {label}
+          {description && (
+            <span
+              title={description}
+              aria-label={`${label}: ${description}`}
+              className="cursor-help text-[11px] text-[#777] hover:text-yellow-300"
+            >
+              ⓘ
+            </span>
+          )}
+        </span>
         {/* Stars */}
         <div className="flex items-center gap-0.5 relative">
           {[1, 2, 3, 4, 5].map((starIndex) => {
@@ -377,11 +399,13 @@ function EvalCheckbox({
   checked,
   onChange,
   editable,
+  description,
 }: {
   label: string;
   checked: boolean;
   onChange?: (val: boolean) => void;
   editable: boolean;
+  description?: string;
 }) {
   if (editable) {
     return (
@@ -392,13 +416,14 @@ function EvalCheckbox({
             ? 'bg-[#E50914]/20 text-[#E50914] border border-[#E50914]/30'
             : 'bg-white/[0.04] text-[#888] border border-white/[0.06] hover:bg-white/[0.06]'
         }`}
+        title={description}
       >
         <div className={`w-4 h-4 rounded flex items-center justify-center transition-all ${
           checked ? 'bg-[#E50914]' : 'bg-white/[0.1] border border-white/20'
         }`}>
           {checked && <Check className="w-3 h-3 text-white" />}
         </div>
-        {label}
+        <span className="text-left">{label}</span>
       </button>
     );
   }
@@ -406,13 +431,13 @@ function EvalCheckbox({
   return (
     <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium min-h-[44px] ${
       checked ? 'text-[#E50914]' : 'text-[#555]'
-    }`}>
+    }`} title={description}>
       {checked ? (
         <Check className="w-3.5 h-3.5 text-[#E50914]" />
       ) : (
         <div className="w-3.5 h-3.5 rounded border border-[#444]" />
       )}
-      {label}
+      <span className="text-left">{label}</span>
     </div>
   );
 }
@@ -507,13 +532,18 @@ export default function FavoriteEvaluation({
   const [acting, setActing] = useState(5);
   const [music, setMusic] = useState(5);
   const [chemistry, setChemistry] = useState(5);
-  const [cinematography, setCinematography] = useState(5);
+  const [production, setProduction] = useState(5);
   const [originality, setOriginality] = useState(false);
-  const [flowAndPacing, setFlowAndPacing] = useState(false);
   const [characterDepth, setCharacterDepth] = useState(false);
   const [relationshipDynamics, setRelationshipDynamics] = useState(false);
+  const [outstandingChemistry, setOutstandingChemistry] = useState(false);
+  const [naturalSkinship, setNaturalSkinship] = useState(false);
+  const [secondaryCouple, setSecondaryCouple] = useState(false);
+  const [soundtrack, setSoundtrack] = useState(false);
+  const [cinematographyBonus, setCinematographyBonus] = useState(false);
   const [emotionalImpact, setEmotionalImpact] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [comfortAura, setComfortAura] = useState(false);
   const [rewatchValue, setRewatchValue] = useState(false);
 
   const entry = entryId ? getEntryById(entryId) : null;
@@ -547,62 +577,87 @@ export default function FavoriteEvaluation({
       setActing(existingFavorite.acting);
       setMusic(existingFavorite.music);
       setChemistry(existingFavorite.chemistry);
-      setCinematography(existingFavorite.cinematography);
+      setProduction(existingFavorite.production ?? existingFavorite.cinematography);
       setOriginality(existingFavorite.originality);
-      setFlowAndPacing(existingFavorite.flowAndPacing);
       setCharacterDepth(existingFavorite.characterDepth);
       setRelationshipDynamics(existingFavorite.relationshipDynamics);
+      setOutstandingChemistry(existingFavorite.outstandingChemistry);
+      setNaturalSkinship(existingFavorite.naturalSkinship);
+      setSecondaryCouple(existingFavorite.secondaryCouple);
+      setSoundtrack(existingFavorite.soundtrack);
+      setCinematographyBonus(existingFavorite.cinematographyBonus);
       setEmotionalImpact(existingFavorite.emotionalImpact);
       setEnding(existingFavorite.ending);
+      setComfortAura(existingFavorite.comfortAura);
       setRewatchValue(existingFavorite.rewatchValue);
     } else if (isOpen && !existingFavorite) {
       setStoryline(5);
       setActing(5);
       setMusic(5);
       setChemistry(5);
-      setCinematography(5);
+      setProduction(5);
       setOriginality(false);
-      setFlowAndPacing(false);
       setCharacterDepth(false);
       setRelationshipDynamics(false);
+      setOutstandingChemistry(false);
+      setNaturalSkinship(false);
+      setSecondaryCouple(false);
+      setSoundtrack(false);
+      setCinematographyBonus(false);
       setEmotionalImpact(false);
       setEnding(false);
+      setComfortAura(false);
       setRewatchValue(false);
     }
   }, [isOpen, existingFavorite]);
 
-  // Calculate overall rating using the exact formula
+  const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
+  const calculatedStoryline = episodeAverage ?? storyline;
+
+  // Storyline is episode-driven; the remaining four core categories stay subjective.
   const overallRating = useMemo(() => calculateOverallRating({
-    storyline,
+    storyline: calculatedStoryline,
     acting,
     music,
     chemistry,
-    cinematography,
+    production,
+    cinematography: production,
     originality,
-    flowAndPacing,
     characterDepth,
     relationshipDynamics,
+    outstandingChemistry,
+    naturalSkinship,
+    secondaryCouple,
+    soundtrack,
+    cinematographyBonus,
     emotionalImpact,
     ending,
+    comfortAura,
     rewatchValue,
-  }), [storyline, acting, music, chemistry, cinematography, originality, flowAndPacing, characterDepth, relationshipDynamics, emotionalImpact, ending, rewatchValue]);
+  }), [calculatedStoryline, acting, music, chemistry, production, originality, characterDepth, relationshipDynamics, outstandingChemistry, naturalSkinship, secondaryCouple, soundtrack, cinematographyBonus, emotionalImpact, ending, comfortAura, rewatchValue]);
 
   const handleSave = useCallback(() => {
     if (!entryId) return;
 
     const favoriteData: FavoriteEntry = {
       entryId,
-      storyline,
+      storyline: calculatedStoryline,
       acting,
       music,
       chemistry,
-      cinematography,
+      production,
+      cinematography: production,
       originality,
-      flowAndPacing,
       characterDepth,
       relationshipDynamics,
+      outstandingChemistry,
+      naturalSkinship,
+      secondaryCouple,
+      soundtrack,
+      cinematographyBonus,
       emotionalImpact,
       ending,
+      comfortAura,
       rewatchValue,
       gapPenalty: 0,
       overallRating,
@@ -630,7 +685,7 @@ export default function FavoriteEvaluation({
     }
 
     setMode('view');
-  }, [entryId, storyline, acting, music, chemistry, cinematography, originality, flowAndPacing, characterDepth, relationshipDynamics, emotionalImpact, ending, rewatchValue, overallRating, favorited, existingFavorite, evaluationType, dispatch, checkMilestones, state.favorites.length]);
+  }, [entryId, calculatedStoryline, acting, music, chemistry, production, originality, characterDepth, relationshipDynamics, outstandingChemistry, naturalSkinship, secondaryCouple, soundtrack, cinematographyBonus, emotionalImpact, ending, comfortAura, rewatchValue, overallRating, favorited, existingFavorite, evaluationType, dispatch, checkMilestones, state.favorites.length]);
 
   const handleRemove = useCallback(() => {
     if (!entryId) return;
@@ -645,23 +700,43 @@ export default function FavoriteEvaluation({
   const isEditable = mode === 'edit';
 
   // Use existing favorite values for view mode display
-  const displayStoryline = isEditable ? storyline : (existingFavorite?.storyline ?? 5);
+  const displayStoryline = episodeAverage ?? (isEditable ? storyline : (existingFavorite?.storyline ?? 5));
   const displayActing = isEditable ? acting : (existingFavorite?.acting ?? 5);
   const displayMusic = isEditable ? music : (existingFavorite?.music ?? 5);
   const displayChemistry = isEditable ? chemistry : (existingFavorite?.chemistry ?? 5);
-  const displayCinematography = isEditable ? cinematography : (existingFavorite?.cinematography ?? 5);
+  const displayProduction = isEditable ? production : (existingFavorite?.production ?? existingFavorite?.cinematography ?? 5);
   const displayOriginality = isEditable ? originality : (existingFavorite?.originality ?? false);
-  const displayFlowAndPacing = isEditable ? flowAndPacing : (existingFavorite?.flowAndPacing ?? false);
   const displayCharacterDepth = isEditable ? characterDepth : (existingFavorite?.characterDepth ?? false);
   const displayRelationshipDynamics = isEditable ? relationshipDynamics : (existingFavorite?.relationshipDynamics ?? false);
+  const displayOutstandingChemistry = isEditable ? outstandingChemistry : (existingFavorite?.outstandingChemistry ?? false);
+  const displayNaturalSkinship = isEditable ? naturalSkinship : (existingFavorite?.naturalSkinship ?? false);
+  const displaySecondaryCouple = isEditable ? secondaryCouple : (existingFavorite?.secondaryCouple ?? false);
+  const displaySoundtrack = isEditable ? soundtrack : (existingFavorite?.soundtrack ?? false);
+  const displayCinematographyBonus = isEditable ? cinematographyBonus : (existingFavorite?.cinematographyBonus ?? false);
   const displayEmotionalImpact = isEditable ? emotionalImpact : (existingFavorite?.emotionalImpact ?? false);
   const displayEnding = isEditable ? ending : (existingFavorite?.ending ?? false);
+  const displayComfortAura = isEditable ? comfortAura : (existingFavorite?.comfortAura ?? false);
   const displayRewatchValue = isEditable ? rewatchValue : (existingFavorite?.rewatchValue ?? false);
 
   // Calculate display overall
   const displayOverall = isEditable
     ? overallRating
     : (existingFavorite?.overallRating ?? 0);
+  const displayedBonuses = {
+    originality: displayOriginality,
+    characterDepth: displayCharacterDepth,
+    relationshipDynamics: displayRelationshipDynamics,
+    outstandingChemistry: displayOutstandingChemistry,
+    naturalSkinship: displayNaturalSkinship,
+    secondaryCouple: displaySecondaryCouple,
+    soundtrack: displaySoundtrack,
+    cinematographyBonus: displayCinematographyBonus,
+    emotionalImpact: displayEmotionalImpact,
+    ending: displayEnding,
+    comfortAura: displayComfortAura,
+    rewatchValue: displayRewatchValue,
+  };
+  const ratingTier = getRatingTier(displayOverall, displayedBonuses);
 
   return (
     <>
@@ -682,6 +757,11 @@ export default function FavoriteEvaluation({
                 <h2 className="text-sm font-bold text-white truncate">
                   {entry.title}
                 </h2>
+                {ratingTier && (
+                  <span className="shrink-0 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[9px] font-bold text-yellow-300">
+                    {ratingTier}
+                  </span>
+                )}
               </div>
               <button
                 onClick={onClose}
@@ -707,35 +787,68 @@ export default function FavoriteEvaluation({
               <div className="space-y-3">
                 <CategoryStarRating
                   label="Storyline"
+                  description={CORE_RATING_DESCRIPTIONS.Storyline}
                   value={displayStoryline}
-                  onChange={setStoryline}
-                  editable={isEditable}
+                  editable={false}
                 />
                 <CategoryStarRating
                   label="Acting"
+                  description={CORE_RATING_DESCRIPTIONS.Acting}
                   value={displayActing}
                   onChange={setActing}
                   editable={isEditable}
                 />
                 <CategoryStarRating
                   label="Music"
+                  description={CORE_RATING_DESCRIPTIONS.Music}
                   value={displayMusic}
                   onChange={setMusic}
                   editable={isEditable}
                 />
                 <CategoryStarRating
                   label="Chemistry"
+                  description={CORE_RATING_DESCRIPTIONS.Chemistry}
                   value={displayChemistry}
                   onChange={setChemistry}
                   editable={isEditable}
                 />
                 <CategoryStarRating
-                  label="Cinematography"
-                  value={displayCinematography}
-                  onChange={setCinematography}
+                  label="Production"
+                  description={CORE_RATING_DESCRIPTIONS.Production}
+                  value={displayProduction}
+                  onChange={setProduction}
                   editable={isEditable}
                 />
               </div>
+              <p className="text-[10px] text-[#666]">
+                Storyline is calculated from the average of your episode ratings.
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-white/[0.06]" />
+
+            {/* Episode Summary */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] uppercase text-[#888] tracking-wider font-medium">Episode Summary</p>
+                <span className="text-[10px] text-[#666]">
+                  {episodeAverage === null ? 'No episodes rated' : `Average ${formatRating(episodeAverage)}`}
+                </span>
+              </div>
+              <EpisodeRatingGrid
+                ratings={entry.episodeRatings}
+                totalEpisodes={Math.max(1, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))}
+                editable={isEditable}
+                onChange={(episodeNumber, value) => {
+                  dispatch({
+                    type: 'UPDATE_EPISODE_RATING',
+                    payload: value
+                      ? { entryId: entry.id, episodeNumber, ...value }
+                      : { entryId: entry.id, episodeNumber },
+                  });
+                }}
+              />
             </div>
 
             {/* Divider */}
@@ -745,17 +858,35 @@ export default function FavoriteEvaluation({
             <div className="space-y-3">
               <p className="text-[11px] uppercase text-[#888] tracking-wider font-medium">Bonus Evaluation</p>
               <div className="grid grid-cols-1 gap-1.5">
-                <EvalCheckbox label="Originality" checked={displayOriginality} onChange={setOriginality} editable={isEditable} />
-                <EvalCheckbox label="Flow &amp; Pacing" checked={displayFlowAndPacing} onChange={setFlowAndPacing} editable={isEditable} />
-                <EvalCheckbox label="Character Depth" checked={displayCharacterDepth} onChange={setCharacterDepth} editable={isEditable} />
-                <EvalCheckbox label="Relationship Dynamics" checked={displayRelationshipDynamics} onChange={setRelationshipDynamics} editable={isEditable} />
-                <EvalCheckbox label="Emotional Impact" checked={displayEmotionalImpact} onChange={setEmotionalImpact} editable={isEditable} />
-                <EvalCheckbox label="Ending" checked={displayEnding} onChange={setEnding} editable={isEditable} />
-                <EvalCheckbox label="Rewatch Value" checked={displayRewatchValue} onChange={setRewatchValue} editable={isEditable} />
+                <EvalCheckbox label={`Originality ⓘ`} checked={displayOriginality} onChange={setOriginality} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS.Originality} />
+                <EvalCheckbox label="Character Depth ⓘ" checked={displayCharacterDepth} onChange={setCharacterDepth} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Character Depth']} />
+                <EvalCheckbox label="Relationship Dynamics ⓘ" checked={displayRelationshipDynamics} onChange={setRelationshipDynamics} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Relationship Dynamics']} />
+                <EvalCheckbox label="Outstanding Chemistry ⓘ" checked={displayOutstandingChemistry} onChange={setOutstandingChemistry} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Outstanding Chemistry']} />
+                <EvalCheckbox label="Natural Skinship ⓘ" checked={displayNaturalSkinship} onChange={setNaturalSkinship} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Natural Skinship']} />
+                <EvalCheckbox label="Secondary Couple / Supporting Characters ⓘ" checked={displaySecondaryCouple} onChange={setSecondaryCouple} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Secondary Couple / Supporting Characters']} />
+                <EvalCheckbox label="Soundtrack (OST) ⓘ" checked={displaySoundtrack} onChange={setSoundtrack} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Soundtrack (OST)']} />
+                <EvalCheckbox label="Cinematography ⓘ" checked={displayCinematographyBonus} onChange={setCinematographyBonus} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS.Cinematography} />
+                <EvalCheckbox label="Emotional Impact ⓘ" checked={displayEmotionalImpact} onChange={setEmotionalImpact} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Emotional Impact']} />
+                <EvalCheckbox label="Ending ⓘ" checked={displayEnding} onChange={setEnding} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS.Ending} />
+                <EvalCheckbox label="Comfort Aura ⓘ" checked={displayComfortAura} onChange={setComfortAura} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Comfort Aura']} />
+                <EvalCheckbox label="Rewatch Value ⓘ" checked={displayRewatchValue} onChange={setRewatchValue} editable={isEditable} description={BONUS_RATING_DESCRIPTIONS['Rewatch Value']} />
               </div>
               {isEditable && (
                 <p className="text-[10px] text-[#666] text-center">
-                  Each checked criterion adds +0.10 to overall rating (max 10.00)
+                  {getBonusCount({
+                    originality: displayOriginality,
+                    characterDepth: displayCharacterDepth,
+                    relationshipDynamics: displayRelationshipDynamics,
+                    outstandingChemistry: displayOutstandingChemistry,
+                    naturalSkinship: displayNaturalSkinship,
+                    secondaryCouple: displaySecondaryCouple,
+                    soundtrack: displaySoundtrack,
+                    cinematographyBonus: displayCinematographyBonus,
+                    emotionalImpact: displayEmotionalImpact,
+                    ending: displayEnding,
+                    comfortAura: displayComfortAura,
+                    rewatchValue: displayRewatchValue,
+                  })}/12 bonuses checked · final score capped at 10.0
                 </p>
               )}
             </div>
@@ -795,13 +926,18 @@ export default function FavoriteEvaluation({
                       setActing(existingFavorite.acting);
                       setMusic(existingFavorite.music);
                       setChemistry(existingFavorite.chemistry);
-                      setCinematography(existingFavorite.cinematography);
+                      setProduction(existingFavorite.production ?? existingFavorite.cinematography);
                       setOriginality(existingFavorite.originality);
-                      setFlowAndPacing(existingFavorite.flowAndPacing);
                       setCharacterDepth(existingFavorite.characterDepth);
                       setRelationshipDynamics(existingFavorite.relationshipDynamics);
+                      setOutstandingChemistry(existingFavorite.outstandingChemistry);
+                      setNaturalSkinship(existingFavorite.naturalSkinship);
+                      setSecondaryCouple(existingFavorite.secondaryCouple);
+                      setSoundtrack(existingFavorite.soundtrack);
+                      setCinematographyBonus(existingFavorite.cinematographyBonus);
                       setEmotionalImpact(existingFavorite.emotionalImpact);
                       setEnding(existingFavorite.ending);
+                      setComfortAura(existingFavorite.comfortAura);
                       setRewatchValue(existingFavorite.rewatchValue);
                     }
                     setMode('view');

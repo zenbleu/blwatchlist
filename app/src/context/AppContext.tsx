@@ -9,11 +9,12 @@ import type {
   AirDay,
   OngoingTrackingMode,
   SpecialEpisode,
+  EpisodeRating,
 } from '@/types';
 import { saveToIndexedDB, loadFromIndexedDB } from '@/hooks/useIndexedDB';
 import type { Milestone, MilestoneType } from '@/components/MilestoneModal';
 import { trackWrappedEvent } from '@/lib/wrappedTracker';
-import { calculateEvaluationDeduction, calculateOverallRating } from '@/lib/rating';
+import { calculateEvaluationDeduction, calculateOverallRating, getEpisodeAverage, getEpisodeProgress } from '@/lib/rating';
 import { isSameEntryIdentity } from '@/lib/entry';
 
 const AIR_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
@@ -83,6 +84,22 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     ? e.season
     : undefined;
 
+  const episodeRatings = e.episodeRatings && typeof e.episodeRatings === 'object'
+    ? Object.entries(e.episodeRatings as Record<string, unknown>).reduce<Record<string, EpisodeRating>>((result, [episode, raw]) => {
+      if (!/^\d+$/.test(episode) || !raw || typeof raw !== 'object') return result;
+      const data = raw as Record<string, unknown>;
+      const rating = typeof data.rating === 'number' ? Math.min(10, Math.max(1, data.rating)) : null;
+      if (rating === null) return result;
+      result[episode] = {
+        rating,
+        ...(typeof data.commentary === 'string' && data.commentary.trim()
+          ? { commentary: data.commentary.trim() }
+          : {}),
+      };
+      return result;
+    }, {})
+    : undefined;
+
   return {
     ...(e as unknown as Entry),
     status: status as Entry['status'],
@@ -97,6 +114,7 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     lastUpdatedAt: typeof e.lastUpdatedAt === 'number'
       ? e.lastUpdatedAt
       : (typeof e.createdAt === 'number' ? e.createdAt : Date.now()),
+    ...(episodeRatings && Object.keys(episodeRatings).length > 0 ? { episodeRatings } : {}),
   };
 }
 
@@ -194,17 +212,37 @@ function validateData(data: unknown): AppState {
       acting: typeof f.acting === 'number' ? f.acting : 5,
       music: typeof f.music === 'number' ? f.music : 5,
       chemistry: typeof f.chemistry === 'number' ? f.chemistry : 5,
+      production: typeof f.production === 'number'
+        ? f.production
+        : (typeof f.cinematography === 'number' ? f.cinematography : 5),
       cinematography: typeof f.cinematography === 'number' ? f.cinematography : 5,
       originality: Boolean(f.originality),
-      flowAndPacing: Boolean(f.flowAndPacing),
       characterDepth: Boolean(f.characterDepth),
       relationshipDynamics: Boolean(f.relationshipDynamics),
+      outstandingChemistry: Boolean(f.outstandingChemistry),
+      naturalSkinship: Boolean(f.naturalSkinship),
+      secondaryCouple: Boolean(f.secondaryCouple),
+      soundtrack: Boolean(f.soundtrack),
+      cinematographyBonus: Boolean(f.cinematographyBonus),
       emotionalImpact: Boolean(f.emotionalImpact),
       ending: Boolean(f.ending),
+      comfortAura: Boolean(f.comfortAura),
       rewatchValue: Boolean(f.rewatchValue),
+      flowAndPacing: Boolean(f.flowAndPacing),
       gapPenalty: typeof f.gapPenalty === 'number' ? f.gapPenalty : 0,
       overallRating: typeof f.overallRating === 'number' ? f.overallRating : 5.0,
     })) as unknown as FavoriteEntry[];
+  const recalculatedFavorites = validFavorites.map((favorite) => {
+    const next = {
+      ...favorite,
+      storyline: getEpisodeAverage(migratedEntries.find((entry) => entry.id === favorite.entryId)?.episodeRatings) ?? favorite.storyline,
+      gapPenalty: 0,
+      overallRating: 0,
+    };
+    next.gapPenalty = calculateEvaluationDeduction(next);
+    next.overallRating = calculateOverallRating(next);
+    return next;
+  });
 
   const validRatings = (ratings as unknown as Record<string, unknown>[])
     .filter((r) => migratedEntries.some((e: Entry) => e.id === r.entryId))
@@ -214,17 +252,37 @@ function validateData(data: unknown): AppState {
       acting: typeof r.acting === 'number' ? r.acting : 5,
       music: typeof r.music === 'number' ? r.music : 5,
       chemistry: typeof r.chemistry === 'number' ? r.chemistry : 5,
+      production: typeof r.production === 'number'
+        ? r.production
+        : (typeof r.cinematography === 'number' ? r.cinematography : 5),
       cinematography: typeof r.cinematography === 'number' ? r.cinematography : 5,
       originality: Boolean(r.originality),
-      flowAndPacing: Boolean(r.flowAndPacing),
       characterDepth: Boolean(r.characterDepth),
       relationshipDynamics: Boolean(r.relationshipDynamics),
+      outstandingChemistry: Boolean(r.outstandingChemistry),
+      naturalSkinship: Boolean(r.naturalSkinship),
+      secondaryCouple: Boolean(r.secondaryCouple),
+      soundtrack: Boolean(r.soundtrack),
+      cinematographyBonus: Boolean(r.cinematographyBonus),
       emotionalImpact: Boolean(r.emotionalImpact),
       ending: Boolean(r.ending),
+      comfortAura: Boolean(r.comfortAura),
       rewatchValue: Boolean(r.rewatchValue),
+      flowAndPacing: Boolean(r.flowAndPacing),
       gapPenalty: typeof r.gapPenalty === 'number' ? r.gapPenalty : 0,
       overallRating: typeof r.overallRating === 'number' ? r.overallRating : 5.0,
     })) as unknown as FavoriteEntry[];
+  const recalculatedRatings = validRatings.map((rating) => {
+    const next = {
+      ...rating,
+      storyline: getEpisodeAverage(migratedEntries.find((entry) => entry.id === rating.entryId)?.episodeRatings) ?? rating.storyline,
+      gapPenalty: 0,
+      overallRating: 0,
+    };
+    next.gapPenalty = calculateEvaluationDeduction(next);
+    next.overallRating = calculateOverallRating(next);
+    return next;
+  });
 
   // Clean up: remove top10 entries for dropped entries
   const validTop10Drawers = (top10Drawers as unknown as Record<string, unknown>[]).map((td) => ({
@@ -245,8 +303,8 @@ function validateData(data: unknown): AppState {
     ongoing: ongoing
       .map((o) => migrateOngoing(o as Record<string, unknown>))
       .filter((o): o is OngoingEntry => o !== null),
-    favorites: validFavorites,
-    ratings: validRatings,
+    favorites: recalculatedFavorites,
+    ratings: recalculatedRatings,
     top10Drawers: validTop10Drawers,
     ongoingYear,
     watchingSince,
@@ -316,13 +374,19 @@ function evaluationChanged(previous: FavoriteEntry | undefined, next: FavoriteEn
     || previous.acting !== next.acting
     || previous.music !== next.music
     || previous.chemistry !== next.chemistry
+    || previous.production !== next.production
     || previous.cinematography !== next.cinematography
     || previous.originality !== next.originality
-    || previous.flowAndPacing !== next.flowAndPacing
     || previous.characterDepth !== next.characterDepth
     || previous.relationshipDynamics !== next.relationshipDynamics
+    || previous.outstandingChemistry !== next.outstandingChemistry
+    || previous.naturalSkinship !== next.naturalSkinship
+    || previous.secondaryCouple !== next.secondaryCouple
+    || previous.soundtrack !== next.soundtrack
+    || previous.cinematographyBonus !== next.cinematographyBonus
     || previous.emotionalImpact !== next.emotionalImpact
     || previous.ending !== next.ending
+    || previous.comfortAura !== next.comfortAura
     || previous.rewatchValue !== next.rewatchValue
     || previous.gapPenalty !== next.gapPenalty
     || previous.overallRating !== next.overallRating;
@@ -452,27 +516,40 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         acting: 5,
         music: 5,
         chemistry: 5,
+        production: 5,
         cinematography: 5,
         originality: false,
-        flowAndPacing: false,
         characterDepth: false,
         relationshipDynamics: false,
+        outstandingChemistry: false,
+        naturalSkinship: false,
+        secondaryCouple: false,
+        soundtrack: false,
+        cinematographyBonus: false,
         emotionalImpact: false,
         ending: false,
+        comfortAura: false,
         rewatchValue: false,
+        flowAndPacing: false,
         gapPenalty: 0.7,
         overallRating: calculateOverallRating({
           storyline: 5,
           acting: 5,
           music: 5,
           chemistry: 5,
+          production: 5,
           cinematography: 5,
           originality: false,
-          flowAndPacing: false,
           characterDepth: false,
           relationshipDynamics: false,
+          outstandingChemistry: false,
+          naturalSkinship: false,
+          secondaryCouple: false,
+          soundtrack: false,
+          cinematographyBonus: false,
           emotionalImpact: false,
           ending: false,
+          comfortAura: false,
           rewatchValue: false,
         })
       };
@@ -524,6 +601,40 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'REMOVE_RATING':
       return { ...state, ratings: state.ratings.filter(r => r.entryId !== action.payload) };
+
+    case 'UPDATE_EPISODE_RATING': {
+      const { entryId, episodeNumber, rating, commentary } = action.payload;
+      if (!Number.isInteger(episodeNumber) || episodeNumber < 1) return state;
+      const existingEntry = state.entries.find((entry) => entry.id === entryId);
+      if (!existingEntry) return state;
+
+      const hadEpisodeRatings = Object.keys(existingEntry.episodeRatings || {}).length > 0;
+      const episodeRatings = { ...(existingEntry.episodeRatings || {}) };
+      if (rating === undefined) {
+        delete episodeRatings[String(episodeNumber)];
+      } else {
+        episodeRatings[String(episodeNumber)] = {
+          rating: Math.min(10, Math.max(1, rating)),
+          ...(commentary?.trim() ? { commentary: commentary.trim() } : {}),
+        };
+      }
+
+      const nextEntry = {
+        ...existingEntry,
+        ...(Object.keys(episodeRatings).length > 0 ? { episodeRatings } : { episodeRatings: undefined }),
+        lastUpdatedAt: nextEntryTimestamp(state.entries),
+      };
+      const nextProgress = getEpisodeProgress(episodeRatings);
+      return {
+        ...state,
+        entries: state.entries.map((entry) => entry.id === entryId ? nextEntry : entry),
+        ongoing: state.ongoing.map((ongoing) =>
+          ongoing.entryId === entryId
+            ? { ...ongoing, currentEpisode: hadEpisodeRatings || nextProgress > 0 ? nextProgress : ongoing.currentEpisode }
+            : ongoing,
+        ),
+      };
+    }
 
     case 'UPDATE_ONGOING': {
       const existing = state.ongoing.find(o => o.entryId === action.payload.entryId);
