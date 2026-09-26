@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Check, MessageSquareText, X } from 'lucide-react';
 import type { EpisodeRating } from '@/types';
 
@@ -16,6 +16,119 @@ function ratingColor(rating: number): string {
   if (rating <= 7) return 'bg-yellow-200 border-yellow-100/70 text-slate-900';
   if (rating === 8) return 'bg-yellow-300 border-yellow-100 text-slate-900 shadow-[0_0_10px_rgba(250,204,21,0.25)]';
   return 'bg-yellow-400 border-yellow-100 text-slate-950 shadow-[0_0_13px_rgba(250,204,21,0.48)]';
+}
+
+const STAR_PATH = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
+
+function HalfStarIcon({
+  fill,
+  size = 20,
+  gradientId,
+}: {
+  fill: 'empty' | 'half' | 'full';
+  size?: number;
+  gradientId: string;
+}) {
+  const fillColor = fill === 'empty' ? '#4B5563' : fill === 'full' ? '#FACC15' : `url(#${gradientId})`;
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="50%" stopColor="#FACC15" />
+          <stop offset="50%" stopColor="#4B5563" />
+        </linearGradient>
+      </defs>
+      <path
+        d={STAR_PATH}
+        fill={fillColor}
+        stroke={fill === 'empty' ? '#4B5563' : '#FACC15'}
+        strokeWidth="0.5"
+      />
+    </svg>
+  );
+}
+
+function EpisodeInteractiveStar({
+  starIndex,
+  value,
+  hoverValue,
+  onSetValue,
+  onHoverValue,
+  gradientId,
+}: {
+  starIndex: number;
+  value: number;
+  hoverValue: number | null;
+  onSetValue: (value: number) => void;
+  onHoverValue: (value: number | null) => void;
+  gradientId: string;
+}) {
+  const displayValue = hoverValue ?? value;
+  const starValue = starIndex;
+  const fill: 'empty' | 'half' | 'full' = displayValue >= starValue
+    ? 'full'
+    : displayValue >= starValue - 0.5
+      ? 'half'
+      : 'empty';
+
+  return (
+    <div
+      className="relative flex h-8 w-8 items-center justify-center"
+      onMouseLeave={() => onHoverValue(null)}
+    >
+      <HalfStarIcon fill={fill} size={20} gradientId={gradientId} />
+      <button
+        type="button"
+        onMouseEnter={() => onHoverValue(starValue - 0.5)}
+        onClick={() => onSetValue(starValue - 0.5)}
+        className="absolute left-0 top-0 h-full w-1/2 cursor-pointer"
+        style={{ background: 'transparent', border: 'none', padding: 0, zIndex: 2 }}
+        aria-label={`Rate ${starValue - 0.5}`}
+      />
+      <button
+        type="button"
+        onMouseEnter={() => onHoverValue(starValue)}
+        onClick={() => onSetValue(starValue)}
+        className="absolute right-0 top-0 h-full w-1/2 cursor-pointer"
+        style={{ background: 'transparent', border: 'none', padding: 0, zIndex: 2 }}
+        aria-label={`Rate ${starValue}`}
+      />
+    </div>
+  );
+}
+
+function EpisodeStarRating({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const [hoverValue, setHoverValue] = useState<number | null>(null);
+  const gradientPrefix = useId().replace(/:/g, '');
+  const displayValue = hoverValue ?? value;
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-white/[0.025] px-2 py-1">
+      <div className="flex min-w-0 items-center gap-0">
+        {Array.from({ length: 10 }, (_, index) => (
+          <EpisodeInteractiveStar
+            key={index + 1}
+            starIndex={index + 1}
+            value={value}
+            hoverValue={hoverValue}
+            onSetValue={onChange}
+            onHoverValue={setHoverValue}
+            gradientId={`${gradientPrefix}-episode-star-${index + 1}`}
+          />
+        ))}
+      </div>
+      <span className="shrink-0 text-[10px] font-bold tabular-nums text-yellow-400">
+        {displayValue.toFixed(1)}
+      </span>
+    </div>
+  );
 }
 
 export default function EpisodeRatingGrid({
@@ -99,7 +212,7 @@ export default function EpisodeRatingGrid({
           <div className="mb-2 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-white">Episode {selectedEpisode}</p>
-              <p className="text-[10px] text-[#777]">Choose a rating from 1–10</p>
+              <p className="text-[10px] text-[#777]">Choose a rating from 0.5–10</p>
             </div>
             <button
               type="button"
@@ -110,22 +223,7 @@ export default function EpisodeRatingGrid({
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
-          <div className="grid grid-cols-10 gap-1">
-            {Array.from({ length: 10 }, (_, index) => index + 1).map((rating) => (
-              <button
-                key={rating}
-                type="button"
-                onClick={() => setDraftRating(rating)}
-                className={`h-7 rounded-md text-[11px] font-bold transition-colors ${
-                  draftRating === rating
-                    ? 'bg-[#E50914] text-white'
-                    : 'bg-white/[0.07] text-[#aaa] hover:bg-white/[0.14] hover:text-white'
-                }`}
-              >
-                {rating}
-              </button>
-            ))}
-          </div>
+          <EpisodeStarRating value={draftRating} onChange={setDraftRating} />
           <label className="mt-3 block">
             <span className="mb-1 flex items-center gap-1 text-[10px] text-[#888]">
               <MessageSquareText className="h-3 w-3" /> Commentary (optional)

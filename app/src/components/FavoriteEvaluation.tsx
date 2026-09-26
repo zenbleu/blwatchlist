@@ -359,12 +359,13 @@ function CategoryStarRating({
               );
             }
             return (
-              <HalfStarIcon
-                key={starIndex}
-                fill={starFills[starIndex - 1]}
-                size={16}
-                gradientId={`view-star-${label}-${starIndex}`}
-              />
+              <div key={starIndex} className="relative flex h-8 w-8 items-center justify-center">
+                <HalfStarIcon
+                  fill={starFills[starIndex - 1]}
+                  size={20}
+                  gradientId={`view-star-${label}-${starIndex}`}
+                />
+              </div>
             );
           })}
 
