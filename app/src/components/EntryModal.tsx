@@ -177,11 +177,11 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               poster={entry.poster}
               entryTitle={entry.title}
               editable
-              onChange={(episodeNumber, value) => {
+                onChange={(episodeNumber, value) => {
                 dispatch({
                   type: 'UPDATE_EPISODE_RATING',
                   payload: value
-                    ? { entryId: entry.id, episodeNumber, ...value }
+                      ? { entryId: entry.id, episodeNumber, rating: value }
                     : { entryId: entry.id, episodeNumber },
                 });
               }}

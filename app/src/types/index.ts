@@ -6,7 +6,11 @@ export type AirDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' 
 export type OngoingTrackingMode = 'recurring' | 'calendar';
 
 export interface EpisodeRating {
-  rating: number;
+  pacingFlow: number;
+  contentScript: number;
+  performanceChemistry: number;
+  plausibilityLogic: number;
+  yourRating: number;
   commentary?: string;
 }
 
@@ -197,7 +201,7 @@ export type AppAction =
   | { type: 'UPDATE_RATING'; payload: FavoriteEntry }
   | { type: 'REMOVE_RATING'; payload: string }
   | { type: 'UPDATE_ONGOING'; payload: OngoingEntry }
-  | { type: 'UPDATE_EPISODE_RATING'; payload: { entryId: string; episodeNumber: number; rating?: number; commentary?: string } }
+  | { type: 'UPDATE_EPISODE_RATING'; payload: { entryId: string; episodeNumber: number; rating?: EpisodeRating } }
   | { type: 'ADD_TO_TOP10'; payload: { year: number; entryId: string } }
   | { type: 'REMOVE_FROM_TOP10'; payload: { year: number; entryId: string } }
   | { type: 'REORDER_TOP10'; payload: { year: number; entries: Top10Entry[]; updatedEntryId?: string } }

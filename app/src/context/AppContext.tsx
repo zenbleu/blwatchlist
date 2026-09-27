@@ -89,10 +89,27 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     ? Object.entries(e.episodeRatings as Record<string, unknown>).reduce<Record<string, EpisodeRating>>((result, [episode, raw]) => {
       if (!/^\d+$/.test(episode) || !raw || typeof raw !== 'object') return result;
       const data = raw as Record<string, unknown>;
-      const rating = typeof data.rating === 'number' ? Math.min(10, Math.max(1, data.rating)) : null;
-      if (rating === null) return result;
+      const legacyRating = typeof data.rating === 'number'
+        ? Math.min(10, Math.max(1, data.rating))
+        : null;
+      const hasDetailedRating = [
+        'pacingFlow',
+        'contentScript',
+        'performanceChemistry',
+        'plausibilityLogic',
+        'yourRating',
+      ].some((field) => typeof data[field] === 'number');
+      if (legacyRating === null && !hasDetailedRating) return result;
+      const fallback = legacyRating ?? 5;
+      const readScore = (field: string) => typeof data[field] === 'number'
+        ? Math.min(10, Math.max(1, data[field] as number))
+        : fallback;
       result[episode] = {
-        rating,
+        pacingFlow: readScore('pacingFlow'),
+        contentScript: readScore('contentScript'),
+        performanceChemistry: readScore('performanceChemistry'),
+        plausibilityLogic: readScore('plausibilityLogic'),
+        yourRating: readScore('yourRating'),
         ...(typeof data.commentary === 'string' && data.commentary.trim()
           ? { commentary: data.commentary.trim() }
           : {}),
@@ -647,7 +664,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, ratings: state.ratings.filter(r => r.entryId !== action.payload) };
 
     case 'UPDATE_EPISODE_RATING': {
-      const { entryId, episodeNumber, rating, commentary } = action.payload;
+      const { entryId, episodeNumber, rating } = action.payload;
       if (!Number.isInteger(episodeNumber) || episodeNumber < 1) return state;
       const existingEntry = state.entries.find((entry) => entry.id === entryId);
       if (!existingEntry) return state;
@@ -658,8 +675,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         delete episodeRatings[String(episodeNumber)];
       } else {
         episodeRatings[String(episodeNumber)] = {
-          rating: Math.min(10, Math.max(1, rating)),
-          ...(commentary?.trim() ? { commentary: commentary.trim() } : {}),
+          pacingFlow: Math.min(10, Math.max(1, rating.pacingFlow)),
+          contentScript: Math.min(10, Math.max(1, rating.contentScript)),
+          performanceChemistry: Math.min(10, Math.max(1, rating.performanceChemistry)),
+          plausibilityLogic: Math.min(10, Math.max(1, rating.plausibilityLogic)),
+          yourRating: Math.min(10, Math.max(1, rating.yourRating)),
+          ...(rating.commentary?.trim() ? { commentary: rating.commentary.trim() } : {}),
         };
       }
 

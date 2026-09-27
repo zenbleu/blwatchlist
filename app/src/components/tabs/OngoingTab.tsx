@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { PlayCircle, ArrowUpDown, Filter, Pencil, Check, X, Calendar } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
-import type { AirDay, Entry, OngoingEntry, FavoriteEntry } from "@/types";
+import type { AirDay, Entry, OngoingEntry, FavoriteEntry, EpisodeRating } from "@/types";
 import AirDaySelector from "../AirDaySelector";
 import {
   getNextTimedSpecialEpisodeReleaseAt,
@@ -33,7 +33,7 @@ const OngoingCard = memo(function OngoingCard({
   entry: Entry;
   ongoingData: OngoingEntry;
   schedule: ReturnType<typeof getOngoingSchedule>;
-  onEpisodeRating: (entryId: string, episodeNumber: number, value?: { rating: number; commentary?: string }) => void;
+  onEpisodeRating: (entryId: string, episodeNumber: number, value?: EpisodeRating) => void;
   onSpecialWatchedChange: (entryId: string, specialId: string, watched: boolean) => void;
   onEntryClick: (entry: Entry) => void;
   onFinishPrompt: (entryId: string, schedule: ReturnType<typeof getOngoingSchedule>, ongoingData: OngoingEntry) => boolean;
@@ -367,14 +367,14 @@ export default function OngoingTab() {
   const handleEpisodeRating = useCallback((
     entryId: string,
     episodeNumber: number,
-    value?: { rating: number; commentary?: string },
+    value?: EpisodeRating,
   ) => {
     dispatch({
       type: "UPDATE_EPISODE_RATING",
       payload: {
         entryId,
         episodeNumber,
-        ...(value ?? {}),
+        ...(value ? { rating: value } : {}),
       },
     });
   }, [dispatch]);
