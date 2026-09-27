@@ -161,7 +161,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             </div>
           </section>
 
-          <section className="episode-page px-4 pb-5 pt-14" data-page-id="2" aria-hidden={!showEpisodeSummary}>
+          <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="2" aria-hidden={!showEpisodeSummary}>
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-white">Episode Summary</p>
