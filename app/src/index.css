@@ -102,6 +102,44 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .episode-page-slide {
+    display: grid;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .episode-page {
+    grid-area: 1 / 1;
+    min-width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(8px);
+    filter: blur(3px);
+    transition:
+      opacity 250ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+      filter 250ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform, filter;
+  }
+
+  .episode-page[data-page-id="1"] {
+    transform: translateX(-8px);
+  }
+
+  .episode-page-slide[data-page="1"] .episode-page[data-page-id="1"],
+  .episode-page-slide[data-page="2"] .episode-page[data-page-id="2"] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .episode-page {
+      transition: none;
+    }
+  }
 }
 
 @keyframes pulse-glow {

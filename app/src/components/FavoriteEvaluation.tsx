@@ -831,7 +831,7 @@ export default function FavoriteEvaluation({
               <div className="flex items-center justify-between">
                 <p className="text-[11px] uppercase text-[#888] tracking-wider font-medium">Episode Summary</p>
                 <span className="text-[10px] text-[#666]">
-                  {episodeAverage === null ? 'No episodes rated' : `Average ${formatRating(episodeAverage)}`}
+                  {episodeAverage === null ? 'No episodes rated' : `Average Your Rating: ${formatRating(episodeAverage)}`}
                 </span>
               </div>
               <EpisodeRatingGrid

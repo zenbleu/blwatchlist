@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Check, MessageSquareText, X } from 'lucide-react';
 import type { EpisodeRating } from '@/types';
-import { EPISODE_RATING_DESCRIPTIONS, getEpisodeOverall, formatRating } from '@/lib/rating';
+import { formatRating } from '@/lib/rating';
 import Poster from './Poster';
 
 interface EpisodeRatingGridProps {
@@ -16,10 +16,6 @@ interface EpisodeRatingGridProps {
 }
 
 const DEFAULT_EPISODE_RATING: EpisodeRating = {
-  pacingFlow: 5,
-  contentScript: 5,
-  performanceChemistry: 5,
-  plausibilityLogic: 5,
   yourRating: 5,
 };
 
@@ -198,7 +194,6 @@ function EpisodeRatingForm({
   onClear: () => void;
   onClose: () => void;
 }) {
-  const overall = getEpisodeOverall(value);
   const update = (field: keyof EpisodeRating, nextValue: number) => {
     if (field === 'commentary') return;
     onChange({ ...value, [field]: nextValue });
@@ -209,7 +204,7 @@ function EpisodeRatingForm({
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-white">Episode {episodeNumber}</p>
-          <p className="text-[10px] text-[#777]">Rate each category from 1–10</p>
+          <p className="text-[10px] text-[#777]">Rate your episode from 1–10</p>
         </div>
         <button
           type="button"
@@ -221,40 +216,7 @@ function EpisodeRatingForm({
         </button>
       </div>
 
-      <div className="mb-4 rounded-xl border border-yellow-400/20 bg-yellow-400/[0.06] px-3 py-2 text-center">
-        <p className="text-[10px] uppercase tracking-wider text-yellow-300/80">⭐ Overall Rating</p>
-        <p className="mt-0.5 text-3xl font-black tabular-nums text-yellow-300">{formatRating(overall)}</p>
-      </div>
-
       <div className="space-y-3">
-        <EpisodeRatingRow
-          label="Pacing & Flow"
-          description={EPISODE_RATING_DESCRIPTIONS.pacingFlow}
-          value={value.pacingFlow}
-          onChange={(nextValue) => update('pacingFlow', nextValue)}
-          editable
-        />
-        <EpisodeRatingRow
-          label="Content & Script"
-          description={EPISODE_RATING_DESCRIPTIONS.contentScript}
-          value={value.contentScript}
-          onChange={(nextValue) => update('contentScript', nextValue)}
-          editable
-        />
-        <EpisodeRatingRow
-          label="Performance & Chemistry"
-          description={EPISODE_RATING_DESCRIPTIONS.performanceChemistry}
-          value={value.performanceChemistry}
-          onChange={(nextValue) => update('performanceChemistry', nextValue)}
-          editable
-        />
-        <EpisodeRatingRow
-          label="Plausibility & Logic"
-          description={EPISODE_RATING_DESCRIPTIONS.plausibilityLogic}
-          value={value.plausibilityLogic}
-          onChange={(nextValue) => update('plausibilityLogic', nextValue)}
-          editable
-        />
         <EpisodeRatingRow
           label="Your Rating"
           value={value.yourRating}
@@ -345,7 +307,7 @@ export default function EpisodeRatingGrid({
         <div className={compact ? 'flex min-w-max items-end gap-1.5' : 'divide-y divide-white/[0.08] overflow-hidden rounded-xl border border-white/[0.08] bg-black/20'}>
           {episodes.map((episodeNumber) => {
             const episode = ratings[String(episodeNumber)];
-            const overall = episode ? getEpisodeOverall(episode) : null;
+            const yourRating = episode?.yourRating ?? null;
             const isAvailable = airedEpisode === null || episodeNumber <= airedEpisode;
             const isSelected = selectedEpisode === episodeNumber;
 
@@ -359,7 +321,7 @@ export default function EpisodeRatingGrid({
                     className={`flex w-full items-start gap-3 text-left transition-colors ${
                       editable && isAvailable ? 'cursor-pointer hover:bg-white/[0.04]' : 'cursor-default'
                     } ${isSelected ? 'rounded-lg bg-white/[0.05] ring-1 ring-[#E50914]/60' : ''}`}
-                    aria-label={`${episode ? `Episode ${episodeNumber}, rated ${formatRating(overall ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
+                    aria-label={`${episode ? `Episode ${episodeNumber}, Your Rating ${formatRating(yourRating ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
                   >
                     <div className="relative shrink-0">
                       <Poster src={poster} title={`${entryTitle} episode ${episodeNumber}`} size="md" />
@@ -379,7 +341,7 @@ export default function EpisodeRatingGrid({
                         </div>
                         {episode ? (
                           <span className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-yellow-400">
-                            ⭐ {formatRating(overall ?? 0)}/10
+                             ⭐ {formatRating(yourRating ?? 0)}/10
                           </span>
                         ) : (
                           <span className="shrink-0 whitespace-nowrap text-[10px] text-[#777]">
@@ -409,16 +371,16 @@ export default function EpisodeRatingGrid({
                     compact ? 'h-9 w-9 text-[11px]' : 'h-11 w-11 text-xs'
                   } ${
                     episode
-                      ? ratingColor(overall ?? 0)
+                    ? ratingColor(yourRating ?? 0)
                       : `border-dotted border-white/30 bg-white/[0.035] text-transparent ${!isAvailable ? 'opacity-45' : ''}`
                   } ${
                     isSelected ? 'ring-2 ring-[#E50914] ring-offset-2 ring-offset-[#0a0a0a]' : ''
                   } ${
                     editable && isAvailable ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
                   }`}
-                  aria-label={`${episode ? `Episode ${episodeNumber}, rated ${formatRating(overall ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
+                   aria-label={`${episode ? `Episode ${episodeNumber}, your rating ${formatRating(yourRating ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
                 >
-                  {overall !== null ? formatRating(overall) : ''}
+                   {yourRating !== null ? formatRating(yourRating) : ''}
                 </button>
               </div>
             );

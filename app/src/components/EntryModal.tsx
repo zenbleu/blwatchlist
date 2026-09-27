@@ -92,80 +92,81 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             onClick={() => setShowEpisodeSummary((open) => !open)}
             className="absolute left-1/2 top-4 -translate-x-1/2 rounded-lg bg-black/45 px-2 py-1 text-[10px] font-semibold text-[#ddd] backdrop-blur-sm hover:bg-black/70 hover:text-white"
           >
-            Episode Summary {showEpisodeSummary ? '⌃' : '>'}
+            {showEpisodeSummary ? 'Back to Details' : 'Episode Summary'}
           </button>
         </div>
 
-        {/* Poster - centered, large, dominant */}
-        <div className="flex justify-center px-6 pt-14 pb-4">
-          <div className="relative">
-            <div
-              className={`w-[220px] sm:w-[260px] h-[310px] sm:h-[370px] rounded-xl overflow-hidden bg-[#1a1a1a] transition-opacity duration-300 ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
-              style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}
-            >
-              {entry.poster ? (
-                <img
-                  src={entry.poster}
-                  alt={entry.title}
-                  className="w-full h-full object-cover"
-                  onLoad={() => setImageLoaded(true)}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Poster src={null} title={entry.title} size="lg" />
+        <div className="episode-page-slide" data-page={showEpisodeSummary ? '2' : '1'}>
+          <section className="episode-page" data-page-id="1" aria-hidden={showEpisodeSummary}>
+            {/* Poster - centered, large, dominant */}
+            <div className="flex justify-center px-6 pt-14 pb-4">
+              <div className="relative">
+                <div
+                  className={`w-[220px] sm:w-[260px] h-[310px] sm:h-[370px] rounded-xl overflow-hidden bg-[#1a1a1a] transition-opacity duration-300 ${
+                    imageLoaded ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}
+                >
+                  {entry.poster ? (
+                    <img
+                      src={entry.poster}
+                      alt={entry.title}
+                      className="w-full h-full object-cover"
+                      onLoad={() => setImageLoaded(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Poster src={null} title={entry.title} size="lg" />
+                    </div>
+                  )}
                 </div>
+                {!imageLoaded && entry.poster && (
+                  <div
+                    className="absolute inset-0 w-[220px] sm:w-[260px] h-[310px] sm:h-[370px] rounded-xl bg-[#1a1a1a] animate-pulse"
+                    style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Title with Year */}
+            <div className="text-center px-6 pb-3">
+              <div className="flex items-center justify-center gap-2">
+                <h2 className="text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
+                  {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
+                </h2>
+                <RatingTierBadge rating={rating} />
+              </div>
+              {entry.season != null && (
+                <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
               )}
             </div>
-            {/* Skeleton loader */}
-            {!imageLoaded && entry.poster && (
-              <div
-                className="absolute inset-0 w-[220px] sm:w-[260px] h-[310px] sm:h-[370px] rounded-xl bg-[#1a1a1a] animate-pulse"
-                style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}
-              />
-            )}
-          </div>
-        </div>
 
-        {/* Title with Year */}
-        <div className="text-center px-6 pb-3">
-          <div className="flex items-center justify-center gap-2">
-          <h2 className="text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
-            {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
-          </h2>
-          <RatingTierBadge rating={rating} />
-          </div>
-          {entry.season != null && (
-            <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
-          )}
-        </div>
+            {/* Status Badge - pill shaped */}
+            <div className="flex justify-center pb-3">
+              {statusConfig && (
+                <span
+                  className={`inline-flex items-center px-4 py-1.5 rounded-full text-[0.85rem] font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
+                >
+                  {statusConfig.label}
+                </span>
+              )}
+            </div>
 
-        {/* Status Badge - pill shaped */}
-        <div className="flex justify-center pb-3">
-          {statusConfig && (
-            <span
-              className={`inline-flex items-center px-4 py-1.5 rounded-full text-[0.85rem] font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
-            >
-              {statusConfig.label}
-            </span>
-          )}
-        </div>
+            {/* Type & Country */}
+            <div className="flex items-center justify-center gap-3 pb-6 text-sm" style={{ opacity: 0.7, letterSpacing: '0.5px' }}>
+              <span className="text-[#B3B3B3]">{entry.type}</span>
+              <span className="text-[#444]">|</span>
+              <span className="text-[#B3B3B3]">{entry.country}</span>
+            </div>
+          </section>
 
-        {/* Type & Country */}
-        <div className="flex items-center justify-center gap-3 pb-6 text-sm" style={{ opacity: 0.7, letterSpacing: '0.5px' }}>
-          <span className="text-[#B3B3B3]">{entry.type}</span>
-          <span className="text-[#444]">|</span>
-          <span className="text-[#B3B3B3]">{entry.country}</span>
-        </div>
-
-        {showEpisodeSummary && (
-          <div className="mx-4 mb-5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
-            <div className="mb-2 flex items-center justify-between">
+          <section className="episode-page px-4 pb-5 pt-14" data-page-id="2" aria-hidden={!showEpisodeSummary}>
+            <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-white">Episode Summary</p>
                 <p className="text-[10px] text-[#777]">
-                  {episodeAverage === null ? 'Rate each episode to calculate Storyline.' : `Average episode rating: ${formatRating(episodeAverage)}`}
+                  {episodeAverage === null ? 'Rate each episode to calculate Storyline.' : `Average Your Rating: ${formatRating(episodeAverage)}`}
                 </p>
               </div>
               <span className="text-[10px] text-[#666]">{episodeCount} episodes</span>
@@ -177,17 +178,17 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               poster={entry.poster}
               entryTitle={entry.title}
               editable
-                onChange={(episodeNumber, value) => {
+              onChange={(episodeNumber, value) => {
                 dispatch({
                   type: 'UPDATE_EPISODE_RATING',
                   payload: value
-                      ? { entryId: entry.id, episodeNumber, rating: value }
+                    ? { entryId: entry.id, episodeNumber, rating: value }
                     : { entryId: entry.id, episodeNumber },
                 });
               }}
             />
-          </div>
-        )}
+          </section>
+        </div>
       </DialogContent>
     </Dialog>
   );

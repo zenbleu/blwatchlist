@@ -92,24 +92,25 @@ function migrateEntry(e: Record<string, unknown>): Entry {
       const legacyRating = typeof data.rating === 'number'
         ? Math.min(10, Math.max(1, data.rating))
         : null;
-      const hasDetailedRating = [
+      const legacyCategoryValues = [
         'pacingFlow',
         'contentScript',
         'performanceChemistry',
         'plausibilityLogic',
-        'yourRating',
-      ].some((field) => typeof data[field] === 'number');
-      if (legacyRating === null && !hasDetailedRating) return result;
-      const fallback = legacyRating ?? 5;
-      const readScore = (field: string) => typeof data[field] === 'number'
-        ? Math.min(10, Math.max(1, data[field] as number))
-        : fallback;
+      ]
+        .map((field) => data[field])
+        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+      const legacyOverall = legacyRating ?? (
+        legacyCategoryValues.length > 0
+          ? legacyCategoryValues.reduce((sum, value) => sum + value, 0) / legacyCategoryValues.length
+          : null
+      );
+      const yourRating = typeof data.yourRating === 'number'
+        ? Math.min(10, Math.max(1, data.yourRating))
+        : legacyOverall === null ? null : Math.min(10, Math.max(1, legacyOverall));
+      if (yourRating === null) return result;
       result[episode] = {
-        pacingFlow: readScore('pacingFlow'),
-        contentScript: readScore('contentScript'),
-        performanceChemistry: readScore('performanceChemistry'),
-        plausibilityLogic: readScore('plausibilityLogic'),
-        yourRating: readScore('yourRating'),
+        yourRating,
         ...(typeof data.commentary === 'string' && data.commentary.trim()
           ? { commentary: data.commentary.trim() }
           : {}),
@@ -675,10 +676,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         delete episodeRatings[String(episodeNumber)];
       } else {
         episodeRatings[String(episodeNumber)] = {
-          pacingFlow: Math.min(10, Math.max(1, rating.pacingFlow)),
-          contentScript: Math.min(10, Math.max(1, rating.contentScript)),
-          performanceChemistry: Math.min(10, Math.max(1, rating.performanceChemistry)),
-          plausibilityLogic: Math.min(10, Math.max(1, rating.plausibilityLogic)),
           yourRating: Math.min(10, Math.max(1, rating.yourRating)),
           ...(rating.commentary?.trim() ? { commentary: rating.commentary.trim() } : {}),
         };

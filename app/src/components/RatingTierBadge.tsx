@@ -23,25 +23,21 @@ const TIER_STYLES = {
     text: 'text-red-100',
     border: 'border-red-300/70',
     background: 'bg-red-500/15',
-    glow: '0 0 8px rgba(248, 113, 113, 0.9), 0 0 22px rgba(225, 29, 72, 0.55)',
   },
   'Highly Recommended': {
     text: 'text-amber-100',
     border: 'border-amber-300/70',
     background: 'bg-amber-400/15',
-    glow: '0 0 8px rgba(253, 224, 71, 0.9), 0 0 22px rgba(245, 158, 11, 0.55)',
   },
   'Top Rated': {
     text: 'text-rose-100',
     border: 'border-rose-300/70',
     background: 'bg-rose-400/15',
-    glow: '0 0 8px rgba(253, 164, 175, 0.9), 0 0 22px rgba(244, 63, 94, 0.55)',
   },
   Hit: {
     text: 'text-fuchsia-100',
     border: 'border-fuchsia-300/70',
     background: 'bg-fuchsia-400/15',
-    glow: '0 0 8px rgba(232, 121, 249, 0.9), 0 0 22px rgba(217, 70, 239, 0.55)',
   },
 } as const;
 
@@ -69,7 +65,6 @@ export default function RatingTierBadge({
       className={`inline-flex shrink-0 items-center rounded-full border font-bold leading-none tracking-wide ${styles.text} ${styles.border} ${styles.background} ${
         compact ? 'px-1.5 py-0.5 text-[8px]' : 'px-2 py-1 text-[9px]'
       } ${className}`}
-      style={{ boxShadow: styles.glow }}
     >
       {tier}
     </span>

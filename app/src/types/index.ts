@@ -6,10 +6,6 @@ export type AirDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' 
 export type OngoingTrackingMode = 'recurring' | 'calendar';
 
 export interface EpisodeRating {
-  pacingFlow: number;
-  contentScript: number;
-  performanceChemistry: number;
-  plausibilityLogic: number;
   yourRating: number;
   commentary?: string;
 }

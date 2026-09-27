@@ -87,30 +87,10 @@ export function getRatingTier(overallRating: number, rating: Pick<FavoriteEntry,
   return null;
 }
 
-export const EPISODE_RATING_FIELDS = [
-  'pacingFlow',
-  'contentScript',
-  'performanceChemistry',
-  'plausibilityLogic',
-  'yourRating',
-] as const satisfies readonly (keyof EpisodeRating)[];
-
-export const EPISODE_RATING_DESCRIPTIONS = {
-  pacingFlow: 'Did the episode drag, or did the narrative progress naturally?',
-  contentScript: 'Was the writing smart, did the dialogue feel organic, or was it cringe-heavy?',
-  performanceChemistry: 'Did the actors deliver emotional weight, and was their shared screen time electric?',
-  plausibilityLogic: 'Did the characters act like real people, or did they make forced, frustrating decisions just to create fake drama?',
-} as const;
-
-export function getEpisodeOverall(rating: Pick<EpisodeRating, typeof EPISODE_RATING_FIELDS[number]>): number {
-  const total = EPISODE_RATING_FIELDS.reduce((sum, field) => sum + rating[field], 0);
-  return Math.round((total / EPISODE_RATING_FIELDS.length) * 100) / 100;
-}
-
 export function getEpisodeAverage(episodeRatings?: Record<string, EpisodeRating>): number | null {
   if (!episodeRatings) return null;
   const values = Object.values(episodeRatings)
-    .map(getEpisodeOverall)
+    .map((rating) => rating.yourRating)
     .filter((rating) => Number.isFinite(rating) && rating >= MIN_RATING && rating <= MAX_RATING);
   if (values.length === 0) return null;
   return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 100) / 100;

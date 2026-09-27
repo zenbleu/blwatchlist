@@ -1,0 +1,151 @@
+I have some specific revisions:
+
+Can you remove the glowing light of the tags (Masterpiece, Highly Recommended, etc.)? Just make it natural design aligned with the app similar to Airing Today, Premiere, and Final EP badge.
+
+Also remove the recent implemented 4 sub-categories (Pacing & Plot, Content & Script, etc.) rating per episode along with the displayed overall rating. Only retain the remaining category: [Your Rating]. Ensure affected files such as calculations are required to modify since there are changes. Inspect if there are any affected files, only modify them unless absolute necessary.
+
+Change the transition UI for opening Episode Summary with Page side-by-side ui instead of dropdown/accordion.
+
+You can use this code for reference only:
+
+CSS:
+/* Transitions.dev — Page side-by-side */
+
+/*
+  Usage:
+    <div class="t-page-slide" data-page="1">
+      <section class="t-page" data-page-id="1">…</section>
+      <section class="t-page" data-page-id="2">…</section>
+    </div>
+
+  State: set data-page="1" or "2" on .t-page-slide.
+  Page 1 exits to the left, page 2 exits to the right.
+  --page-exit-enabled (0/1) disables the outgoing slide.
+*/
+
+:root {
+  --page-slide-dur: 250ms;
+  --page-fade-dur: 250ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-stagger: 0ms;
+  --page-exit-enabled: 1;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-page-slide {
+  position: relative;
+}
+.t-page-slide .t-page[data-page-id="1"] {
+  --t-page-from-x: calc(var(--page-slide-distance) * -1);
+}
+.t-page-slide .t-page[data-page-id="2"] {
+  --t-page-from-x: var(--page-slide-distance);
+}
+.t-page-slide .t-page {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+  filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
+  transition:
+    opacity   var(--page-fade-dur)  var(--page-fade-ease),
+    transform var(--page-slide-dur) var(--page-slide-ease),
+    filter    var(--page-slide-dur) var(--page-slide-ease);
+  will-change: opacity, transform, filter;
+}
+.t-page-slide[data-page="1"] .t-page[data-page-id="1"],
+.t-page-slide[data-page="2"] .t-page[data-page-id="2"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  filter: blur(0);
+  transition-delay: var(--page-stagger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-page-slide .t-page { transition: none !important; }
+}
+
+React:
+// Transitions.dev — Page side-by-side (React, self-contained)
+// Drop into any React project — no extra CSS file needed.
+
+import { useState } from "react";
+
+// ── Styles ──────────────────────────────────────────────
+// Auto-injected on first import. Idempotent (guarded by
+// the element id) and SSR-safe (no-ops without document).
+const __TRANSITION_STYLES = `
+:root {
+  --page-slide-dur: 250ms;
+  --page-fade-dur: 250ms;
+  --page-slide-distance: 8px;
+  --page-blur: 3px;
+  --page-stagger: 0ms;
+  --page-exit-enabled: 1;
+  --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-page-slide {
+  position: relative;
+}
+.t-page-slide .t-page[data-page-id="1"] {
+  --t-page-from-x: calc(var(--page-slide-distance) * -1);
+}
+.t-page-slide .t-page[data-page-id="2"] {
+  --t-page-from-x: var(--page-slide-distance);
+}
+.t-page-slide .t-page {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(var(--t-page-from-x, 0px) * var(--page-exit-enabled)));
+  filter: blur(calc(var(--page-blur) * var(--page-exit-enabled)));
+  transition:
+    opacity   var(--page-fade-dur)  var(--page-fade-ease),
+    transform var(--page-slide-dur) var(--page-slide-ease),
+    filter    var(--page-slide-dur) var(--page-slide-ease);
+  will-change: opacity, transform, filter;
+}
+.t-page-slide[data-page="1"] .t-page[data-page-id="1"],
+.t-page-slide[data-page="2"] .t-page[data-page-id="2"] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  filter: blur(0);
+  transition-delay: var(--page-stagger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-page-slide .t-page { transition: none !important; }
+}
+`;
+if (typeof document !== "undefined" && !document.getElementById("transitions-p8")) {
+  const __style = document.createElement("style");
+  __style.id = "transitions-p8";
+  __style.textContent = __TRANSITION_STYLES;
+  document.head.appendChild(__style);
+}
+
+// Pair with the CSS from the CSS tab (.t-page-slide + data-page 1|2).
+export function PageSlide() {
+  const [page, setPage] = useState(1);
+
+  return (
+    <div className="t-page-slide" data-page={page}>
+      <section className="t-page" data-page-id="1">
+        <h2>Page 1</h2>
+        <button type="button" onClick={() => setPage(2)}>Next</button>
+      </section>
+      <section className="t-page" data-page-id="2">
+        <h2>Page 2</h2>
+        <button type="button" onClick={() => setPage(1)}>Back</button>
+      </section>
+    </div>
+  );
+}
