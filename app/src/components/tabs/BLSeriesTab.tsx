@@ -2,13 +2,14 @@ import { useState, useMemo, memo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Heart, Star, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import type { Entry } from "@/types";
+import type { Entry, FavoriteEntry } from "@/types";
 import { getOngoingSchedule } from "@/lib/episodeSchedule";
 import Poster from "../Poster";
 import StatusBadge from "../StatusBadge";
 import EntryModal from "../EntryModal";
 import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
+import RatingTierBadge from "../RatingTierBadge";
 import { formatSeasonLabel } from "@/lib/entry";
 import {
   AlertDialog,
@@ -47,6 +48,7 @@ const EntryCard = memo(function EntryCard({
   onView,
   canAddToTop10,
   airingBadge,
+  rating,
 }: {
   entry: Entry;
   favorited: boolean;
@@ -59,6 +61,7 @@ const EntryCard = memo(function EntryCard({
   onView: (entry: Entry) => void;
   canAddToTop10: boolean;
   airingBadge: "Airing Today" | "Final EP" | "Special Episode" | null;
+  rating?: FavoriteEntry;
 }) {
   const completed = entry.status === 'COMPLETE';
   return (
@@ -85,7 +88,10 @@ const EntryCard = memo(function EntryCard({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold truncate">{entry.title}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="text-base font-bold truncate">{entry.title}</p>
+              <RatingTierBadge rating={rating} compact />
+            </div>
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
@@ -420,6 +426,7 @@ export default function BLSeriesTab() {
                   onView={handleView}
                   canAddToTop10={canAddToTop10}
                   airingBadge={airingBadge}
+                  rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
                 />
               );
             })

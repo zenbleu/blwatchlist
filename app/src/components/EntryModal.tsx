@@ -9,6 +9,7 @@ import { getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
 import { getOngoingSchedule } from '@/lib/episodeSchedule';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
+import RatingTierBadge from './RatingTierBadge';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -17,12 +18,12 @@ interface EntryModalProps {
 }
 
 export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) {
-  const { dispatch, isFavorited, getRatingByEntryId, getOngoingByEntryId } = useApp();
+  const { dispatch, isFavorited, getFavoriteByEntryId, getRatingByEntryId, getOngoingByEntryId } = useApp();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [showEpisodeSummary, setShowEpisodeSummary] = useState(false);
 
   const favorited = entry ? isFavorited(entry.id) : false;
-  const rating = entry ? getRatingByEntryId(entry.id) : null;
+  const rating = entry ? (getRatingByEntryId(entry.id) ?? getFavoriteByEntryId(entry.id)) : null;
   const ongoing = entry ? getOngoingByEntryId(entry.id) : undefined;
   const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const episodeCount = entry
@@ -129,9 +130,12 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
 
         {/* Title with Year */}
         <div className="text-center px-6 pb-3">
+          <div className="flex items-center justify-center gap-2">
           <h2 className="text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
             {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
           </h2>
+          <RatingTierBadge rating={rating} />
+          </div>
           {entry.season != null && (
             <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
           )}

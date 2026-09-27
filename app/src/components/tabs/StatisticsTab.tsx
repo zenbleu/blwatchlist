@@ -20,6 +20,7 @@ import { useApp } from '@/context/AppContext';
 import type { Entry } from '@/types';
 import ShareButton from '../ShareCard';
 import { formatRating } from '@/lib/rating';
+import RatingTierBadge from '../RatingTierBadge';
 
 /* ============================================================
    Full-Screen Modal Component
@@ -299,7 +300,10 @@ function HighestRatedModal() {
 
           {/* Info */}
           <div className="flex-1 min-w-0">
-            <p className="text-white font-semibold text-sm truncate">{entry.title}</p>
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="text-white font-semibold text-sm truncate">{entry.title}</p>
+              <RatingTierBadge rating={state.favorites.find((favorite) => favorite.entryId === entry.id)} compact />
+            </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[#888] text-xs">{entry.type}</span>
               <span className="text-[#555] text-xs">&bull;</span>

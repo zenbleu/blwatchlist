@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import type { Entry, OngoingEntry, AirDay, SpecialEpisode } from "@/types";
 import Poster from "./Poster";
+import RatingTierBadge from "./RatingTierBadge";
+import { useApp } from "@/context/AppContext";
 
 const WEEK_DAYS: AirDay[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_LABELS: Record<AirDay, string> = {
@@ -40,6 +42,7 @@ export default function CalendarSheet({
   plannedEntries,
   onEntryClick,
 }: CalendarSheetProps) {
+  const { state } = useApp();
   const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" }) as AirDay;
   const [selectedDay, setSelectedDay] = useState<AirDay>(todayName);
 
@@ -281,9 +284,15 @@ export default function CalendarSheet({
                       >
                         <Poster src={entry.poster} title={entry.title} size="sm" />
                         <div className="text-left">
-                          <p className="text-white text-xs font-semibold truncate max-w-[100px]">
-                            {entry.title}
-                          </p>
+                          <div className="flex max-w-[100px] items-center gap-1">
+                            <p className="text-white text-xs font-semibold truncate">
+                              {entry.title}
+                            </p>
+                            <RatingTierBadge
+                              rating={state.favorites.find((rating) => rating.entryId === entry.id) ?? state.ratings.find((rating) => rating.entryId === entry.id)}
+                              compact
+                            />
+                          </div>
                           <p className="text-[#666] text-[10px]">{entry.year}</p>
                         </div>
                       </button>
@@ -343,9 +352,15 @@ export default function CalendarSheet({
                             size="sm"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-semibold truncate">
-                              {item.entry.title}
-                            </p>
+                            <div className="flex min-w-0 items-center gap-1">
+                              <p className="text-white text-xs font-semibold truncate">
+                                {item.entry.title}
+                              </p>
+                              <RatingTierBadge
+                                rating={state.favorites.find((rating) => rating.entryId === item.entry.id) ?? state.ratings.find((rating) => rating.entryId === item.entry.id)}
+                                compact
+                              />
+                            </div>
                             <p className="text-[#666] text-[10px]">
                               {epInfo}
                               {epInfo && (

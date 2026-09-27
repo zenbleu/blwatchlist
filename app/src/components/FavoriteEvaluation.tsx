@@ -11,9 +11,9 @@ import {
   formatRating,
   getBonusCount,
   getEpisodeAverage,
-  getRatingTier,
 } from '@/lib/rating';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
+import RatingTierBadge from './RatingTierBadge';
 
 /* ============================================================
    Animated Counter Hook
@@ -737,8 +737,6 @@ export default function FavoriteEvaluation({
     comfortAura: displayComfortAura,
     rewatchValue: displayRewatchValue,
   };
-  const ratingTier = getRatingTier(displayOverall, displayedBonuses);
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -758,11 +756,10 @@ export default function FavoriteEvaluation({
                 <h2 className="text-sm font-bold text-white truncate">
                   {entry.title}
                 </h2>
-                {ratingTier && (
-                  <span className="shrink-0 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[9px] font-bold text-yellow-300">
-                    {ratingTier}
-                  </span>
-                )}
+                <RatingTierBadge
+                  rating={{ overallRating: displayOverall, ...displayedBonuses }}
+                  compact
+                />
               </div>
               <button
                 onClick={onClose}

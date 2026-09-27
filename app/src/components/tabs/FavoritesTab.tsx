@@ -5,6 +5,7 @@ import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
 import RatingCircle from "../RatingCircle";
 import FavoriteEvaluation from "../FavoriteEvaluation";
+import RatingTierBadge from "../RatingTierBadge";
 import { formatRating } from "@/lib/rating";
 import { formatSeasonLabel } from "@/lib/entry";
 type SortOption = "ratingDesc" | "ratingAsc" | "yearDesc" | "yearAsc" | "titleAZ" | "titleZA";
@@ -197,7 +198,10 @@ export default function FavoritesTab() {
             >
               <Poster src={entry.poster} title={entry.title} size="lg" />
               <div className="flex-1 min-w-0">
-                <h3 className="text-white text-sm font-semibold truncate">{entry.title}</h3>
+                <div className="flex min-w-0 items-center gap-2">
+                  <h3 className="text-white text-sm font-semibold truncate">{entry.title}</h3>
+                  <RatingTierBadge rating={fav} compact />
+                </div>
                 <p className="text-[#888] text-xs mt-0.5">{entry.year} &middot; {entry.country}</p>
                 {entry.season != null && (
                   <p className="text-[#B3B3B3] text-[10px] mt-1">{formatSeasonLabel(entry.season)}</p>
