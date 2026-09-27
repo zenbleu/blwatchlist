@@ -59,7 +59,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
       <DialogContent
         showCloseButton={true}
         closeButtonClassName="top-4 right-4 z-20"
-         className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] p-0 overflow-y-auto overflow-x-hidden shadow-2xl max-h-[90vh]"
+         className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] p-0 overflow-x-hidden shadow-2xl"
       >
         {/* Top Bar: Heart (top-left) + Rating (top-right, before X button) */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-4">
