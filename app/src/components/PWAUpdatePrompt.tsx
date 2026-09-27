@@ -9,7 +9,8 @@ import { useState } from 'react';
  *
  * Silently checks for a new service-worker version in the background.
  * When a new build finishes downloading, a branded toast slides up from
- * the bottom of the screen offering the user a one-click update.
+ * the bottom of the screen offering the user a one-click update. This also
+ * runs inside the Windows shell, which loads the app from GitHub Pages.
  */
 export default function PWAUpdatePrompt() {
   const [dismissed, setDismissed] = useState(false);
@@ -46,7 +47,7 @@ export default function PWAUpdatePrompt() {
 
   return (
     <AnimatePresence>
-      {visible && !isDesktopShell && (
+      {visible && (
         <motion.div
           key="pwa-update-prompt"
           initial={{ opacity: 0, y: 80, scale: 0.96 }}
@@ -72,7 +73,9 @@ export default function PWAUpdatePrompt() {
                 A new update is ready.
               </p>
               <p className="mt-0.5 text-xs text-zinc-400 leading-relaxed">
-                The latest version of BL Watchlist is ready to install.
+                 {isDesktopShell
+                   ? 'The latest version has finished downloading. Reload to use it.'
+                   : 'The latest version of BL Watchlist is ready to install.'}
               </p>
 
               {/* Action buttons */}
