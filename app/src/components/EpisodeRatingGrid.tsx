@@ -4,6 +4,7 @@ import type { EpisodeRating } from '@/types';
 import { formatRating } from '@/lib/rating';
 import Poster from './Poster';
 
+
 interface EpisodeRatingGridProps {
   ratings?: Record<string, EpisodeRating>;
   totalEpisodes: number;
@@ -18,6 +19,28 @@ interface EpisodeRatingGridProps {
 const DEFAULT_EPISODE_RATING: EpisodeRating = {
   yourRating: 5,
 };
+
+const FLOW_COLUMN_WIDTH = 48;
+const FLOW_COLUMN_GAP = 8;
+const FLOW_BASELINE = 68;
+const FLOW_MAX_BAR_HEIGHT = 56;
+
+function flowRatingColor(rating: number): { fill: string; text: string } {
+  if (rating <= 4) return { fill: '#64748b', text: '#ffffff' };
+  if (rating <= 7) return { fill: '#fef08a', text: '#1f2937' };
+  if (rating === 8) return { fill: '#fcd34d', text: '#1f2937' };
+  return { fill: '#facc15', text: '#111827' };
+}
+
+function buildFlowPath(values: Array<number | null>): string {
+  return values.reduce((path, rating, index) => {
+    if (rating === null) return path;
+    const x = FLOW_COLUMN_WIDTH / 2 + index * (FLOW_COLUMN_WIDTH + FLOW_COLUMN_GAP);
+    const y = FLOW_BASELINE - (rating / 10) * FLOW_MAX_BAR_HEIGHT;
+    const previousRating = index > 0 ? values[index - 1] : null;
+    return `${path}${previousRating === null ? 'M' : 'L'} ${x} ${y} `;
+  }, '');
+}
 
 function ratingColor(rating: number): string {
   if (rating <= 4) return 'bg-slate-500/70 border-slate-300/30 text-white';
@@ -179,6 +202,104 @@ function EpisodeRatingRow({
   );
 }
 
+function EpisodeRatingFlow({
+  episodes,
+  ratings,
+}: {
+  episodes: number[];
+  ratings: Record<string, EpisodeRating>;
+}) {
+  const values = episodes.map((episodeNumber) => ratings[String(episodeNumber)]?.yourRating ?? null);
+  const chartWidth = Math.max(
+    FLOW_COLUMN_WIDTH,
+    episodes.length * FLOW_COLUMN_WIDTH + Math.max(0, episodes.length - 1) * FLOW_COLUMN_GAP,
+  );
+  const trendPath = buildFlowPath(values);
+
+  return (
+    <div className="rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#bdbdbd]">Episode Rating Flow</p>
+          <p className="text-[10px] text-[#666]">See where the show rises and falls</p>
+        </div>
+        <span className="shrink-0 text-[10px] text-[#777]">Your Rating · 1–10</span>
+      </div>
+
+      <div
+        className="overflow-x-auto pb-0.5 scrollbar-hide"
+        role="img"
+        aria-label="Episode rating flow chart"
+      >
+        <div className="relative h-[104px]" style={{ width: chartWidth }}>
+          <div className="absolute inset-x-0 top-[68px] border-t border-dashed border-white/20" />
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute left-0 top-0 overflow-visible"
+            width={chartWidth}
+            height={104}
+            viewBox={`0 0 ${chartWidth} 104`}
+          >
+            <path
+              d={trendPath}
+              fill="none"
+              stroke="#facc15"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              opacity="0.75"
+            />
+            {values.map((rating, index) => {
+              if (rating === null) return null;
+              const x = FLOW_COLUMN_WIDTH / 2 + index * (FLOW_COLUMN_WIDTH + FLOW_COLUMN_GAP);
+              const y = FLOW_BASELINE - (rating / 10) * FLOW_MAX_BAR_HEIGHT;
+              const color = flowRatingColor(rating);
+              return <circle key={episodes[index]} cx={x} cy={y} r="2.5" fill={color.fill} stroke="#111" strokeWidth="1" />;
+            })}
+          </svg>
+
+          <div className="absolute left-0 top-0 flex h-[104px] items-start" style={{ gap: FLOW_COLUMN_GAP }}>
+            {episodes.map((episodeNumber, index) => {
+              const rating = values[index];
+              const color = rating === null ? null : flowRatingColor(rating);
+              const barHeight = rating === null
+                ? 10
+                : Math.max(12, (rating / 10) * FLOW_MAX_BAR_HEIGHT);
+
+              return (
+                <div key={episodeNumber} className="relative h-[104px] shrink-0" style={{ width: FLOW_COLUMN_WIDTH }}>
+                  <div className="absolute bottom-[36px] flex h-[68px] w-full items-end justify-center">
+                    <div
+                      className={`relative flex w-10 items-center justify-center overflow-hidden rounded-md border text-[10px] font-semibold tabular-nums ${
+                        rating === null ? 'border-dashed border-white/20 bg-white/[0.035] text-[#666]' : ''
+                      }`}
+                      style={{
+                        height: barHeight,
+                        ...(color
+                          ? {
+                              borderColor: 'rgba(255,255,255,0.35)',
+                              color: color.text,
+                              background: `linear-gradient(to top, ${color.fill} 0%, ${color.fill} 34%, rgba(255,255,255,0.08) 35%, rgba(255,255,255,0.08) 100%)`,
+                            }
+                          : {}),
+                      }}
+                    >
+                      {rating === null ? '—' : formatRating(rating)}
+                    </div>
+                  </div>
+                  <span className="absolute bottom-1 left-0 w-full text-center text-[10px] font-semibold text-[#bdbdbd]">
+                    E{episodeNumber}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EpisodeRatingForm({
   episodeNumber,
   value,
@@ -303,6 +424,8 @@ export default function EpisodeRatingGrid({
 
   return (
     <div className="relative space-y-2">
+      {!compact && <EpisodeRatingFlow episodes={episodes} ratings={ratings} />}
+
       <div className="overflow-x-auto pb-1 scrollbar-hide">
         <div className={compact ? 'flex min-w-max items-end gap-1.5' : 'divide-y divide-white/[0.08] overflow-hidden rounded-xl border border-white/[0.08] bg-black/20'}>
           {episodes.map((episodeNumber) => {
