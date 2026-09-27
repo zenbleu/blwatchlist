@@ -19,7 +19,12 @@ import Poster from '../Poster';
 import RatingCircle from '../RatingCircle';
 import EntryModal from '../EntryModal';
 import type { Entry, OngoingEntry, FavoriteEntry } from '@/types';
-import { getNextUpcomingRelease, getOngoingSchedule, type UpcomingRelease } from '@/lib/episodeSchedule';
+import {
+  getNextPlannedPremiereRelease,
+  getNextUpcomingRelease,
+  getOngoingSchedule,
+  type UpcomingRelease,
+} from '@/lib/episodeSchedule';
 import { formatRating } from '@/lib/rating';
 import RatingTierBadge from '../RatingTierBadge';
 
@@ -483,7 +488,7 @@ function UpcomingReleasesSection({
   onEntryClick,
   ratingEntryById,
 }: {
-  releases: { entry: Entry; ongoingData: OngoingEntry; release: UpcomingRelease }[];
+  releases: { entry: Entry; ongoingData?: OngoingEntry; release: UpcomingRelease }[];
   now: Date;
   onEntryClick: (entry: Entry) => void;
   ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
@@ -505,7 +510,9 @@ function UpcomingReleasesSection({
           {releases.slice(0, 6).map(({ entry, release }) => {
             const releaseTitle = release.type === 'special'
               ? `Special ${release.specialEpisode?.specialNumber ?? ''} · ${release.specialEpisode?.title ?? 'Special Episode'}`
-              : `Episode ${release.episodeNumber ?? 'next'} / ${entry.type === 'Series' ? 'series' : 'title'}`;
+              : release.isPremiere
+                ? 'Premiere'
+                : `Episode ${release.episodeNumber ?? 'next'} / ${entry.type === 'Series' ? 'series' : 'title'}`;
 
             return (
               <button
@@ -520,7 +527,15 @@ function UpcomingReleasesSection({
                     <p className="truncate text-sm font-bold text-white group-hover:text-[#ff6670]">{entry.title}</p>
                     <RatingTierBadge rating={ratingEntryById.get(entry.id)} compact />
                   </div>
-                  <p className="mt-1 truncate text-[10px] text-[#B3B3B3]">{releaseTitle}</p>
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                    {release.isPremiere ? (
+                      <span className="shrink-0 rounded-full bg-[#E50914] px-2 py-0.5 text-[10px] font-bold text-white">
+                        Premiere
+                      </span>
+                    ) : (
+                      <p className="truncate text-[10px] text-[#B3B3B3]">{releaseTitle}</p>
+                    )}
+                  </div>
                   <div className="mt-2 flex items-center justify-between gap-2 text-[10px]">
                     <span className="text-[#E50914]">{formatReleaseDate(release.releaseAt, now)}</span>
                     <span className="truncate text-[#777]">{formatReleaseCountdown(release, now)}</span>
@@ -987,18 +1002,31 @@ export default function OverviewTab() {
   }, [ongoingItems]);
 
   const upcomingReleases = useMemo(() => {
-    return ongoingItems
+    const ongoingReleases = ongoingItems
       .map(({ entry, ongoingData }) => {
         const release = getNextUpcomingRelease(ongoingData, now);
         return release ? { entry, ongoingData, release } : null;
       })
       .filter(Boolean)
-      .sort((a, b) => a!.release.releaseAt.getTime() - b!.release.releaseAt.getTime()) as {
+      .map((item) => item!)
+      .sort((a, b) => a.release.releaseAt.getTime() - b.release.releaseAt.getTime());
+
+    const plannedReleases = state.entries
+      .filter((entry) => entry.status === 'PLANNED')
+      .map((entry) => {
+        const release = getNextPlannedPremiereRelease(entry.plannedDate, now);
+        return release ? { entry, release } : null;
+      })
+      .filter(Boolean)
+      .map((item) => item!);
+
+    return [...ongoingReleases, ...plannedReleases]
+      .sort((a, b) => a.release.releaseAt.getTime() - b.release.releaseAt.getTime()) as {
         entry: Entry;
-        ongoingData: OngoingEntry;
+        ongoingData?: OngoingEntry;
         release: UpcomingRelease;
       }[];
-  }, [ongoingItems, now]);
+  }, [ongoingItems, state.entries, now]);
 
   const recentlyCompleted = useMemo(() => {
     return state.entries

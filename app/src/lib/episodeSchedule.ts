@@ -22,6 +22,7 @@ export interface UpcomingRelease {
   episodeNumber?: number;
   specialEpisode?: SpecialEpisode;
   hasExactTime: boolean;
+  isPremiere?: boolean;
 }
 
 /**
@@ -68,6 +69,30 @@ function parseDateOnly(value: string): Date | null {
     return null;
   }
   return date;
+}
+
+export function isDateOnlyOnOrBefore(value: string, now = new Date()): boolean {
+  const date = parseDateOnly(value);
+  if (!date) return false;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return date <= today;
+}
+
+export function getNextPlannedPremiereRelease(
+  plannedDate: string | undefined,
+  now = new Date(),
+): UpcomingRelease | null {
+  if (!plannedDate) return null;
+  const releaseDate = parseDateOnly(plannedDate);
+  if (!releaseDate || isDateOnlyOnOrBefore(plannedDate, now)) return null;
+
+  return {
+    releaseAt: releaseDate,
+    type: 'episode',
+    episodeNumber: 1,
+    hasExactTime: false,
+    isPremiere: true,
+  };
 }
 
 function parseReleaseTime(value: string): { hours: number; minutes: number } | null {

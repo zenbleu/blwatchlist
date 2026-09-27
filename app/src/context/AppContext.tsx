@@ -16,6 +16,7 @@ import type { Milestone, MilestoneType } from '@/components/MilestoneModal';
 import { trackWrappedEvent } from '@/lib/wrappedTracker';
 import { calculateEvaluationDeduction, calculateOverallRating, getEpisodeAverage, getEpisodeProgress } from '@/lib/rating';
 import { isSameEntryIdentity } from '@/lib/entry';
+import { isDateOnlyOnOrBefore } from '@/lib/episodeSchedule';
 
 const AIR_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
@@ -350,6 +351,19 @@ function nextEntryTimestamp(entries: Entry[]): number {
   return Math.max(Date.now(), latestTimestamp + 1);
 }
 
+function createOngoingFromPlanned(entry: Entry): OngoingEntry {
+  return {
+    entryId: entry.id,
+    currentEpisode: 0,
+    totalEpisodes: 1,
+    airDays: [getCurrentDay() as AirDay],
+    firstAirDate: entry.plannedDate,
+    trackingMode: 'calendar',
+    releaseDates: [entry.plannedDate as string],
+    premiereEpisodeCount: 1,
+  };
+}
+
 function touchEntry(entries: Entry[], entryId: string): Entry[] {
   const timestamp = nextEntryTimestamp(entries);
   return entries.map((entry) =>
@@ -416,6 +430,36 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_STATE':
       return action.payload;
+
+    case 'PROMOTE_PLANNED_ENTRIES': {
+      const plannedEntries = state.entries.filter(
+        (entry) => entry.status === 'PLANNED'
+          && entry.plannedDate
+          && isDateOnlyOnOrBefore(entry.plannedDate),
+      );
+      if (plannedEntries.length === 0) return state;
+
+      const timestamp = nextEntryTimestamp(state.entries);
+      const promotedIds = new Set(plannedEntries.map((entry) => entry.id));
+      const entries = state.entries.map((entry) => {
+        if (!promotedIds.has(entry.id)) return entry;
+        return {
+          ...entry,
+          status: 'ONGOING' as const,
+          lastUpdatedAt: timestamp,
+        };
+      });
+      let ongoing = [...state.ongoing];
+
+      plannedEntries.forEach((entry) => {
+        const existing = ongoing.find((item) => item.entryId === entry.id);
+        if (!existing) {
+          ongoing.push(createOngoingFromPlanned(entry));
+        }
+      });
+
+      return { ...state, entries, ongoing };
+    }
 
     case 'ADD_ENTRY': {
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
@@ -855,6 +899,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }, 500);
     return () => clearTimeout(timer);
   }, [state, isLoaded]);
+
+  // Planned entries with a release date become ongoing on the first render
+  // after that local calendar date arrives. The interval also handles an app
+  // that remains open across midnight.
+  useEffect(() => {
+    if (!isLoaded) return;
+    const promotePlannedEntries = () => {
+      dispatch({ type: 'PROMOTE_PLANNED_ENTRIES' });
+    };
+
+    promotePlannedEntries();
+    const timer = window.setInterval(promotePlannedEntries, 60_000);
+    return () => window.clearInterval(timer);
+  }, [isLoaded, state.entries]);
 
   // Process milestone queue
   useEffect(() => {

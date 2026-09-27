@@ -7,6 +7,7 @@ import type { AirDay, Entry, OngoingEntry, FavoriteEntry } from "@/types";
 import AirDaySelector from "../AirDaySelector";
 import {
   getNextTimedSpecialEpisodeReleaseAt,
+  getDateOnly,
   getOngoingSchedule,
   isOngoingTitleComplete,
 } from "@/lib/episodeSchedule";
@@ -40,7 +41,9 @@ const OngoingCard = memo(function OngoingCard({
 }) {
   const isAiringToday = schedule.isAiringToday;
   const isSpecialEpisodeToday = schedule.isSpecialEpisodeScheduledToday;
-  const showBadge = isAiringToday || isSpecialEpisodeToday || schedule.isFinalEpisodeScheduledToday;
+  const premiereDate = ongoingData.firstAirDate || [...(ongoingData.releaseDates || [])].sort()[0];
+  const isPremiereToday = premiereDate === getDateOnly();
+  const showBadge = isPremiereToday || isAiringToday || isSpecialEpisodeToday || schedule.isFinalEpisodeScheduledToday;
   const progressTotal = schedule.totalEpisodes || ongoingData.totalEpisodes;
   const specialEpisodes = ongoingData.specialEpisodes || [];
   const watchedSpecialEpisodes = specialEpisodes.filter((special) => special.watched).length;
@@ -101,13 +104,17 @@ const OngoingCard = memo(function OngoingCard({
             </div>
             {showBadge && (
               <span className={`shrink-0 whitespace-nowrap text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                 schedule.isFinalEpisodeScheduledToday
+                 isPremiereToday
+                   ? "bg-[#E50914]"
+                   : schedule.isFinalEpisodeScheduledToday
                    ? "bg-orange-500"
                    : isSpecialEpisodeToday
                      ? "bg-yellow-400 text-black"
                      : "bg-[#E50914]"
               }`}>
-                 {schedule.isFinalEpisodeScheduledToday
+                 {isPremiereToday
+                   ? "Premiere"
+                   : schedule.isFinalEpisodeScheduledToday
                    ? "Final EP"
                    : isSpecialEpisodeToday
                      ? "Special Episode"

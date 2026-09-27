@@ -23,7 +23,8 @@ export interface Entry {
   createdAt: number;
   /** Timestamp of the most recent meaningful user update. */
   lastUpdatedAt: number;
-  plannedDate?: string; // ISO date string (YYYY-MM-DD), only for PLANNED status
+  /** Release date entered for a Planned entry; retained as the premiere date after promotion. */
+  plannedDate?: string; // ISO date string (YYYY-MM-DD)
   /** Episode ratings keyed by episode number. */
   episodeRatings?: Record<string, EpisodeRating>;
 }
@@ -206,6 +207,7 @@ export type AppAction =
   | { type: 'SET_ONGOING_YEAR'; payload: number }
   | { type: 'SET_WATCHING_SINCE'; payload: number | null }
   | { type: 'SET_IMPORT_MODE'; payload: boolean }
+  | { type: 'PROMOTE_PLANNED_ENTRIES' }
   | { type: 'PUSH_MILESTONE'; payload: Milestone }
   | { type: 'POP_MILESTONE' }
   | { type: 'CLEAR_MILESTONE_QUEUE' }

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Heart, Star, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import type { Entry, FavoriteEntry } from "@/types";
-import { getOngoingSchedule } from "@/lib/episodeSchedule";
+import { getDateOnly, getOngoingSchedule } from "@/lib/episodeSchedule";
 import Poster from "../Poster";
 import StatusBadge from "../StatusBadge";
 import EntryModal from "../EntryModal";
@@ -60,7 +60,7 @@ const EntryCard = memo(function EntryCard({
   onDelete: (id: string) => void;
   onView: (entry: Entry) => void;
   canAddToTop10: boolean;
-  airingBadge: "Airing Today" | "Final EP" | "Special Episode" | null;
+  airingBadge: "Airing Today" | "Final EP" | "Special Episode" | "Premiere" | null;
   rating?: FavoriteEntry;
 }) {
   const completed = entry.status === 'COMPLETE';
@@ -104,7 +104,9 @@ const EntryCard = memo(function EntryCard({
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {airingBadge && (
               <span className={`whitespace-nowrap text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                 airingBadge === "Final EP"
+                 airingBadge === "Premiere"
+                   ? "bg-[#E50914]"
+                   : airingBadge === "Final EP"
                    ? "bg-orange-500"
                    : airingBadge === "Special Episode"
                      ? "bg-yellow-400 text-black"
@@ -404,7 +406,11 @@ export default function BLSeriesTab() {
                 ? state.ongoing.find((item) => item.entryId === entry.id)
                 : undefined;
               const schedule = ongoing ? getOngoingSchedule(ongoing, now) : null;
-              const airingBadge = schedule?.isFinalEpisodeScheduledToday
+              const premiereDate = ongoing?.firstAirDate || [...(ongoing?.releaseDates || [])].sort()[0];
+              const isPremiereToday = premiereDate === getDateOnly(now);
+              const airingBadge = isPremiereToday
+                ? "Premiere"
+                : schedule?.isFinalEpisodeScheduledToday
                 ? "Final EP"
                 : schedule?.isSpecialEpisodeScheduledToday
                   ? "Special Episode"
