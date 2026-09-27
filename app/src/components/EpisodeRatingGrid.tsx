@@ -26,10 +26,10 @@ const FLOW_BASELINE = 68;
 const FLOW_MAX_BAR_HEIGHT = 56;
 
 function flowRatingColor(rating: number): { fill: string; text: string } {
-  if (rating <= 4) return { fill: '#64748b', text: '#ffffff' };
-  if (rating <= 7) return { fill: '#fef08a', text: '#1f2937' };
-  if (rating === 8) return { fill: '#fcd34d', text: '#1f2937' };
-  return { fill: '#facc15', text: '#111827' };
+  if (rating <= 4) return { fill: '#64748b', text: '#f8fafc' };
+  if (rating <= 7) return { fill: '#fef08a', text: '#fef08a' };
+  if (rating === 8) return { fill: '#fcd34d', text: '#fde68a' };
+  return { fill: '#facc15', text: '#fde047' };
 }
 
 function buildFlowPath(values: Array<number | null>): string {
