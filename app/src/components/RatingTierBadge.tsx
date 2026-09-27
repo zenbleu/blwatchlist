@@ -20,28 +20,28 @@ type TierEntry = Pick<
 
 const TIER_STYLES = {
   Masterpiece: {
-    text: 'text-fuchsia-100',
-    border: 'border-fuchsia-300/70',
-    background: 'bg-fuchsia-400/15',
-    glow: '0 0 8px rgba(232, 121, 249, 0.85), 0 0 22px rgba(217, 70, 239, 0.45)',
+    text: 'text-red-100',
+    border: 'border-red-300/70',
+    background: 'bg-red-500/15',
+    glow: '0 0 8px rgba(248, 113, 113, 0.9), 0 0 22px rgba(225, 29, 72, 0.55)',
   },
   'Highly Recommended': {
-    text: 'text-cyan-100',
-    border: 'border-cyan-300/70',
-    background: 'bg-cyan-400/15',
-    glow: '0 0 8px rgba(103, 232, 249, 0.85), 0 0 22px rgba(6, 182, 212, 0.45)',
-  },
-  'Top Rated': {
     text: 'text-amber-100',
     border: 'border-amber-300/70',
     background: 'bg-amber-400/15',
-    glow: '0 0 8px rgba(253, 224, 71, 0.85), 0 0 22px rgba(245, 158, 11, 0.45)',
+    glow: '0 0 8px rgba(253, 224, 71, 0.9), 0 0 22px rgba(245, 158, 11, 0.55)',
   },
-  Hit: {
+  'Top Rated': {
     text: 'text-rose-100',
     border: 'border-rose-300/70',
     background: 'bg-rose-400/15',
-    glow: '0 0 8px rgba(253, 164, 175, 0.8), 0 0 20px rgba(244, 63, 94, 0.4)',
+    glow: '0 0 8px rgba(253, 164, 175, 0.9), 0 0 22px rgba(244, 63, 94, 0.55)',
+  },
+  Hit: {
+    text: 'text-fuchsia-100',
+    border: 'border-fuchsia-300/70',
+    background: 'bg-fuchsia-400/15',
+    glow: '0 0 8px rgba(232, 121, 249, 0.9), 0 0 22px rgba(217, 70, 239, 0.55)',
   },
 } as const;
 

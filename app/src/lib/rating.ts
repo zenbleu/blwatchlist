@@ -78,12 +78,12 @@ export function calculateEvaluationDeduction(rating: Pick<FavoriteEntry, 'origin
 }
 
 export function getRatingTier(overallRating: number, rating: Pick<FavoriteEntry, 'originality' | 'characterDepth' | 'relationshipDynamics' | 'outstandingChemistry' | 'naturalSkinship' | 'secondaryCouple' | 'soundtrack' | 'cinematographyBonus' | 'emotionalImpact' | 'ending' | 'comfortAura' | 'rewatchValue'>): 'Masterpiece' | 'Highly Recommended' | 'Top Rated' | 'Hit' | null {
-  if (overallRating < MAX_RATING) return null;
   const count = getBonusCount(rating);
-  if (count >= 12) return 'Masterpiece';
-  if (count >= 8) return 'Highly Recommended';
-  if (count >= 5) return 'Top Rated';
-  if (count >= 3) return 'Hit';
+
+  if (count === BONUS_CATEGORY_COUNT && overallRating === 10) return 'Masterpiece';
+  if (count >= 8 && overallRating >= 9.8 && overallRating <= 9.9) return 'Highly Recommended';
+  if (count >= 5 && overallRating >= 9.5 && overallRating <= 9.7) return 'Top Rated';
+  if (count >= 3 && overallRating >= 9.3 && overallRating <= 9.6) return 'Hit';
   return null;
 }
 
