@@ -104,13 +104,15 @@
   }
 
   .episode-page-slide {
-    display: grid;
+    display: block;
     position: relative;
     overflow: hidden;
   }
 
   .episode-page {
-    grid-area: 1 / 1;
+    position: absolute;
+    inset: 0;
+    width: 100%;
     min-width: 0;
     opacity: 0;
     pointer-events: none;
@@ -129,6 +131,7 @@
 
   .episode-page-slide[data-page="1"] .episode-page[data-page-id="1"],
   .episode-page-slide[data-page="2"] .episode-page[data-page-id="2"] {
+    position: relative;
     opacity: 1;
     pointer-events: auto;
     transform: translateX(0);
