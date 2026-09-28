@@ -120,20 +120,23 @@ function getGameEntries(entries: Entry[], game: QuizGame): Entry[] {
   return entries.filter((entry) => Boolean(entry.poster) && entryMatchesGame(entry, game));
 }
 
-function buildQuestions(entries: Entry[], game: QuizGame): QuizQuestion[] {
+function buildQuestions(entries: Entry[], game: QuizGame, roundSeed: number): QuizQuestion[] {
   const playableEntries = getGameEntries(entries, game);
   const fallbackEntries = entries.filter((entry) => Boolean(entry.poster));
   if (playableEntries.length === 0 || fallbackEntries.length < 3) return [];
 
-  const answerOrder = seededShuffle(playableEntries, `${game.id}:answers`);
+  // Sample the full country pool without repeating until every title has
+  // appeared once. Smaller pools cycle to keep every round at 20 questions.
+  const answerOrder = seededShuffle(playableEntries, `${game.id}:answers:${roundSeed}`);
+  const optionPool = playableEntries.length >= 3 ? playableEntries : fallbackEntries;
   return Array.from({ length: QUESTIONS_PER_GAME }, (_, questionIndex) => {
     const answer = answerOrder[questionIndex % answerOrder.length];
     const distractors = seededShuffle(
-      fallbackEntries.filter((entry) => entry.id !== answer.id),
-      `${game.id}:${answer.id}:${questionIndex}:options`,
+      optionPool.filter((entry) => entry.id !== answer.id),
+      `${game.id}:${roundSeed}:${answer.id}:${questionIndex}:options`,
     ).slice(0, 2);
-    const options = seededShuffle([answer, ...distractors], `${game.id}:${questionIndex}:order`);
-    const cropSeed = hashString(`${game.id}:${answer.id}:${questionIndex}:crop`);
+    const options = seededShuffle([answer, ...distractors], `${game.id}:${roundSeed}:${questionIndex}:order`);
+    const cropSeed = hashString(`${game.id}:${roundSeed}:${answer.id}:${questionIndex}:crop`);
 
     return {
       answer,
@@ -141,7 +144,7 @@ function buildQuestions(entries: Entry[], game: QuizGame): QuizQuestion[] {
       crop: {
         x: 12 + (cropSeed % 76),
         y: 10 + ((cropSeed >>> 8) % 78),
-        size: 170 + ((cropSeed >>> 16) % 55),
+        size: 330 + ((cropSeed >>> 16) % 111),
       },
     };
   });
@@ -180,8 +183,8 @@ function StackedPosterCards({
       {[0, 1, 2].map((cardIndex) => {
         const entry = visibleEntries[cardIndex];
         const isCenter = cardIndex === 1;
-        const closedX = (cardIndex - 1) * 10;
-        const closedRotate = (cardIndex - 1) * 7;
+        const closedX = 0;
+        const closedRotate = 0;
         const openX = (cardIndex - 1) * (large ? 70 : 58);
         const openRotate = (cardIndex - 1) * 10;
 
@@ -196,7 +199,7 @@ function StackedPosterCards({
               x: isHovered ? openX : closedX,
               y: isHovered && !isCenter ? (cardIndex === 0 ? 4 : -4) : 0,
               rotate: isHovered ? openRotate : closedRotate,
-              scale: isCenter ? 1 : isHovered ? 0.98 : 0.96,
+              scale: isHovered && !isCenter ? 0.98 : 1,
             }}
             transition={{ type: 'spring', stiffness: 360, damping: 24 }}
           >
@@ -291,12 +294,18 @@ function QuizRound({
   game,
   entries,
   onBack,
+  roundSeed,
 }: {
   game: QuizGame;
   entries: Entry[];
   onBack: () => void;
+  roundSeed: number;
 }) {
-  const questions = useMemo(() => buildQuestions(entries, game), [entries, game]);
+  const [restartSeed, setRestartSeed] = useState(0);
+  const questions = useMemo(
+    () => buildQuestions(entries, game, roundSeed + restartSeed),
+    [entries, game, restartSeed, roundSeed],
+  );
   const [questionIndex, setQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
@@ -333,6 +342,7 @@ function QuizRound({
   };
 
   const restart = () => {
+    setRestartSeed((seed) => seed + 1);
     setQuestionIndex(0);
     setScore(0);
     setAnsweredCount(0);
@@ -521,6 +531,7 @@ function GameLibrary({
 export default function BLGamesPanel({ entries }: { entries: Entry[] }) {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [activeGame, setActiveGame] = useState<QuizGame | null>(null);
+  const [quizRoundSeed, setQuizRoundSeed] = useState(0);
   const previewEntries = useMemo(
     () => seededShuffle(entries.filter((entry) => Boolean(entry.poster)), 'overview-bl-games').slice(0, 3),
     [entries],
@@ -529,6 +540,10 @@ export default function BLGamesPanel({ entries }: { entries: Entry[] }) {
   const closeLibrary = () => {
     setLibraryOpen(false);
     setActiveGame(null);
+  };
+  const startGame = (game: QuizGame) => {
+    setQuizRoundSeed((seed) => seed + 1);
+    setActiveGame(game);
   };
 
   return (
@@ -560,7 +575,7 @@ export default function BLGamesPanel({ entries }: { entries: Entry[] }) {
       <Dialog open={libraryOpen} onOpenChange={(open) => !open && closeLibrary()}>
         <DialogContent
           showCloseButton={false}
-          className="h-[min(92vh,900px)] max-h-[calc(100vh-1rem)] w-[calc(100%-1rem)] max-w-7xl overflow-hidden border-white/[0.1] bg-[#0a0a0a] p-0 text-white shadow-2xl"
+          className="!fixed !inset-0 !left-0 !top-0 !h-screen !max-h-none !w-screen !max-w-none !translate-x-0 !translate-y-0 !rounded-none !border-0 overflow-hidden bg-[#0a0a0a] p-0 text-white shadow-2xl"
         >
           <DialogTitle className="sr-only">BL Games</DialogTitle>
           <DialogDescription className="sr-only">Choose a cover piece guessing game or play an active quiz.</DialogDescription>
@@ -573,10 +588,15 @@ export default function BLGamesPanel({ entries }: { entries: Entry[] }) {
             >
               <X className="h-4 w-4" />
             </button>
-            <GameLibrary entries={entries} onStart={setActiveGame} />
+            <GameLibrary entries={entries} onStart={startGame} />
             {activeGame && (
               <div className="absolute inset-0 z-20 bg-[#0a0a0a]">
-                <QuizRound game={activeGame} entries={entries} onBack={() => setActiveGame(null)} />
+                <QuizRound
+                  game={activeGame}
+                  entries={entries}
+                  roundSeed={quizRoundSeed}
+                  onBack={() => setActiveGame(null)}
+                />
               </div>
             )}
           </div>
