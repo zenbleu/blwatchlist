@@ -270,6 +270,7 @@ function FilmographyRow({
   favorite,
   top10,
   onSaveCredit,
+  onRemoveCredit,
 }: {
   entry: Entry;
   credit: ActorCredit;
@@ -277,6 +278,7 @@ function FilmographyRow({
   favorite: boolean;
   top10: { year: number; rank: number } | null;
   onSaveCredit: (credit: ActorCredit) => void;
+  onRemoveCredit: () => void;
 }) {
   const episodeRating = getEpisodeAverage(entry.episodeRatings);
   const overallRating = rating?.overallRating || episodeRating;
@@ -290,9 +292,20 @@ function FilmographyRow({
               <h3 className="truncate text-sm font-bold text-white">{entry.title}</h3>
               <p className="mt-1 text-[11px] text-[#777]">{entry.year} · {entry.country}{entry.season != null ? ` · ${formatSeasonLabel(entry.season)}` : ''}</p>
             </div>
-            <span className={`rounded-full px-2 py-1 text-[10px] ${entry.status === 'COMPLETE' ? 'bg-emerald-500/15 text-emerald-400' : entry.status === 'ONGOING' ? 'bg-amber-500/15 text-amber-400' : 'bg-white/[0.08] text-[#999]'}`}>
-              {entry.status === 'COMPLETE' ? 'Completed' : entry.status[0] + entry.status.slice(1).toLowerCase()}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-2 py-1 text-[10px] ${entry.status === 'COMPLETE' ? 'bg-emerald-500/15 text-emerald-400' : entry.status === 'ONGOING' ? 'bg-amber-500/15 text-amber-400' : 'bg-white/[0.08] text-[#999]'}`}>
+                {entry.status === 'COMPLETE' ? 'Completed' : entry.status[0] + entry.status.slice(1).toLowerCase()}
+              </span>
+              <button
+                type="button"
+                onClick={onRemoveCredit}
+                className="rounded-md p-1.5 text-[#666] transition-colors hover:bg-[#E50914]/10 hover:text-[#E50914]"
+                aria-label={`Remove ${entry.title} from filmography`}
+                title="Remove from filmography"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[#999]">
             <span className={`rounded-full px-2 py-1 ${credit.role === 'MAIN' ? 'bg-[#E50914]/15 text-[#ff6970]' : 'bg-white/[0.08] text-[#aaa]'}`}>{credit.role === 'MAIN' ? 'Main Role' : 'Supporting Role'}</span>
@@ -358,6 +371,7 @@ function ActorDetail({
           favorite={isFavorited(entry.id)}
           top10={isInTop10(entry.id)}
           onSaveCredit={(next) => dispatch({ type: 'UPDATE_ACTOR_CREDIT', payload: { actorId: actor.id, ...next } })}
+          onRemoveCredit={() => dispatch({ type: 'REMOVE_ACTOR_CREDIT', payload: { actorId: actor.id, entryId: entry.id } })}
         />
       ))}
     </section>

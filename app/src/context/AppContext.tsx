@@ -579,6 +579,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
 
+    case 'REMOVE_ACTOR_CREDIT': {
+      const { actorId, entryId } = action.payload;
+      return {
+        ...state,
+        actors: state.actors.map((actor) => actor.id === actorId
+          ? { ...actor, filmography: actor.filmography.filter((credit) => credit.entryId !== entryId) }
+          : actor),
+      };
+    }
+
     case 'UPDATE_ENTRY': {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
