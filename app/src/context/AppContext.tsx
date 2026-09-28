@@ -589,6 +589,24 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
 
+    case 'BULK_ADD_ACTOR_CREDITS': {
+      const actorIds = new Set(action.payload.actorIds);
+      const entryIds = [...new Set(action.payload.entryIds)];
+      return {
+        ...state,
+        actors: state.actors.map((actor) => {
+          if (!actorIds.has(actor.id)) return actor;
+          const existingEntryIds = new Set(actor.filmography.map((credit) => credit.entryId));
+          const newCredits: ActorCredit[] = entryIds
+            .filter((entryId) => !existingEntryIds.has(entryId))
+            .map((entryId) => ({ entryId, character: '', role: action.payload.role }));
+          return newCredits.length > 0
+            ? { ...actor, filmography: [...actor.filmography, ...newCredits] }
+            : actor;
+        }),
+      };
+    }
+
     case 'UPDATE_ENTRY': {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;

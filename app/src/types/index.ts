@@ -215,6 +215,7 @@ export type AppAction =
   | { type: 'DELETE_ACTOR'; payload: string }
   | { type: 'UPDATE_ACTOR_CREDIT'; payload: { actorId: string; entryId: string; character: string; role: ActorRole } }
   | { type: 'REMOVE_ACTOR_CREDIT'; payload: { actorId: string; entryId: string } }
+  | { type: 'BULK_ADD_ACTOR_CREDITS'; payload: { actorIds: string[]; entryIds: string[]; role: ActorRole } }
   | { type: 'TOGGLE_FAVORITE'; payload: string }
   | { type: 'UPDATE_FAVORITE'; payload: FavoriteEntry }
   | { type: 'REMOVE_FAVORITE'; payload: string }

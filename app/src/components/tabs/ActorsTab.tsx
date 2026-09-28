@@ -4,10 +4,12 @@ import {
   ArrowLeft,
   ArrowUpDown,
   CalendarDays,
+  Check,
   ChevronDown,
   Edit3,
   Heart,
   ImagePlus,
+  ListPlus,
   Pencil,
   Plus,
   Search,
@@ -482,6 +484,117 @@ function FilmographyEmpty() {
   return <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06]"><Star className="h-5 w-5 text-[#555]" /></div>;
 }
 
+function BulkCastDialog({
+  open,
+  onOpenChange,
+  actors,
+  entries,
+  onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  actors: Actor[];
+  entries: Entry[];
+  onAdd: (entryIds: string[], role: ActorRole) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [role, setRole] = useState<ActorRole>('MAIN');
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchingEntries = [...entries]
+    .filter((entry) => !normalizedQuery
+      || `${entry.title} ${entry.year} ${entry.country} ${entry.type}`.toLocaleLowerCase().includes(normalizedQuery))
+    .sort((a, b) => b.year - a.year || a.title.localeCompare(b.title));
+
+  const toggleEntry = (entryId: string) => {
+    setSelectedEntryIds((current) => current.includes(entryId)
+      ? current.filter((id) => id !== entryId)
+      : [...current, entryId]);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-lg">
+        <div>
+          <p className="text-xs uppercase tracking-[0.16em] text-[#E50914]">Bulk cast</p>
+          <h2 className="mt-1 text-xl font-bold">Add actors to entries</h2>
+          <p className="mt-2 text-xs text-[#777]">
+            Add {actors.length} selected actors to one or more BL entries at once.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {actors.map((actor) => (
+            <span key={actor.id} className="rounded-full bg-white/[0.07] px-2.5 py-1 text-[11px] text-[#B3B3B3]">
+              {actor.name}
+            </span>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-medium text-[#B3B3B3]">
+            Search entries
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search your BL titles"
+              className={fieldClass}
+              autoFocus
+            />
+          </label>
+          <div className="max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-1">
+            {matchingEntries.length > 0 ? matchingEntries.map((entry) => {
+              const selected = selectedEntryIds.includes(entry.id);
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => toggleEntry(entry.id)}
+                  aria-pressed={selected}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${selected ? 'bg-[#E50914]/15' : 'hover:bg-white/[0.05]'}`}
+                >
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${selected ? 'border-[#E50914] bg-[#E50914] text-white' : 'border-white/20 text-transparent'}`}>
+                    <Check className="h-3 w-3" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-white">{entry.title}</span>
+                  <span className="shrink-0 text-[10px] text-[#777]">{entry.year} · {entry.type}</span>
+                </button>
+              );
+            }) : (
+              <p className="px-3 py-4 text-center text-xs text-[#777]">No matching entries in your BL list.</p>
+            )}
+          </div>
+          <p className="text-[11px] text-[#777]">{selectedEntryIds.length} {selectedEntryIds.length === 1 ? 'entry' : 'entries'} selected</p>
+        </div>
+
+        <label className="block text-xs font-medium text-[#B3B3B3]">
+          Role for all selected credits
+          <select value={role} onChange={(event) => setRole(event.target.value as ActorRole)} className={`w-full rounded-md border px-3 text-sm outline-none ${fieldClass}`}>
+            <option value="MAIN">Main Role</option>
+            <option value="SUPPORTING">Supporting Role</option>
+          </select>
+        </label>
+
+        <p className="rounded-xl bg-white/[0.04] p-3 text-[11px] leading-relaxed text-[#777]">
+          New credits start without a character name. You can add character names later from each actor&apos;s filmography.
+        </p>
+
+        <div className="flex justify-end gap-2 border-t border-white/[0.08] pt-4">
+          <button type="button" onClick={() => onOpenChange(false)} className="rounded-lg px-4 py-2 text-sm text-[#B3B3B3] hover:bg-white/[0.06]">Cancel</button>
+          <button
+            type="button"
+            disabled={selectedEntryIds.length === 0}
+            onClick={() => onAdd(selectedEntryIds, role)}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#E50914] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ListPlus className="h-4 w-4" /> Add cast
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ActorsTab() {
   const { state, dispatch } = useApp();
   const [query, setQuery] = useState('');
@@ -493,8 +606,13 @@ export default function ActorsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedActorIds, setSelectedActorIds] = useState<string[]>([]);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkDialogVersion, setBulkDialogVersion] = useState(0);
 
   const selectedActor = state.actors.find((actor) => actor.id === selectedActorId) ?? null;
+  const selectedActors = state.actors.filter((actor) => selectedActorIds.includes(actor.id));
   const nationalities = useMemo(() => [...new Set(state.actors.map((actor) => actor.nationality))].sort(), [state.actors]);
 
   const visibleActors = useMemo(() => {
@@ -529,6 +647,26 @@ export default function ActorsTab() {
     setFormOpen(false);
     setEditingActor(null);
   };
+  const toggleSelectionMode = () => {
+    setSelectionMode((current) => !current);
+    setSelectedActorIds([]);
+  };
+  const toggleActorSelection = (actorId: string) => {
+    setSelectedActorIds((current) => current.includes(actorId)
+      ? current.filter((id) => id !== actorId)
+      : [...current, actorId]);
+  };
+  const openBulkDialog = () => {
+    if (selectedActorIds.length < 2) return;
+    setBulkDialogVersion((version) => version + 1);
+    setBulkDialogOpen(true);
+  };
+  const addBulkCast = (entryIds: string[], role: ActorRole) => {
+    dispatch({ type: 'BULK_ADD_ACTOR_CREDITS', payload: { actorIds: selectedActorIds, entryIds, role } });
+    setBulkDialogOpen(false);
+    setSelectionMode(false);
+    setSelectedActorIds([]);
+  };
 
   if (selectedActor) {
     return (
@@ -556,9 +694,14 @@ export default function ActorsTab() {
           </div>
           <p className="mt-1 text-sm text-[#777]">Your cast library for main and supporting actors.</p>
         </div>
-        <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E50914] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/30">
-          <Plus className="h-4 w-4" /> Add actor
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={toggleSelectionMode} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold ${selectionMode ? 'bg-white/[0.1] text-white' : 'border border-white/10 bg-white/[0.04] text-[#B3B3B3]'}`}>
+            <ListPlus className="h-4 w-4" /> {selectionMode ? 'Done selecting' : 'Select multiple'}
+          </button>
+          <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E50914] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/30">
+            <Plus className="h-4 w-4" /> Add actor
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-2xl border border-white/[0.08] bg-[#111] p-3 sm:flex-row">
@@ -580,6 +723,18 @@ export default function ActorsTab() {
           </select>
         </label>
       </div>
+
+      {selectionMode && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#E50914]/25 bg-[#E50914]/[0.06] p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-white">{selectedActorIds.length} actors selected</p>
+            <p className="mt-1 text-[11px] text-[#999]">Select at least 2 actors to add them as a cast together.</p>
+          </div>
+          <button type="button" onClick={openBulkDialog} disabled={selectedActorIds.length < 2} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#E50914] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            <ListPlus className="h-4 w-4" /> Add to entries
+          </button>
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {showFilters && (
@@ -609,17 +764,22 @@ export default function ActorsTab() {
       ) : (
         <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 lg:grid-cols-5">
           {visibleActors.map((actor) => (
-            <motion.div key={actor.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="group relative min-w-0 text-center">
-              <button type="button" onClick={() => setSelectedActorId(actor.id)} className="flex w-full flex-col items-center rounded-2xl p-2 text-center transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]">
+            <motion.div key={actor.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`group relative min-w-0 text-center ${selectionMode && selectedActorIds.includes(actor.id) ? 'rounded-2xl bg-[#E50914]/10 ring-1 ring-[#E50914]/50' : ''}`}>
+              {selectionMode && (
+                <span className={`absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border ${selectedActorIds.includes(actor.id) ? 'border-[#E50914] bg-[#E50914] text-white' : 'border-white/20 bg-[#161616] text-transparent'}`}>
+                  <Check className="h-3.5 w-3.5" />
+                </span>
+              )}
+              <button type="button" onClick={() => selectionMode ? toggleActorSelection(actor.id) : setSelectedActorId(actor.id)} aria-pressed={selectionMode ? selectedActorIds.includes(actor.id) : undefined} className="flex w-full flex-col items-center rounded-2xl p-2 text-center transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]">
                 <ActorAvatar actor={actor} size="md" />
                 <p className="mt-3 w-full truncate text-sm font-bold text-white">{actor.name}</p>
                 <p className="mt-1 w-full truncate text-xs text-[#777]">{actor.nationality}</p>
                 <span className="mt-2 text-[10px] text-[#555]">{actor.filmography.length} {actor.filmography.length === 1 ? 'title' : 'titles'}</span>
               </button>
-              <div className="absolute right-0 top-0 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              {!selectionMode && <div className="absolute right-0 top-0 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <button type="button" onClick={() => openEdit(actor)} className="rounded-full bg-[#222] p-2 text-[#aaa] hover:text-white" aria-label={`Edit ${actor.name}`}><Pencil className="h-3 w-3" /></button>
                 <button type="button" onClick={() => setDeleteId(actor.id)} className="rounded-full bg-[#222] p-2 text-[#aaa] hover:text-[#E50914]" aria-label={`Delete ${actor.name}`}><Trash2 className="h-3 w-3" /></button>
-              </div>
+              </div>}
             </motion.div>
           ))}
         </div>
@@ -644,6 +804,15 @@ export default function ActorsTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BulkCastDialog
+        key={bulkDialogVersion}
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        actors={selectedActors}
+        entries={state.entries}
+        onAdd={addBulkCast}
+      />
     </div>
   );
 }
