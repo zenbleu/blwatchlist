@@ -130,9 +130,9 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             </div>
 
             {/* Title with Year */}
-            <div className="text-center px-6 pb-3">
-              <div className="flex items-center justify-center gap-2">
-                <h2 className="text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
+            <div className="px-6 pb-3 text-center">
+              <div className="flex flex-col items-center justify-center gap-2">
+                <h2 className="text-center text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
                   {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
                 </h2>
                 <RatingTierBadge rating={rating} />

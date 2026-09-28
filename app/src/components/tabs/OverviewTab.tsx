@@ -580,10 +580,10 @@ function RecentlyCompletedSection({
               onClick={() => onEntryClick(entry)}
               className="group relative w-28 shrink-0 text-left"
             >
-              <div className="relative">
-                <Poster src={entry.poster} title={entry.title} size="lg" className="h-40 w-28 rounded-xl" />
+              <div className="relative h-40 w-28 overflow-hidden rounded-xl">
+                <Poster src={entry.poster} title={entry.title} size="lg" className="!h-full !w-full !rounded-xl" />
                 {rating !== undefined && (
-                  <div className="absolute right-1.5 top-1.5 rounded-full bg-black/70 backdrop-blur-sm">
+                  <div className="absolute right-1 top-1 z-10 rounded-full bg-black/70 backdrop-blur-sm">
                     <RatingCircle rating={rating} size={30} />
                   </div>
                 )}
