@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Heart, Pencil, Star, UsersRound } from 'lucide-react';
+import { Heart, Star, UserRound, UsersRound } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useApp } from '@/context/AppContext';
 import Poster from './Poster';
@@ -199,9 +199,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
           </section>
 
           <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="3" aria-hidden={activePage !== 'cast'}>
-            <CastPanel entry={entry} actors={state.actors} onUpdate={(actorId, character, role) => {
-              dispatch({ type: 'UPDATE_ACTOR_CREDIT', payload: { actorId, entryId: entry.id, character, role } });
-            }} />
+            <CastPanel entry={entry} actors={state.actors} />
           </section>
         </div>
       </DialogContent>
@@ -212,11 +210,9 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
 function CastPanel({
   entry,
   actors,
-  onUpdate,
 }: {
   entry: Entry;
   actors: ReturnType<typeof useApp>['state']['actors'];
-  onUpdate: (actorId: string, character: string, role: ActorRole) => void;
 }) {
   const credits = actors
     .map((actor) => ({ actor, credit: actor.filmography.find((credit) => credit.entryId === entry.id) }))
@@ -230,7 +226,7 @@ function CastPanel({
     <div className="space-y-5">
       <div>
         <p className="text-sm font-bold text-white">Cast</p>
-        <p className="mt-1 text-[10px] text-[#777]">Edit character names and roles for {entry.title}.</p>
+        <p className="mt-1 text-[10px] text-[#777]">Actors credited in {entry.title}.</p>
       </div>
       {groups.map((group) => {
         const groupCredits = credits.filter(({ credit }) => credit.role === group.role);
@@ -245,7 +241,7 @@ function CastPanel({
             ) : (
               <div className="space-y-2">
                 {groupCredits.map(({ actor, credit }) => (
-                  <CastRow key={actor.id} actor={actor} credit={credit} onUpdate={onUpdate} />
+                  <CastRow key={actor.id} actor={actor} credit={credit} />
                 ))}
               </div>
             )}
@@ -264,33 +260,24 @@ function CastPanel({
 function CastRow({
   actor,
   credit,
-  onUpdate,
 }: {
   actor: { id: string; name: string; photo: string | null };
   credit: { entryId: string; character: string; role: ActorRole };
-  onUpdate: (actorId: string, character: string, role: ActorRole) => void;
 }) {
-  const [character, setCharacter] = useState(credit.character);
-  const [role, setRole] = useState(credit.role);
-  const changed = character !== credit.character || role !== credit.role;
   return (
     <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#141414] p-2.5">
       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#222]">
-        {actor.photo ? <img src={actor.photo} alt={actor.name} className="h-full w-full object-cover" /> : <UsersRound className="mx-auto mt-3 h-5 w-5 text-[#666]" />}
+        {actor.photo ? <img src={actor.photo} alt={actor.name} className="h-full w-full object-cover" /> : <UserRound className="mx-auto mt-3 h-5 w-5 text-[#666]" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-bold text-white">{actor.name}</p>
-        <div className="mt-1 flex gap-2">
-          <input value={character} onChange={(event) => setCharacter(event.target.value)} placeholder="Character" className="h-8 min-w-0 flex-1 rounded-md border border-white/10 bg-white/[0.04] px-2 text-[11px] text-white outline-none focus:border-[#E50914]" />
-          <select value={role} onChange={(event) => setRole(event.target.value as ActorRole)} className="h-8 w-[112px] rounded-md border border-white/10 bg-[#1b1b1b] px-1 text-[10px] text-white outline-none focus:border-[#E50914]">
-            <option value="MAIN">Main Role</option>
-            <option value="SUPPORTING">Supporting</option>
-          </select>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <span className="truncate text-[11px] text-[#999]">as {credit.character || 'Character not set'}</span>
+          <span className={`rounded-full px-2 py-1 text-[10px] ${credit.role === 'MAIN' ? 'bg-[#E50914]/15 text-[#ff6970]' : 'bg-white/[0.08] text-[#aaa]'}`}>
+            {credit.role === 'MAIN' ? 'Main Role' : 'Supporting Role'}
+          </span>
         </div>
       </div>
-      <button type="button" disabled={!changed} onClick={() => onUpdate(actor.id, character.trim(), role)} className="rounded-md p-2 text-[#777] hover:bg-white/[0.08] hover:text-white disabled:opacity-30" aria-label={`Save ${actor.name}`}>
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
     </div>
   );
 }

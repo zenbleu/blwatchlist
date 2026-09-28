@@ -209,7 +209,32 @@ function CreditEditor({
 }) {
   const [character, setCharacter] = useState(credit.character);
   const [role, setRole] = useState<ActorRole>(credit.role);
+  const [isEditing, setIsEditing] = useState(false);
   const changed = character !== credit.character || role !== credit.role;
+
+  if (!isEditing) {
+    return (
+      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-black/20 p-3">
+        <div className="min-w-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+          <span className="truncate text-[#B3B3B3]">
+            <span className="text-[#666]">Character:</span> {credit.character || 'Character not set'}
+          </span>
+          <span className={`rounded-full px-2 py-1 ${credit.role === 'MAIN' ? 'bg-[#E50914]/15 text-[#ff6970]' : 'bg-white/[0.08] text-[#aaa]'}`}>
+            {credit.role === 'MAIN' ? 'Main Role' : 'Supporting Role'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsEditing(true)}
+          className="shrink-0 rounded-md p-2 text-[#777] hover:bg-white/[0.08] hover:text-white"
+          aria-label={`Edit character and role for ${entry.title}`}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-3 grid gap-2 rounded-xl border border-white/[0.08] bg-black/20 p-3 sm:grid-cols-[1fr_150px_auto] sm:items-end">
       <label className="text-[11px] font-medium text-[#888]">
@@ -226,7 +251,10 @@ function CreditEditor({
       <button
         type="button"
         disabled={!changed}
-        onClick={() => onSave({ entryId: entry.id, character: character.trim(), role })}
+        onClick={() => {
+          onSave({ entryId: entry.id, character: character.trim(), role });
+          setIsEditing(false);
+        }}
         className="flex h-10 items-center justify-center gap-1 rounded-md bg-white/[0.08] px-3 text-xs font-semibold text-white disabled:opacity-30"
       >
         <Pencil className="h-3.5 w-3.5" /> Save
