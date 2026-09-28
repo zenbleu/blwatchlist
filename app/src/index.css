@@ -40,6 +40,17 @@
     overscroll-behavior-y: none;
   }
 
+  /* Keep native select popovers readable in dark mode as well as their closed state. */
+  select {
+    color-scheme: dark;
+  }
+
+  select option,
+  select optgroup {
+    background-color: #1a1a1a;
+    color: #ffffff;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 4px;

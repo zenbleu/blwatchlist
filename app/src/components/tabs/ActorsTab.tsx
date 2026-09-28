@@ -15,7 +15,6 @@ import {
   Trash2,
   UserRound,
   UsersRound,
-  X,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import type { Actor, ActorCredit, ActorRole, Entry } from '@/types';
@@ -293,6 +292,8 @@ function ActorDetail({
 }) {
   const { state, dispatch, isFavorited, isInTop10 } = useApp();
   const [addingEntryId, setAddingEntryId] = useState('');
+  const [entrySearch, setEntrySearch] = useState('');
+  const [entryPickerOpen, setEntryPickerOpen] = useState(false);
   const [addingRole, setAddingRole] = useState<ActorRole>('MAIN');
   const [addingCharacter, setAddingCharacter] = useState('');
   const credits = actor.filmography
@@ -309,6 +310,8 @@ function ActorDetail({
       payload: { actorId: actor.id, entryId: addingEntryId, character: addingCharacter, role: addingRole },
     });
     setAddingEntryId('');
+    setEntrySearch('');
+    setEntryPickerOpen(false);
     setAddingCharacter('');
   };
 
@@ -333,6 +336,14 @@ function ActorDetail({
   ) : null;
 
   const availableEntries = state.entries.filter((entry) => !actor.filmography.some((credit) => credit.entryId === entry.id));
+  const selectedEntry = availableEntries.find((entry) => entry.id === addingEntryId);
+  const matchingEntries = availableEntries
+    .filter((entry) => {
+      const normalizedQuery = entrySearch.trim().toLocaleLowerCase();
+      if (!normalizedQuery) return true;
+      return `${entry.title} ${entry.year} ${entry.country} ${entry.type}`.toLocaleLowerCase().includes(normalizedQuery);
+    })
+    .slice(0, 8);
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
@@ -362,10 +373,43 @@ function ActorDetail({
           <h2 className="text-sm font-bold">Add to filmography</h2>
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_170px_170px_auto]">
-          <select value={addingEntryId} onChange={(event) => setAddingEntryId(event.target.value)} className={`w-full rounded-md border px-3 text-sm outline-none ${fieldClass}`}>
-            <option value="">Choose a BL title</option>
-            {availableEntries.map((entry) => <option key={entry.id} value={entry.id}>{entry.title} ({entry.year})</option>)}
-          </select>
+          <div className="relative">
+            <Input
+              value={selectedEntry ? `${selectedEntry.title} (${selectedEntry.year})` : entrySearch}
+              onChange={(event) => {
+                setEntrySearch(event.target.value);
+                setAddingEntryId('');
+                setEntryPickerOpen(true);
+              }}
+              onFocus={() => setEntryPickerOpen(true)}
+              onBlur={() => window.setTimeout(() => setEntryPickerOpen(false), 120)}
+              placeholder="Search your BL titles"
+              className={fieldClass}
+              aria-label="Search entries to add to filmography"
+            />
+            {entryPickerOpen && (
+              <div className="absolute left-0 right-0 top-11 z-20 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#1a1a1a] p-1 shadow-2xl">
+                {matchingEntries.length > 0 ? matchingEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setAddingEntryId(entry.id);
+                      setEntrySearch('');
+                      setEntryPickerOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-white hover:bg-[#E50914]/15"
+                  >
+                    <span className="min-w-0 truncate">{entry.title}</span>
+                    <span className="ml-2 shrink-0 text-[10px] text-[#777]">{entry.year} · {entry.type}</span>
+                  </button>
+                )) : (
+                  <p className="px-3 py-3 text-xs text-[#777]">No matching titles in your BL list.</p>
+                )}
+              </div>
+            )}
+          </div>
           <Input value={addingCharacter} onChange={(event) => setAddingCharacter(event.target.value)} placeholder="Character name" className={fieldClass} />
           <select value={addingRole} onChange={(event) => setAddingRole(event.target.value as ActorRole)} className={`w-full rounded-md border px-3 text-sm outline-none ${fieldClass}`}>
             <option value="MAIN">Main Role</option>
@@ -451,7 +495,6 @@ export default function ActorsTab() {
           <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-xl">
             <div className="mb-1 flex items-center justify-between">
               <div><p className="text-xs uppercase tracking-[0.16em] text-[#E50914]">Actors</p><h2 className="text-xl font-bold">Edit actor</h2></div>
-              <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-[#888] hover:bg-white/[0.06] hover:text-white"><X className="h-4 w-4" /></button>
             </div>
             <ActorForm actor={editingActor} onSave={saveActor} onCancel={() => setFormOpen(false)} />
           </DialogContent>
@@ -543,7 +586,6 @@ export default function ActorsTab() {
         <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-xl">
           <div className="mb-1 flex items-center justify-between">
             <div><p className="text-xs uppercase tracking-[0.16em] text-[#E50914]">Actors</p><h2 className="text-xl font-bold">{editingActor ? 'Edit actor' : 'Add actor'}</h2></div>
-            <button type="button" onClick={() => setFormOpen(false)} className="rounded-lg p-2 text-[#888] hover:bg-white/[0.06] hover:text-white"><X className="h-4 w-4" /></button>
           </div>
           <ActorForm actor={editingActor} onSave={saveActor} onCancel={() => setFormOpen(false)} />
         </DialogContent>
