@@ -129,8 +129,13 @@
     transform: translateX(-8px);
   }
 
+  .episode-page[data-page-id="3"] {
+    transform: translateX(8px);
+  }
+
   .episode-page-slide[data-page="1"] .episode-page[data-page-id="1"],
-  .episode-page-slide[data-page="2"] .episode-page[data-page-id="2"] {
+  .episode-page-slide[data-page="2"] .episode-page[data-page-id="2"],
+  .episode-page-slide[data-page="3"] .episode-page[data-page-id="3"] {
     position: relative;
     opacity: 1;
     pointer-events: auto;

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Heart, Star } from 'lucide-react';
+import { Heart, Pencil, Star, UsersRound } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useApp } from '@/context/AppContext';
 import Poster from './Poster';
-import type { Entry } from '@/types';
+import type { ActorRole, Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
 import { getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
@@ -18,9 +18,9 @@ interface EntryModalProps {
 }
 
 export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) {
-  const { dispatch, isFavorited, getFavoriteByEntryId, getRatingByEntryId, getOngoingByEntryId } = useApp();
+  const { state, dispatch, isFavorited, getFavoriteByEntryId, getRatingByEntryId, getOngoingByEntryId } = useApp();
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [showEpisodeSummary, setShowEpisodeSummary] = useState(false);
+  const [activePage, setActivePage] = useState<'details' | 'episodes' | 'cast'>('details');
 
   const favorited = entry ? isFavorited(entry.id) : false;
   const rating = entry ? (getRatingByEntryId(entry.id) ?? getFavoriteByEntryId(entry.id)) : null;
@@ -34,7 +34,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   // Reset image loaded state when entry changes
   useEffect(() => {
     setImageLoaded(false);
-    setShowEpisodeSummary(false);
+    setActivePage('details');
   }, [entry?.id]);
 
   const handleToggleFavorite = () => {
@@ -87,17 +87,26 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               </span>
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => setShowEpisodeSummary((open) => !open)}
-            className="absolute left-1/2 top-4 -translate-x-1/2 rounded-lg bg-black/45 px-2 py-1 text-[10px] font-semibold text-[#ddd] backdrop-blur-sm hover:bg-black/70 hover:text-white"
-          >
-            {showEpisodeSummary ? 'Back to Details' : 'Episode Summary'}
-          </button>
+          <div className="absolute left-1/2 top-3 flex -translate-x-1/2 gap-1 rounded-xl bg-black/45 p-1 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => setActivePage(activePage === 'episodes' ? 'details' : 'episodes')}
+              className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition-colors ${activePage === 'episodes' ? 'bg-white/[0.14] text-white' : 'text-[#aaa] hover:text-white'}`}
+            >
+              {activePage === 'episodes' ? 'Back' : 'Episode Summary'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePage(activePage === 'cast' ? 'details' : 'cast')}
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-colors ${activePage === 'cast' ? 'bg-[#E50914]/70 text-white' : 'text-[#aaa] hover:text-white'}`}
+            >
+              <UsersRound className="h-3 w-3" /> {activePage === 'cast' ? 'Back' : 'Cast'}
+            </button>
+          </div>
         </div>
 
-        <div className="episode-page-slide" data-page={showEpisodeSummary ? '2' : '1'}>
-          <section className="episode-page" data-page-id="1" aria-hidden={showEpisodeSummary}>
+        <div className="episode-page-slide" data-page={activePage === 'details' ? '1' : activePage === 'episodes' ? '2' : '3'}>
+          <section className="episode-page" data-page-id="1" aria-hidden={activePage !== 'details'}>
             {/* Poster - centered, large, dominant */}
             <div className="flex justify-center px-6 pt-14 pb-4">
               <div className="relative">
@@ -161,7 +170,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             </div>
           </section>
 
-          <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="2" aria-hidden={!showEpisodeSummary}>
+          <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="2" aria-hidden={activePage !== 'episodes'}>
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-white">Episode Summary</p>
@@ -188,8 +197,100 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               }}
             />
           </section>
+
+          <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="3" aria-hidden={activePage !== 'cast'}>
+            <CastPanel entry={entry} actors={state.actors} onUpdate={(actorId, character, role) => {
+              dispatch({ type: 'UPDATE_ACTOR_CREDIT', payload: { actorId, entryId: entry.id, character, role } });
+            }} />
+          </section>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CastPanel({
+  entry,
+  actors,
+  onUpdate,
+}: {
+  entry: Entry;
+  actors: ReturnType<typeof useApp>['state']['actors'];
+  onUpdate: (actorId: string, character: string, role: ActorRole) => void;
+}) {
+  const credits = actors
+    .map((actor) => ({ actor, credit: actor.filmography.find((credit) => credit.entryId === entry.id) }))
+    .filter((item): item is { actor: typeof actors[number]; credit: NonNullable<typeof item.credit> } => Boolean(item.credit));
+  const groups: { label: string; role: ActorRole }[] = [
+    { label: 'Main Role', role: 'MAIN' },
+    { label: 'Supporting Role', role: 'SUPPORTING' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-sm font-bold text-white">Cast</p>
+        <p className="mt-1 text-[10px] text-[#777]">Edit character names and roles for {entry.title}.</p>
+      </div>
+      {groups.map((group) => {
+        const groupCredits = credits.filter(({ credit }) => credit.role === group.role);
+        return (
+          <section key={group.role}>
+            <div className="mb-2 flex items-center gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#E50914]">{group.label}</h3>
+              <span className="text-[10px] text-[#666]">{groupCredits.length}</span>
+            </div>
+            {groupCredits.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-white/[0.08] px-3 py-4 text-center text-xs text-[#666]">No actors added</p>
+            ) : (
+              <div className="space-y-2">
+                {groupCredits.map(({ actor, credit }) => (
+                  <CastRow key={actor.id} actor={actor} credit={credit} onUpdate={onUpdate} />
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+      {actors.length === 0 && (
+        <div className="rounded-xl bg-white/[0.04] p-4 text-center text-xs text-[#777]">
+          Add actors in the Actors tab, then link them from their filmography.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CastRow({
+  actor,
+  credit,
+  onUpdate,
+}: {
+  actor: { id: string; name: string; photo: string | null };
+  credit: { entryId: string; character: string; role: ActorRole };
+  onUpdate: (actorId: string, character: string, role: ActorRole) => void;
+}) {
+  const [character, setCharacter] = useState(credit.character);
+  const [role, setRole] = useState(credit.role);
+  const changed = character !== credit.character || role !== credit.role;
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#141414] p-2.5">
+      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#222]">
+        {actor.photo ? <img src={actor.photo} alt={actor.name} className="h-full w-full object-cover" /> : <UsersRound className="mx-auto mt-3 h-5 w-5 text-[#666]" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-bold text-white">{actor.name}</p>
+        <div className="mt-1 flex gap-2">
+          <input value={character} onChange={(event) => setCharacter(event.target.value)} placeholder="Character" className="h-8 min-w-0 flex-1 rounded-md border border-white/10 bg-white/[0.04] px-2 text-[11px] text-white outline-none focus:border-[#E50914]" />
+          <select value={role} onChange={(event) => setRole(event.target.value as ActorRole)} className="h-8 w-[112px] rounded-md border border-white/10 bg-[#1b1b1b] px-1 text-[10px] text-white outline-none focus:border-[#E50914]">
+            <option value="MAIN">Main Role</option>
+            <option value="SUPPORTING">Supporting</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" disabled={!changed} onClick={() => onUpdate(actor.id, character.trim(), role)} className="rounded-md p-2 text-[#777] hover:bg-white/[0.08] hover:text-white disabled:opacity-30" aria-label={`Save ${actor.name}`}>
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 }

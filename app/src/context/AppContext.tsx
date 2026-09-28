@@ -3,6 +3,9 @@ import type {
   AppState,
   AppAction,
   Entry,
+  Actor,
+  ActorCredit,
+  ActorRole,
   OngoingEntry,
   FavoriteEntry,
   Top10Drawer,
@@ -58,6 +61,7 @@ function getMilestoneMessage(type: MilestoneType, value: number): string {
 
 export const initialState: AppState = {
   entries: [],
+  actors: [],
   ongoing: [],
   favorites: [],
   ratings: [],
@@ -163,6 +167,44 @@ function migrateSpecialEpisode(raw: unknown, index: number): SpecialEpisode | nu
   };
 }
 
+function migrateActor(raw: unknown, index: number): Actor | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const actor = raw as Record<string, unknown>;
+  const name = typeof actor.name === 'string' ? actor.name.trim() : '';
+  if (!name) return null;
+
+  const filmography = Array.isArray(actor.filmography)
+    ? actor.filmography
+      .filter((credit): credit is Record<string, unknown> => Boolean(credit) && typeof credit === 'object')
+      .map((credit) => {
+        const entryId = typeof credit.entryId === 'string' ? credit.entryId : '';
+        if (!entryId) return null;
+        const role = credit.role === 'SUPPORTING' ? 'SUPPORTING' : 'MAIN';
+        return {
+          entryId,
+          character: typeof credit.character === 'string' ? credit.character.trim() : '',
+          role,
+        } satisfies ActorCredit;
+      })
+      .filter((credit): credit is ActorCredit => credit !== null)
+    : [];
+
+  return {
+    id: typeof actor.id === 'string' && actor.id
+      ? actor.id
+      : `actor_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`,
+    photo: typeof actor.photo === 'string' ? actor.photo : null,
+    name,
+    nationality: typeof actor.nationality === 'string' && actor.nationality.trim()
+      ? actor.nationality.trim()
+      : 'Other',
+    birthDate: typeof actor.birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(actor.birthDate)
+      ? actor.birthDate
+      : '',
+    filmography,
+  };
+}
+
 export function migrateOngoing(o: Record<string, unknown>): OngoingEntry | null {
   if (typeof o.entryId !== 'string' || !o.entryId) return null;
 
@@ -203,6 +245,11 @@ function validateData(data: unknown): AppState {
   if (!data || typeof data !== 'object') return { ...initialState };
   const d = data as Record<string, unknown>;
   const entries = Array.isArray(d.entries) ? d.entries : [];
+  const actors = Array.isArray(d.actors)
+    ? d.actors
+      .map((actor, index) => migrateActor(actor, index))
+      .filter((actor): actor is Actor => actor !== null)
+    : [];
   const ongoing = Array.isArray(d.ongoing) ? d.ongoing : [];
   const favorites = Array.isArray(d.favorites) ? d.favorites : [];
   // Older backups kept evaluation data inside favorites. Preserve it as the
@@ -319,6 +366,7 @@ function validateData(data: unknown): AppState {
 
   return {
     entries: migratedEntries as unknown as Entry[],
+    actors,
     ongoing: ongoing
       .map((o) => migrateOngoing(o as Record<string, unknown>))
       .filter((o): o is OngoingEntry => o !== null),
@@ -496,6 +544,39 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ongoing = [...state.ongoing, o];
       }
       return { ...state, entries: [...state.entries, entry], ongoing };
+    }
+
+    case 'ADD_ACTOR':
+      if (state.actors.some((actor) => actor.name.trim().toLocaleLowerCase() === action.payload.name.trim().toLocaleLowerCase())) {
+        return state;
+      }
+      return { ...state, actors: [...state.actors, action.payload] };
+
+    case 'UPDATE_ACTOR':
+      return {
+        ...state,
+        actors: state.actors.map((actor) => actor.id === action.payload.id ? action.payload : actor),
+      };
+
+    case 'DELETE_ACTOR':
+      return { ...state, actors: state.actors.filter((actor) => actor.id !== action.payload) };
+
+    case 'UPDATE_ACTOR_CREDIT': {
+      const { actorId, entryId, character, role } = action.payload;
+      return {
+        ...state,
+        actors: state.actors.map((actor) => {
+          if (actor.id !== actorId) return actor;
+          const existingCredit = actor.filmography.find((credit) => credit.entryId === entryId);
+          const nextCredit: ActorCredit = { entryId, character: character.trim(), role: role as ActorRole };
+          return {
+            ...actor,
+            filmography: existingCredit
+              ? actor.filmography.map((credit) => credit.entryId === entryId ? nextCredit : credit)
+              : [...actor.filmography, nextCredit],
+          };
+        }),
+      };
     }
 
     case 'UPDATE_ENTRY': {
@@ -901,7 +982,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (initialized.current) return;
     initialized.current = true;
     loadInitialState().then(loaded => {
-      if (loaded.entries.length > 0 || loaded.favorites.length > 0 || loaded.ratings.length > 0) {
+      if (loaded.entries.length > 0 || loaded.actors.length > 0 || loaded.favorites.length > 0 || loaded.ratings.length > 0) {
         dispatch({ type: 'SET_STATE', payload: loaded });
       }
       setIsLoaded(true);

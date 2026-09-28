@@ -1,0 +1,65 @@
+I want to add a Cast Feature dedicated for Main Actors and Supporting Actors:
+
+[Add] Create a new tab named [Actors] after the in the hamburger menu. This is where the actors' database will be stored.
+
+In Actors tab, it allows user to:
+
+add actors
+edit actors:
+	- Profile [photo field; add from device]
+	- Name [Text field]
+	- Nationality [Dropdown field (Thai, Chinese, Korean, Japanese, etc.) and Others (Please specify)] 
+	- Birth Date [Calendar]
+	- Age [Auto calculate according to birth date]
+sort actors:
+	- Ascending [Name] (Default)
+	- Descending [Name]
+	- Filmography [No. of shows; higher to lower]
+	- Older
+	- Younger
+filter actors:
+	- Main Role
+	- Supporting Role
+	- Nationality
+edit actors' role in filmography section:
+	- Character [Text Field]
+	- Role (Main Role or Supporting Role)
+
+Use the reference layout design for actors in Actors Tab according to the attached photo.
+
+In the circle, it should contain the actors' profile. Below each circle, displays their full name and their nationality beside their name.
+Clicking the circle or the surrounding area of circle will navigate the user to another page, there, it displays their overall profile information including the Filmography or lists of shows from the BL Series and Movies Tab. 
+
+The Filmography section must be organized from Series to Movies. Otherwise, if neither 1 or 2 have, hide the Series and Movie section.
+
+The Filmography list should display:
+	(Non-editable)
+	- Poster
+	- Title
+	- Year
+	- Status
+	- Country
+	- Season (if available)
+	- Tier Tags
+	- Overall Rating
+	- Favorite icon
+	- Top 10 rank # number
+	(editable)
+	- Character Name
+	- Role
+
+[Add] In the view-card modal add [Cast] beside the [Episode Summary]. Reuse the same forward / back page transition.
+
+In the Cast panel, it displays:
+Main Role [Actors]
+	- Profile [Circled Photo]
+	- Name
+	- Character
+	- Role
+Supporting Role [Actors]
+	- Profile [Circled Photo]
+	- Name
+	- Character
+	- Role
+
+In this Cast panel, it also allows user to edit their Character name and Role only.

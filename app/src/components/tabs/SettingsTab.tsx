@@ -89,6 +89,7 @@ export default function SettingsTab() {
     const backup: FullBackup = {
       metadata,
       entries: state.entries,
+      actors: state.actors,
       ongoing: state.ongoing,
       favorites: state.favorites,
       ratings: state.ratings,
@@ -214,6 +215,7 @@ export default function SettingsTab() {
 
         newState = {
           entries: processedEntries as unknown as AppState['entries'],
+          actors: Array.isArray(data.actors) ? data.actors as AppState['actors'] : [],
           ongoing: importedOngoing,
           favorites: Array.isArray(data.favorites)
             ? (data.favorites as Array<Record<string, unknown>>).map(normalizeFavoriteEntry)
@@ -240,6 +242,7 @@ export default function SettingsTab() {
         // Legacy format - entries only
         newState = {
           entries: processedEntries as unknown as AppState['entries'],
+          actors: [],
           ongoing: [],
           favorites: [],
           ratings: [],
@@ -290,6 +293,7 @@ export default function SettingsTab() {
       type: 'SET_STATE',
       payload: {
         entries: [],
+        actors: [],
         ongoing: [],
         favorites: [],
          ratings: [],

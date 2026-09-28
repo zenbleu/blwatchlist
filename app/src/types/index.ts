@@ -29,6 +29,23 @@ export interface Entry {
   episodeRatings?: Record<string, EpisodeRating>;
 }
 
+export type ActorRole = 'MAIN' | 'SUPPORTING';
+
+export interface ActorCredit {
+  entryId: string;
+  character: string;
+  role: ActorRole;
+}
+
+export interface Actor {
+  id: string;
+  photo: string | null;
+  name: string;
+  nationality: string;
+  birthDate: string;
+  filmography: ActorCredit[];
+}
+
 export interface SpecialEpisode {
   id: string;
   specialNumber: number;
@@ -157,6 +174,7 @@ export interface CollectionStats {
 
 export interface AppState {
   entries: Entry[];
+  actors: Actor[];
   ongoing: OngoingEntry[];
   favorites: FavoriteEntry[];
   ratings: FavoriteEntry[];
@@ -174,6 +192,7 @@ export interface BackupMetadata {
 export interface FullBackup {
   metadata: BackupMetadata;
   entries: Entry[];
+  actors: Actor[];
   ongoing: OngoingEntry[];
   favorites: FavoriteEntry[];
   ratings: FavoriteEntry[];
@@ -191,6 +210,10 @@ export type AppAction =
   | { type: 'ADD_ENTRY'; payload: Entry }
   | { type: 'UPDATE_ENTRY'; payload: Entry }
   | { type: 'DELETE_ENTRY'; payload: string }
+  | { type: 'ADD_ACTOR'; payload: Actor }
+  | { type: 'UPDATE_ACTOR'; payload: Actor }
+  | { type: 'DELETE_ACTOR'; payload: string }
+  | { type: 'UPDATE_ACTOR_CREDIT'; payload: { actorId: string; entryId: string; character: string; role: ActorRole } }
   | { type: 'TOGGLE_FAVORITE'; payload: string }
   | { type: 'UPDATE_FAVORITE'; payload: FavoriteEntry }
   | { type: 'REMOVE_FAVORITE'; payload: string }
