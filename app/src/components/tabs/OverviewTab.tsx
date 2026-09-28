@@ -27,6 +27,7 @@ import {
 } from '@/lib/episodeSchedule';
 import { formatRating } from '@/lib/rating';
 import RatingTierBadge from '../RatingTierBadge';
+import BLGamesPanel from '../BLGamesPanel';
 
 const RECENTLY_ADDED_WINDOW = 24 * 60 * 60 * 1000;
 
@@ -1061,12 +1062,15 @@ export default function OverviewTab() {
         averageRating={averageRating}
       />
 
-      {/* Continue Watching */}
-      <ContinueWatchingSection
-        items={continueWatching}
-        onEntryClick={setSelectedEntry}
-        ratingEntryById={ratingEntryById}
-      />
+      {/* Continue Watching + BL Games */}
+      <div className="grid items-start gap-8 lg:grid-cols-2">
+        <ContinueWatchingSection
+          items={continueWatching}
+          onEntryClick={setSelectedEntry}
+          ratingEntryById={ratingEntryById}
+        />
+        <BLGamesPanel entries={state.entries} />
+      </div>
 
       {/* Upcoming Releases */}
       <UpcomingReleasesSection

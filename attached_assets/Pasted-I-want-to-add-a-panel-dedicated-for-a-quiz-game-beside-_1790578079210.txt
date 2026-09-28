@@ -1,0 +1,36 @@
+I want to add a panel dedicated for a quiz game beside [Continue Watching] in Overview Tab. Please compress the [Continue Watching] panel at the left so that we can add a new panel at the right dedicated for a quiz game.
+
+[Pls see attached photos for a clearer understanding]
+
+Place a display-only quiz game panel grouped with stacked squared poster cards, title [BL Games], and a button [Start Quiz] when clicked, it displays a full-screen modal containing games/quizzes.
+
+Display-only quiz game panel UI: [Randomized] 3 Poster Card stack hover (Stack fans out with a spring on hover)
+
+The Games:
+
+(Preserve expansion for future games)
+
+[1st game] Titles: 
+Guess the BL from the Cover Pieces (Thai Edition) [Thailand]
+Guess the BL from the Cover Pieces (C-BL Edition) [China]
+Guess the BL from the Cover Pieces (J-BL Edition) [Japan]
+Guess the BL from the Cover Pieces (K-BL Edition) [South Korea]
+Guess the BL from the Cover Pieces (Taiwan Edition) [Taiwan]
+Guess the BL from the Cover Pieces (Global Edition) [BL's from other countries except Thai, China, Japan, South Korea, and Taiwan]
+
+Total Guessing Games: 6
+Total Questions: 20 Questions per country
+
+Reuse the same display-only UI INSIDE the full-screen modal.
+
+After clicking [Start Quiz], it opens another modal inside the full-screen modal and starts the guessing game.
+
+How to play this 1st game?
+
+It's basically simple. There are total 20/20 questions per countries edition. User just have to guess the cropped pieces of posters and they should pick the 3 centered titles below the poster piece. There are 2 random titles and 1 correct title.
+After clicking the correct title, it reveals the whole poster and displays a message below "Correct! Next Piece".
+However, clicking the wrong title reveals the poster and displays "Wrong, next piece."
+There's 2 buttons below the message: Next and Skip. [Next] will stay disabled until the user answers while the [Skip] stays enabled allowing user to skip the Question but subtracts their score.
+After all 20/20 questions completed or skipped, it displays the summary score. Use simple circular rings and the center of it displays the score.
+
+Note: For the cropped pieces, ensure the cropped area for the next posters doesn't stay in the same place, it should be cropped with different areas of the poster not just sticking in the same area.
