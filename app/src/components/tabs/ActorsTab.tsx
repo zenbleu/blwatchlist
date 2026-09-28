@@ -340,8 +340,9 @@ function ActorDetail({
   const credits = actor.filmography
     .map((credit) => ({ credit, entry: state.entries.find((entry) => entry.id === credit.entryId) }))
     .filter((item): item is { credit: ActorCredit; entry: Entry } => Boolean(item.entry));
-  const series = credits.filter(({ entry }) => entry.type === 'Series');
-  const movies = credits.filter(({ entry }) => entry.type === 'Movie');
+  const sortByRecentYear = (a: { entry: Entry }, b: { entry: Entry }) => b.entry.year - a.entry.year;
+  const series = credits.filter(({ entry }) => entry.type === 'Series').sort(sortByRecentYear);
+  const movies = credits.filter(({ entry }) => entry.type === 'Movie').sort(sortByRecentYear);
   const age = ageFromBirthDate(actor.birthDate);
 
   const addCredit = () => {
