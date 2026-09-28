@@ -396,7 +396,7 @@ function QuizRound({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3 sm:px-6">
+      <div className="flex items-center justify-between border-b border-white/[0.08] px-16 py-3">
         <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-[#aaa] hover:text-white">
           <ArrowLeft className="h-4 w-4" />
           Games
@@ -575,7 +575,7 @@ export default function BLGamesPanel({ entries }: { entries: Entry[] }) {
       <Dialog open={libraryOpen} onOpenChange={(open) => !open && closeLibrary()}>
         <DialogContent
           showCloseButton={false}
-          className="!fixed !inset-0 !left-0 !top-0 !h-screen !max-h-none !w-screen !max-w-none !translate-x-0 !translate-y-0 !rounded-none !border-0 overflow-hidden bg-[#0a0a0a] p-0 text-white shadow-2xl"
+          className="!fixed !inset-0 !left-0 !top-0 !z-[90] !h-screen !max-h-none !w-screen !max-w-none !translate-x-0 !translate-y-0 !rounded-none !border-0 overflow-hidden bg-[#0a0a0a] p-0 text-white shadow-2xl"
         >
           <DialogTitle className="sr-only">BL Games</DialogTitle>
           <DialogDescription className="sr-only">Choose a cover piece guessing game or play an active quiz.</DialogDescription>
