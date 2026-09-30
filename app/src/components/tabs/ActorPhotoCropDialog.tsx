@@ -67,7 +67,11 @@ export default function ActorPhotoCropDialog({ imageSrc, onCancel, onApply }: Ac
     naturalSizeRef.current = imageSize;
     setNaturalSize(imageSize);
     setZoom(1);
-    const size = frameSizeRef.current;
+    const size = frameSizeRef.current || viewportRef.current?.getBoundingClientRect().width || 0;
+    if (size && !frameSizeRef.current) {
+      frameSizeRef.current = size;
+      setFrameSize(size);
+    }
     if (size && !initialOffsetSetRef.current) {
       const scale = Math.max(size / imageSize.width, size / imageSize.height);
       setOffset({
@@ -190,7 +194,7 @@ export default function ActorPhotoCropDialog({ imageSrc, onCancel, onApply }: Ac
             step="0.01"
             value={zoom}
             onChange={(event) => updateZoom(Number(event.target.value))}
-            disabled={!naturalSize}
+            disabled={!naturalSize || !frameSize}
             aria-label="Zoom photo"
             className="mt-3 block w-full accent-[#E50914]"
           />
@@ -202,7 +206,7 @@ export default function ActorPhotoCropDialog({ imageSrc, onCancel, onApply }: Ac
           <button
             type="button"
             onClick={applyCrop}
-            disabled={!naturalSize}
+            disabled={!naturalSize || !frameSize}
             className="rounded-lg bg-[#E50914] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             Use photo
