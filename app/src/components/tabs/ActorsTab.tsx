@@ -26,7 +26,6 @@ import { formatRating, getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import ActorPhotoCropDialog from './ActorPhotoCropDialog';
 
 const NATIONALITIES = [
   'Thai',
@@ -103,7 +102,6 @@ function ActorForm({
     filmography: [],
   });
   const fileRef = useRef<HTMLInputElement>(null);
-  const [photoToCrop, setPhotoToCrop] = useState<string | null>(null);
   const age = ageFromBirthDate(draft.birthDate);
 
   const update = <K extends keyof Actor>(key: K, value: Actor[K]) => {
@@ -114,12 +112,11 @@ function ActorForm({
     if (!file) return;
     if (!file.type.startsWith('image/')) return;
     const reader = new FileReader();
-    reader.onload = () => setPhotoToCrop(typeof reader.result === 'string' ? reader.result : null);
+    reader.onload = () => update('photo', typeof reader.result === 'string' ? reader.result : null);
     reader.readAsDataURL(file);
   };
 
   return (
-    <>
     <div className="space-y-5">
       <div className="flex flex-col items-center gap-3">
         <button
@@ -203,17 +200,6 @@ function ActorForm({
         </button>
       </div>
     </div>
-    {photoToCrop && (
-      <ActorPhotoCropDialog
-        imageSrc={photoToCrop}
-        onCancel={() => setPhotoToCrop(null)}
-        onApply={(photo) => {
-          update('photo', photo);
-          setPhotoToCrop(null);
-        }}
-      />
-    )}
-    </>
   );
 }
 
