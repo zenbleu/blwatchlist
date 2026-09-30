@@ -149,6 +149,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       poster: posterData,
       createdAt: entry?.createdAt || Date.now(),
       lastUpdatedAt: entry?.lastUpdatedAt || entry?.createdAt || Date.now(),
+      ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
       ...(status === 'PLANNED' && plannedDate ? { plannedDate } : {}),
     };
 

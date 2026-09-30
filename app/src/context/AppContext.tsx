@@ -611,10 +611,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
       if (hasDuplicateEntry(state.entries, action.payload, action.payload.id)) return state;
-      const changed = entryContentChanged(oldEntry, action.payload);
+      // Episode ratings have their own UPDATE_EPISODE_RATING action. Generic
+      // entry edits must not overwrite them with stale or incomplete form data.
+      const nextPayload = { ...action.payload, episodeRatings: oldEntry.episodeRatings };
+      const changed = entryContentChanged(oldEntry, nextPayload);
       const entry = changed
-        ? { ...action.payload, lastUpdatedAt: nextEntryTimestamp(state.entries) }
-        : { ...action.payload, lastUpdatedAt: oldEntry.lastUpdatedAt };
+        ? { ...nextPayload, lastUpdatedAt: nextEntryTimestamp(state.entries) }
+        : { ...nextPayload, lastUpdatedAt: oldEntry.lastUpdatedAt };
       const entries = state.entries.map(e => e.id === entry.id ? entry : e);
       let ongoing = state.ongoing;
 
