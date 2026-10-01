@@ -16,7 +16,6 @@ import {
 import { useApp } from '@/context/AppContext';
 import { formatSeasonLabel } from '@/lib/entry';
 import Poster from '../Poster';
-import RatingCircle from '../RatingCircle';
 import EntryModal from '../EntryModal';
 import type { Entry, OngoingEntry, FavoriteEntry } from '@/types';
 import {
@@ -30,6 +29,20 @@ import RatingTierBadge from '../RatingTierBadge';
 import BLGamesPanel from '../BLGamesPanel';
 
 const RECENTLY_ADDED_WINDOW = 24 * 60 * 60 * 1000;
+
+function OverviewRating({ rating, large = false }: { rating: number; large?: boolean }) {
+  return (
+    <span
+      aria-label={`Rating ${formatRating(rating)} out of 10`}
+      className={`absolute z-10 inline-flex max-w-[calc(100%-0.5rem)] items-center gap-1 whitespace-nowrap rounded-lg bg-black/25 font-extrabold leading-none text-white shadow-[0_1px_8px_rgba(0,0,0,0.8)] backdrop-blur-[2px] ${
+        large ? 'right-3 top-3 px-2 py-1.5 text-xl' : 'right-1 top-1 px-1.5 py-1 text-base'
+      }`}
+    >
+      <span aria-hidden="true">⭐</span>
+      <span>{formatRating(rating)}</span>
+    </span>
+  );
+}
 
 function dailySeed(day: string, salt = '') {
   let seed = 0;
@@ -584,9 +597,7 @@ function RecentlyCompletedSection({
               <div className="relative h-40 w-28 overflow-hidden rounded-xl">
                 <Poster src={entry.poster} title={entry.title} size="lg" className="!h-full !w-full !rounded-xl" />
                 {rating !== undefined && (
-                  <div className="absolute right-1 top-1 z-10 rounded-full bg-black/70 backdrop-blur-sm">
-                    <RatingCircle rating={rating} size={30} />
-                  </div>
+                  <OverviewRating rating={rating} />
                 )}
               </div>
               <div className="mt-2 flex items-center gap-1">
@@ -703,15 +714,13 @@ function RewatchPosterCard({
           </div>
         )}
 
-        <div className="absolute right-3 top-3 rounded-full bg-black/60 p-1.5 shadow-lg backdrop-blur-md">
-          {hasRating ? (
-            <RatingCircle rating={rating} size={44} />
-          ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/20 text-xs font-semibold text-white/60">
-              —
-            </div>
-          )}
-        </div>
+        {hasRating ? (
+          <OverviewRating rating={rating} large />
+        ) : (
+          <span className="absolute right-3 top-3 rounded-lg bg-black/25 px-2 py-1.5 text-xl font-bold leading-none text-white/60 backdrop-blur-[2px]">
+            —
+          </span>
+        )}
 
         <div className="absolute inset-x-4 bottom-4">
           <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/60">
