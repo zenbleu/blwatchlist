@@ -893,7 +893,7 @@ export default function FavoriteEvaluation({
           </div>
 
           {/* Footer Buttons */}
-          <div className="sticky bottom-0 z-10 bg-[#0a0a0a]/95 backdrop-blur-sm px-5 py-4 border-t border-white/[0.06]">
+          <div className="sticky bottom-0 z-10 min-w-0 bg-[#0a0a0a]/95 backdrop-blur-sm px-5 py-4 border-t border-white/[0.06]">
             {mode === 'view' ? (
               /* VIEW MODE: Edit button centered */
               <div className="flex justify-center">
@@ -907,17 +907,16 @@ export default function FavoriteEvaluation({
               </div>
             ) : (
               /* EDIT MODE: Remove (left) + Cancel + Save (right) */
-              <div className="flex items-center gap-3">
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2">
                 {evaluationType === 'favorite' && favorited && (
                   <button
                     onClick={() => setShowRemoveConfirm(true)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/[0.06] text-[#B3B3B3] text-sm font-medium hover:bg-red-500/15 hover:text-red-400 transition-colors"
+                    className="mr-auto flex shrink-0 items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/[0.06] text-[#B3B3B3] text-sm font-medium hover:bg-red-500/15 hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                     Remove
                   </button>
                 )}
-                <div className="flex-1" />
                 <button
                   onClick={() => {
                     // Reset to existing values and go back to view mode
@@ -942,13 +941,13 @@ export default function FavoriteEvaluation({
                     }
                     setMode('view');
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-white/[0.06] text-[#B3B3B3] text-sm font-medium hover:bg-white/[0.1] transition-colors"
+                  className="shrink-0 px-4 py-2.5 rounded-xl bg-white/[0.06] text-[#B3B3B3] text-sm font-medium hover:bg-white/[0.1] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#E50914] text-white text-sm font-semibold hover:bg-[#E50914]/90 transition-colors"
+                  className="flex shrink-0 items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#E50914] text-white text-sm font-semibold hover:bg-[#E50914]/90 transition-colors"
                 >
                   <Check className="w-4 h-4" />
                   Save
