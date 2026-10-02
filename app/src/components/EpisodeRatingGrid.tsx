@@ -423,7 +423,7 @@ export default function EpisodeRatingGrid({
   };
 
   return (
-    <div className="relative space-y-2">
+    <div className="relative min-w-0 space-y-2">
       {!compact && <EpisodeRatingFlow episodes={episodes} ratings={ratings} />}
 
       <div className="overflow-x-auto pb-1 scrollbar-hide">
