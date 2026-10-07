@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { CalendarDays, Camera, X } from 'lucide-react';
+import { CalendarDays, Camera, Check, ChevronsUpDown, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useApp } from '@/context/AppContext';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import AirDaySelector from './AirDaySelector';
 import type { Entry, Status, AirDay, SpecialEpisode, LinkedReleaseMode } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
@@ -52,13 +61,27 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [releaseDates, setReleaseDates] = useState<string[]>([]);
   const [specialEpisodes, setSpecialEpisodes] = useState<SpecialEpisode[]>([]);
   const [releaseCalendarOpen, setReleaseCalendarOpen] = useState(false);
+  const [parentPickerOpen, setParentPickerOpen] = useState(false);
+  const [parentSearchTerm, setParentSearchTerm] = useState('');
   const [plannedDate, setPlannedDate] = useState('');
   const [error, setError] = useState('');
 
   const ongoing = entry ? getOngoingByEntryId(entry.id) : null;
+  const selectedParentEntry = state.entries.find((candidate) => candidate.id === parentEntryId);
+  const availableParentEntries = state.entries
+    .filter((candidate) => candidate.id !== entry?.id && !candidate.parentEntryId && candidate.type === 'Series')
+    .sort((a, b) => a.title.localeCompare(b.title));
+  const normalizedParentSearch = parentSearchTerm.trim().toLocaleLowerCase();
+  const filteredParentEntries = availableParentEntries
+    .filter((candidate) =>
+      `${candidate.title} ${candidate.year}`.toLocaleLowerCase().includes(normalizedParentSearch),
+    )
+    .slice(0, 50);
 
   // Reset form whenever entry changes or modal opens/closes
   const resetForm = useCallback(() => {
+    setParentPickerOpen(false);
+    setParentSearchTerm('');
     if (entry) {
       setTitle(entry.title);
       setType(entry.type);
@@ -336,28 +359,83 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
           {/* Linked release */}
           <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
             <Label className="text-[#B3B3B3]">Link to an existing series (optional)</Label>
-            <Select
-              value={parentEntryId || 'none'}
-              onValueChange={(value) => {
-                setParentEntryId(value === 'none' ? '' : value);
-                setError('');
-              }}
-            >
-              <SelectTrigger className="bg-white/[0.06] border-white/10 text-white">
-                <SelectValue placeholder="No parent series" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1a1a1a] border-white/10 max-h-60">
-                <SelectItem value="none" className="text-white">No parent series</SelectItem>
-                {state.entries
-                  .filter((candidate) => candidate.id !== entry?.id && !candidate.parentEntryId && candidate.type === 'Series')
-                  .sort((a, b) => a.title.localeCompare(b.title))
-                  .map((candidate) => (
-                    <SelectItem key={candidate.id} value={candidate.id} className="text-white">
-                      {candidate.title} ({candidate.year})
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Popover
+                open={parentPickerOpen}
+                onOpenChange={(open) => {
+                  setParentPickerOpen(open);
+                  if (!open) setParentSearchTerm('');
+                }}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={parentPickerOpen}
+                    className="h-10 w-full justify-between border-white/10 bg-white/[0.06] text-left font-normal text-white hover:bg-white/[0.1]"
+                  >
+                    <span className="truncate">
+                      {selectedParentEntry
+                        ? `${selectedParentEntry.title} (${selectedParentEntry.year})`
+                        : 'Search by series title or year...'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-[#888]" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-[min(24rem,calc(100vw-3rem))] border-white/10 bg-[#1a1a1a] p-0"
+                >
+                  <Command shouldFilter={false} className="bg-transparent text-white">
+                    <CommandInput
+                      value={parentSearchTerm}
+                      onValueChange={setParentSearchTerm}
+                      placeholder="Search series title or year..."
+                      className="text-white placeholder:text-[#777]"
+                    />
+                    <CommandList className="max-h-60">
+                      <CommandEmpty className="text-[#999]">
+                        {availableParentEntries.length === 0
+                          ? 'No eligible series to link yet.'
+                          : 'No matches. Try another title or year.'}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredParentEntries.map((candidate) => (
+                          <CommandItem
+                            key={candidate.id}
+                            value={candidate.id}
+                            onSelect={() => {
+                              setParentEntryId(candidate.id);
+                              setParentPickerOpen(false);
+                              setParentSearchTerm('');
+                              setError('');
+                            }}
+                            className="cursor-pointer text-white data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
+                          >
+                            <Check className={`h-4 w-4 ${parentEntryId === candidate.id ? 'opacity-100' : 'opacity-0'}`} />
+                            <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
+                            <span className="text-xs text-[#999]">{candidate.year}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedParentEntry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParentEntryId('');
+                    setError('');
+                  }}
+                  className="text-[11px] text-[#999] underline underline-offset-2 hover:text-white"
+                >
+                  Clear linked series
+                </button>
+              )}
+            </div>
             {parentEntryId && (
               <div className="space-y-2 pt-1">
                 <p className="text-[11px] text-[#888]">How should this release be counted?</p>
