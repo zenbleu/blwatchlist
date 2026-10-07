@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { useApp } from '@/context/AppContext';
 import AirDaySelector from './AirDaySelector';
-import type { Entry, Status, AirDay, SpecialEpisode } from '@/types';
+import type { Entry, Status, AirDay, SpecialEpisode, LinkedReleaseMode } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
 import { formatSeasonLabel, isSameEntryIdentity } from '@/lib/entry';
 
@@ -39,6 +39,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'Movie' | 'Series'>('Series');
   const [season, setSeason] = useState<number | null>(null);
+  const [parentEntryId, setParentEntryId] = useState('');
+  const [linkedReleaseMode, setLinkedReleaseMode] = useState<LinkedReleaseMode>('independent');
   const [year, setYear] = useState(new Date().getFullYear());
   const [country, setCountry] = useState('Thailand');
   const [status, setStatus] = useState<Status>('COMPLETE');
@@ -61,6 +63,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setTitle(entry.title);
       setType(entry.type);
       setSeason(entry.season ?? null);
+      setParentEntryId(entry.parentEntryId || '');
+      setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
       setYear(entry.year);
       setCountry(entry.country.replace(/\s*\p{Emoji}\s*/gu, '').trim());
       setStatus(entry.status);
@@ -85,6 +89,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setTitle('');
       setType('Series');
       setSeason(null);
+      setParentEntryId('');
+      setLinkedReleaseMode('independent');
       setYear(new Date().getFullYear());
       setCountry('Thailand');
       setStatus('COMPLETE');
@@ -128,6 +134,21 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setError('Title is required');
       return;
     }
+    const selectedParent = parentEntryId
+      ? state.entries.find((existing) => existing.id === parentEntryId && existing.id !== entry?.id && !existing.parentEntryId)
+      : undefined;
+    if (parentEntryId && !selectedParent) {
+      setError('Choose an existing top-level series as the parent.');
+      return;
+    }
+    const includedReleaseHasRankings = linkedReleaseMode === 'included'
+      && (state.favorites.some((favorite) => favorite.entryId === entry?.id)
+        || state.ratings.some((rating) => rating.entryId === entry?.id)
+        || state.top10Drawers.some((drawer) => drawer.entries.some((item) => item.entryId === entry?.id)));
+    if (parentEntryId && includedReleaseHasRankings) {
+      setError('Remove this entry from Favorites, ratings, and Top 10 before marking it as part of the parent.');
+      return;
+    }
     const duplicateSeason = state.entries.some((existing) =>
       existing.id !== entry?.id &&
       isSameEntryIdentity(existing, { title, type, season }),
@@ -143,6 +164,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       title: title.trim(),
       type,
       ...(season !== null ? { season } : {}),
+      ...(selectedParent
+        ? { parentEntryId: selectedParent.id, linkedReleaseMode }
+        : {}),
       year,
       country,
       status,
@@ -307,6 +331,64 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             <p className="text-[10px] text-[#666]">
               Keep each season as its own entry with its own poster, progress, and evaluation.
             </p>
+          </div>
+
+          {/* Linked release */}
+          <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+            <Label className="text-[#B3B3B3]">Link to an existing series (optional)</Label>
+            <Select
+              value={parentEntryId || 'none'}
+              onValueChange={(value) => {
+                setParentEntryId(value === 'none' ? '' : value);
+                setError('');
+              }}
+            >
+              <SelectTrigger className="bg-white/[0.06] border-white/10 text-white">
+                <SelectValue placeholder="No parent series" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#1a1a1a] border-white/10 max-h-60">
+                <SelectItem value="none" className="text-white">No parent series</SelectItem>
+                {state.entries
+                  .filter((candidate) => candidate.id !== entry?.id && !candidate.parentEntryId && candidate.type === 'Series')
+                  .sort((a, b) => a.title.localeCompare(b.title))
+                  .map((candidate) => (
+                    <SelectItem key={candidate.id} value={candidate.id} className="text-white">
+                      {candidate.title} ({candidate.year})
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {parentEntryId && (
+              <div className="space-y-2 pt-1">
+                <p className="text-[11px] text-[#888]">How should this release be counted?</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLinkedReleaseMode('independent')}
+                    className={`rounded-lg border p-2.5 text-left transition-colors ${
+                      linkedReleaseMode === 'independent'
+                        ? 'border-[#E50914]/50 bg-[#E50914]/10'
+                        : 'border-white/10 bg-white/[0.03]'
+                    }`}
+                  >
+                    <span className="block text-xs font-semibold text-white">Independent continuation</span>
+                    <span className="mt-1 block text-[10px] text-[#999]">Track separately and allow its own Favorite and Top 10 entry after completion.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLinkedReleaseMode('included')}
+                    className={`rounded-lg border p-2.5 text-left transition-colors ${
+                      linkedReleaseMode === 'included'
+                        ? 'border-[#E50914]/50 bg-[#E50914]/10'
+                        : 'border-white/10 bg-white/[0.03]'
+                    }`}
+                  >
+                    <span className="block text-xs font-semibold text-white">Part of the parent series</span>
+                    <span className="mt-1 block text-[10px] text-[#999]">Track its release and progress, but don’t rank or favorite it separately.</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Country */}

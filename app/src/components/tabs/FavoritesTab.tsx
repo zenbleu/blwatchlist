@@ -179,6 +179,7 @@ export default function FavoritesTab() {
         {processedFavorites.map((fav) => {
           const entry = getEntryById(fav.entryId);
           if (!entry) return null;
+          const parentEntry = entry.parentEntryId ? getEntryById(entry.parentEntryId) : undefined;
 
           // Status badge colors
           const cardStatusConfig = {
@@ -203,6 +204,11 @@ export default function FavoritesTab() {
                   <RatingTierBadge rating={fav} compact />
                 </div>
                 <p className="text-[#888] text-xs mt-0.5">{entry.year} &middot; {entry.country}</p>
+                {parentEntry && (
+                  <p className="mt-1 text-[10px] text-[#999]">
+                    Continuation of {parentEntry.title}
+                  </p>
+                )}
                 {entry.season != null && (
                   <p className="text-[#B3B3B3] text-[10px] mt-1">{formatSeasonLabel(entry.season)}</p>
                 )}

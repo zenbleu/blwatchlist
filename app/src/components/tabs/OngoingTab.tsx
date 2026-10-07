@@ -27,6 +27,7 @@ const OngoingCard = memo(function OngoingCard({
   onSpecialWatchedChange,
   onEntryClick,
   onFinishPrompt,
+  linkedParentTitle,
   rating,
 }: {
   entryId: string;
@@ -37,6 +38,7 @@ const OngoingCard = memo(function OngoingCard({
   onSpecialWatchedChange: (entryId: string, specialId: string, watched: boolean) => void;
   onEntryClick: (entry: Entry) => void;
   onFinishPrompt: (entryId: string, schedule: ReturnType<typeof getOngoingSchedule>, ongoingData: OngoingEntry) => boolean;
+  linkedParentTitle?: string;
   rating?: FavoriteEntry;
 }) {
   const isAiringToday = schedule.isAiringToday;
@@ -125,6 +127,11 @@ const OngoingCard = memo(function OngoingCard({
           <p className="text-xs text-[#B3B3B3]">
             {entry.season != null ? `${formatSeasonLabel(entry.season)} · ` : ''}{entry.country}
           </p>
+          {linkedParentTitle && (
+            <p className="mt-1 text-[11px] text-[#999]">
+              {entry.linkedReleaseMode === 'included' ? 'Part of' : 'Continuation of'} {linkedParentTitle}
+            </p>
+          )}
 
           {/* Episode Tracker */}
           <div className="mt-3 space-y-2">
@@ -632,6 +639,9 @@ export default function OngoingTab() {
             onSpecialWatchedChange={handleSpecialWatchedChange}
             onEntryClick={setSelectedEntry}
             onFinishPrompt={handleFinishPrompt}
+            linkedParentTitle={entry.parentEntryId
+              ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)?.title
+              : undefined}
             rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
           />
         ))}

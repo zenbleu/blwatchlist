@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { Entry, FavoriteEntry } from '@/types';
-import { formatSeasonLabel } from '@/lib/entry';
+import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
 import RatingTierBadge from './RatingTierBadge';
 
 interface SearchOverlayProps {
@@ -64,6 +64,7 @@ const SearchResultCard = memo(function SearchResultCard({
   onDelete: (id: string) => void;
   rating?: FavoriteEntry;
 }) {
+  const canRank = isEligibleForFavoriteOrTop10(entry);
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-[#141414] w-full min-w-0">
       {/* Clickable Poster → opens view card modal */}
@@ -107,15 +108,15 @@ const SearchResultCard = memo(function SearchResultCard({
               event.stopPropagation();
               onToggleFavorite(entry);
             }}
-            disabled={entry.status !== 'COMPLETE'}
+            disabled={!canRank}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium tap-active transition-colors ${
               favorited
                 ? 'bg-[#FF2D7B]/15 text-[#FF2D7B]'
-                : entry.status !== 'COMPLETE'
+                : !canRank
                 ? 'bg-white/[0.04] text-[#555] cursor-not-allowed'
                 : 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]'
             }`}
-            title={entry.status !== 'COMPLETE' ? 'Only completed entries can be favorited' : ''}
+            title={!canRank ? 'Only completed, independently tracked entries can be favorited' : ''}
           >
             <Heart className={`w-3 h-3 ${favorited ? 'fill-current' : ''}`} />
             <span className="hidden sm:inline">Fav</span>
@@ -126,11 +127,11 @@ const SearchResultCard = memo(function SearchResultCard({
               event.stopPropagation();
               onRate(entry);
             }}
-            disabled={entry.status !== 'COMPLETE'}
+            disabled={!canRank}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium tap-active transition-colors ${
-              entry.status === 'COMPLETE' ? 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]' : 'bg-white/[0.04] text-[#555] cursor-not-allowed'
+              canRank ? 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]' : 'bg-white/[0.04] text-[#555] cursor-not-allowed'
             }`}
-            title={entry.status === 'COMPLETE' ? 'Rate this entry' : 'Only completed entries can be rated'}
+            title={canRank ? 'Rate this entry' : 'Only completed, independently tracked entries can be rated'}
           >
             <Star className="w-3 h-3 text-yellow-400" />
             <span className="hidden sm:inline">Rate</span>
@@ -148,7 +149,7 @@ const SearchResultCard = memo(function SearchResultCard({
                 event.stopPropagation();
                 onAddToTop10(entry);
               }}
-              disabled={!canAddToTop10 || entry.status !== 'COMPLETE'}
+              disabled={!canAddToTop10 || !canRank}
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1] tap-active disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Star className="w-3 h-3" />

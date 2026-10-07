@@ -1,6 +1,7 @@
 import type { Milestone } from '@/components/MilestoneModal';
 
 export type Status = 'COMPLETE' | 'ONGOING' | 'DROPPED' | 'PLANNED';
+export type LinkedReleaseMode = 'independent' | 'included';
 
 export type AirDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 export type OngoingTrackingMode = 'recurring' | 'calendar';
@@ -17,6 +18,10 @@ export interface Entry {
   type: 'Movie' | 'Series';
   /** Optional season metadata. Omitted means this is a standalone entry. */
   season?: number;
+  /** Parent title for a separately tracked continuation or special release. */
+  parentEntryId?: string;
+  /** Included releases are tracked separately but are not independently ranked. */
+  linkedReleaseMode?: LinkedReleaseMode;
   year: number;
   country: string;
   status: Status;

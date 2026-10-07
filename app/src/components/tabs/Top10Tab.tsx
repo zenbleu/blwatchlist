@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { formatSeasonLabel } from "@/lib/entry";
+import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
 import { Input } from "@/components/ui/input";
 import RatingTierBadge from "../RatingTierBadge";
 import {
@@ -379,8 +379,8 @@ export default function Top10Tab() {
   const getAvailableEntries = (year: number) => {
     const drawer = state.top10Drawers.find((d) => d.year === year);
     const existingIds = new Set(drawer?.entries.map((e) => e.entryId) || []);
-    // Exclude dropped entries from available entries
-    return state.entries.filter((e) => e.year === year && !existingIds.has(e.id) && e.status !== 'DROPPED');
+    // Only completed, independently rankable entries can be added.
+    return state.entries.filter((e) => e.year === year && !existingIds.has(e.id) && isEligibleForFavoriteOrTop10(e));
   };
 
   // Build share card entries for a drawer

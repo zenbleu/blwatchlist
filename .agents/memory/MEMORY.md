@@ -3,3 +3,4 @@
 - [appstate-type-mismatch](appstate-type-mismatch.md) — AppState type is narrower than runtime state; importMode/milestoneQueue/celebratedMilestones exist at runtime but not in the type
 - [vite-workflow-port](vite-workflow-port.md) — Invoke Vite directly when pnpm forwards an extra separator, or the preview may bind its configured port instead
 - [nested-app-install](nested-app-install.md) — For imported projects under app/, install from that directory with its lockfile; workspace package callbacks may target the wrong root
+- [Linked special releases](linked-special-releases.md) — Keep the original series complete; linked releases can be independent or part of the parent and not independently ranked.

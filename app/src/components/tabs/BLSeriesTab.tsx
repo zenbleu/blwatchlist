@@ -10,7 +10,7 @@ import EntryModal from "../EntryModal";
 import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import RatingTierBadge from "../RatingTierBadge";
-import { formatSeasonLabel } from "@/lib/entry";
+import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +48,7 @@ const EntryCard = memo(function EntryCard({
   onView,
   canAddToTop10,
   airingBadge,
+  linkedParentTitle,
   rating,
 }: {
   entry: Entry;
@@ -61,9 +62,10 @@ const EntryCard = memo(function EntryCard({
   onView: (entry: Entry) => void;
   canAddToTop10: boolean;
   airingBadge: "Airing Today" | "Final EP" | "Special Episode" | "Premiere" | null;
+  linkedParentTitle?: string;
   rating?: FavoriteEntry;
 }) {
-  const completed = entry.status === 'COMPLETE';
+  const canRank = isEligibleForFavoriteOrTop10(entry);
   return (
     <motion.div
       layout
@@ -100,6 +102,11 @@ const EntryCard = memo(function EntryCard({
                 {formatSeasonLabel(entry.season)}
               </span>
             )}
+            {linkedParentTitle && (
+              <p className="mt-1 truncate text-[10px] text-[#999]">
+                {entry.linkedReleaseMode === 'included' ? 'Part of' : 'Continuation of'} {linkedParentTitle}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {airingBadge && (
@@ -125,15 +132,15 @@ const EntryCard = memo(function EntryCard({
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <button
             onClick={() => onToggleFavorite(entry)}
-            disabled={!completed}
+            disabled={!canRank}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium tap-active transition-colors ${
               favorited
                 ? "bg-[#FF2D7B]/15 text-[#FF2D7B]"
-                : !completed
+                : !canRank
                 ? "bg-white/[0.04] text-[#555] cursor-not-allowed"
                 : "bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]"
             }`}
-            title={!completed ? "Only completed entries can be favorited" : ""}
+            title={!canRank ? "Only completed, independently tracked entries can be favorited" : ""}
           >
             <Heart className={`w-3 h-3 ${favorited ? "fill-current" : ""}`} />
             <span className="hidden sm:inline">Favorite</span>
@@ -141,11 +148,11 @@ const EntryCard = memo(function EntryCard({
 
           <button
             onClick={() => onRate(entry)}
-            disabled={!completed}
+            disabled={!canRank}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium tap-active transition-colors ${
-              completed ? "bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]" : "bg-white/[0.04] text-[#555] cursor-not-allowed"
+              canRank ? "bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]" : "bg-white/[0.04] text-[#555] cursor-not-allowed"
             }`}
-            title={completed ? "Rate this entry" : "Only completed entries can be rated"}
+            title={canRank ? "Rate this entry" : "Only completed, independently tracked entries can be rated"}
           >
             <Star className="w-3 h-3 text-yellow-400" />
             <span className="hidden sm:inline">Rate</span>
@@ -159,7 +166,7 @@ const EntryCard = memo(function EntryCard({
           ) : (
             <button
               onClick={() => onAddToTop10(entry)}
-              disabled={!canAddToTop10 || !completed}
+              disabled={!canAddToTop10 || !canRank}
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1] tap-active disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Star className="w-3 h-3" />
@@ -406,6 +413,9 @@ export default function BLSeriesTab() {
                 ? state.ongoing.find((item) => item.entryId === entry.id)
                 : undefined;
               const schedule = ongoing ? getOngoingSchedule(ongoing, now) : null;
+              const linkedParentTitle = entry.parentEntryId
+                ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)?.title
+                : undefined;
               const premiereDate = ongoing?.firstAirDate || [...(ongoing?.releaseDates || [])].sort()[0];
               const isPremiereToday = premiereDate === getDateOnly(now);
               const airingBadge = isPremiereToday
@@ -432,6 +442,7 @@ export default function BLSeriesTab() {
                   onView={handleView}
                   canAddToTop10={canAddToTop10}
                   airingBadge={airingBadge}
+                  linkedParentTitle={linkedParentTitle}
                   rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
                 />
               );

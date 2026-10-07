@@ -11,6 +11,7 @@ import type {
   Top10Drawer,
   AirDay,
   OngoingTrackingMode,
+  LinkedReleaseMode,
   SpecialEpisode,
   EpisodeRating,
 } from '@/types';
@@ -18,7 +19,7 @@ import { saveToIndexedDB, loadFromIndexedDB } from '@/hooks/useIndexedDB';
 import type { Milestone, MilestoneType } from '@/components/MilestoneModal';
 import { trackWrappedEvent } from '@/lib/wrappedTracker';
 import { calculateEvaluationDeduction, calculateOverallRating, getEpisodeAverage, getEpisodeProgress } from '@/lib/rating';
-import { isSameEntryIdentity } from '@/lib/entry';
+import { isEligibleForFavoriteOrTop10, isSameEntryIdentity } from '@/lib/entry';
 import { isDateOnlyOnOrBefore } from '@/lib/episodeSchedule';
 
 const AIR_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
@@ -88,6 +89,13 @@ function migrateEntry(e: Record<string, unknown>): Entry {
   const season = typeof e.season === 'number' && Number.isInteger(e.season) && e.season >= 1
     ? e.season
     : undefined;
+  const parentEntryId = typeof e.parentEntryId === 'string' && e.parentEntryId
+    ? e.parentEntryId
+    : undefined;
+  const linkedReleaseMode = parentEntryId
+    && (e.linkedReleaseMode === 'independent' || e.linkedReleaseMode === 'included')
+    ? e.linkedReleaseMode as LinkedReleaseMode
+    : undefined;
 
   const episodeRatings = e.episodeRatings && typeof e.episodeRatings === 'object'
     ? Object.entries(e.episodeRatings as Record<string, unknown>).reduce<Record<string, EpisodeRating>>((result, [episode, raw]) => {
@@ -137,6 +145,8 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     lastUpdatedAt: typeof e.lastUpdatedAt === 'number'
       ? e.lastUpdatedAt
       : (typeof e.createdAt === 'number' ? e.createdAt : Date.now()),
+    parentEntryId,
+    linkedReleaseMode,
     ...(episodeRatings && Object.keys(episodeRatings).length > 0 ? { episodeRatings } : {}),
   };
 }
@@ -262,7 +272,18 @@ function validateData(data: unknown): AppState {
   // Migrate milestone-related fields
   const celebratedMilestones = Array.isArray(d.celebratedMilestones) ? d.celebratedMilestones as string[] : [];
 
-  const migratedEntries = entries.map((e: Record<string, unknown>) => migrateEntry(e));
+  const migratedEntriesRaw = entries.map((e: Record<string, unknown>) => migrateEntry(e));
+  const entriesById = new Map<string, Entry>(
+    migratedEntriesRaw.map((entry) => [entry.id, entry] as const),
+  );
+  const migratedEntries = migratedEntriesRaw.map((entry) =>
+    entry.parentEntryId
+      && entry.parentEntryId !== entry.id
+      && entriesById.get(entry.parentEntryId)?.type === 'Series'
+      && !entriesById.get(entry.parentEntryId)?.parentEntryId
+      ? entry
+      : { ...entry, parentEntryId: undefined, linkedReleaseMode: undefined },
+  );
 
   // Clean up: remove favorites for dropped entries
   const favoritesRaw = favorites as unknown as Record<string, unknown>[];
@@ -529,6 +550,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_ENTRY': {
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
+      if (action.payload.parentEntryId && !state.entries.some(
+        (entry) => entry.id === action.payload.parentEntryId && entry.type === 'Series' && !entry.parentEntryId,
+      )) return state;
       const entry = {
         ...action.payload,
         lastUpdatedAt: nextEntryTimestamp(state.entries),
@@ -611,6 +635,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
       if (hasDuplicateEntry(state.entries, action.payload, action.payload.id)) return state;
+      const parentEntryId = action.payload.parentEntryId;
+      if (parentEntryId && (
+        parentEntryId === action.payload.id
+        || !state.entries.some((candidate) =>
+          candidate.id === parentEntryId && candidate.type === 'Series' && !candidate.parentEntryId,
+        )
+      )) return state;
       // Episode ratings have their own UPDATE_EPISODE_RATING action. Generic
       // entry edits must not overwrite them with stale or incomplete form data.
       const nextPayload = { ...action.payload, episodeRatings: oldEntry.episodeRatings };
@@ -659,7 +690,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const id = action.payload;
       return {
         ...state,
-        entries: state.entries.filter(e => e.id !== id),
+        // Keep linked releases when their parent is removed, but detach them
+        // rather than leaving a broken parent reference.
+        entries: state.entries
+          .filter(e => e.id !== id)
+          .map(e => e.parentEntryId === id
+            ? { ...e, parentEntryId: undefined, linkedReleaseMode: undefined }
+            : e),
         ongoing: state.ongoing.filter(o => o.entryId !== id),
         favorites: state.favorites.filter(f => f.entryId !== id),
         ratings: state.ratings.filter(r => r.entryId !== id),
@@ -672,9 +709,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'TOGGLE_FAVORITE': {
       const entryId = action.payload;
-      // Prevent favoriting dropped entries
       const entry = state.entries.find(e => e.id === entryId);
-      if (entry?.status === 'DROPPED') return state;
 
       if (state.favorites.find(f => f.entryId === entryId)) {
         return {
@@ -683,7 +718,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           favorites: state.favorites.filter(f => f.entryId !== entryId),
         };
       }
-      if (!entry) return state;
+      if (!entry || !isEligibleForFavoriteOrTop10(entry)) return state;
       const newFav: FavoriteEntry = {
         entryId,
         storyline: 5,
@@ -735,6 +770,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'UPDATE_FAVORITE': {
+      const favoriteEntry = state.entries.find((entry) => entry.id === action.payload.entryId);
+      if (!favoriteEntry || !isEligibleForFavoriteOrTop10(favoriteEntry)) return state;
       const updated = {
         ...action.payload,
         gapPenalty: calculateEvaluationDeduction(action.payload),
@@ -755,6 +792,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, favorites: state.favorites.filter(f => f.entryId !== action.payload) };
 
     case 'UPDATE_RATING': {
+      const ratedEntry = state.entries.find((entry) => entry.id === action.payload.entryId);
+      if (!ratedEntry || !isEligibleForFavoriteOrTop10(ratedEntry)) return state;
       const updated = {
         ...action.payload,
         gapPenalty: calculateEvaluationDeduction(action.payload),
@@ -830,9 +869,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_TO_TOP10': {
       const { year, entryId } = action.payload;
-      // Prevent adding dropped entries to top10
       const entry = state.entries.find(e => e.id === entryId);
-      if (entry?.status === 'DROPPED') return state;
+      if (!entry || !isEligibleForFavoriteOrTop10(entry)) return state;
 
       let added = false;
       const top10Drawers = state.top10Drawers.map(d => {

@@ -6,7 +6,7 @@ import Poster from './Poster';
 import type { ActorRole, Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
 import { getEpisodeAverage } from '@/lib/rating';
-import { formatSeasonLabel } from '@/lib/entry';
+import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
 import { getOngoingSchedule } from '@/lib/episodeSchedule';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
 import RatingTierBadge from './RatingTierBadge';
@@ -23,8 +23,15 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   const [activePage, setActivePage] = useState<'details' | 'episodes' | 'cast'>('details');
 
   const favorited = entry ? isFavorited(entry.id) : false;
+  const canToggleFavorite = !!entry && (favorited || isEligibleForFavoriteOrTop10(entry));
   const rating = entry ? (getRatingByEntryId(entry.id) ?? getFavoriteByEntryId(entry.id)) : null;
   const ongoing = entry ? getOngoingByEntryId(entry.id) : undefined;
+  const linkedParent = entry?.parentEntryId
+    ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)
+    : undefined;
+  const linkedReleases = entry
+    ? state.entries.filter((candidate) => candidate.parentEntryId === entry.id)
+    : [];
   const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const episodeCount = entry
     ? Math.max(1, ongoing?.totalEpisodes || 0, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))
@@ -66,10 +73,14 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
           {/* Heart - top left */}
           <button
             onClick={handleToggleFavorite}
+            disabled={!canToggleFavorite}
+            title={!canToggleFavorite ? 'Only completed, independently tracked entries can be favorited' : ''}
             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
               favorited
                 ? 'bg-[#E50914]/20 text-[#E50914]'
-                : 'bg-white/[0.06] text-[#666] hover:text-[#E50914] hover:bg-white/[0.1]'
+                : canToggleFavorite
+                  ? 'bg-white/[0.06] text-[#666] hover:text-[#E50914] hover:bg-white/[0.1]'
+                  : 'bg-white/[0.04] text-[#444] cursor-not-allowed'
             }`}
           >
             <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
@@ -168,6 +179,21 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               <span className="text-[#444]">|</span>
               <span className="text-[#B3B3B3]">{entry.country}</span>
             </div>
+            {(linkedParent || linkedReleases.length > 0) && (
+              <div className="mx-6 mb-5 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-left">
+                {linkedParent && (
+                  <p className="text-[11px] text-[#B3B3B3]">
+                    {entry.linkedReleaseMode === 'included' ? 'Part of' : 'Continuation of'}{' '}
+                    <span className="font-medium text-white">{linkedParent.title} ({linkedParent.year})</span>
+                  </p>
+                )}
+                {linkedReleases.length > 0 && (
+                  <p className="text-[11px] text-[#B3B3B3]">
+                    Linked releases: <span className="text-white">{linkedReleases.map((release) => release.title).join(', ')}</span>
+                  </p>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="2" aria-hidden={activePage !== 'episodes'}>
