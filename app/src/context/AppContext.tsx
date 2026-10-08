@@ -157,7 +157,7 @@ function migrateEntry(e: Record<string, unknown>): Entry {
   };
 }
 
-function migrateGenreTags(raw: unknown): GenreTag[] {
+export function migrateGenreTags(raw: unknown): GenreTag[] {
   const defaultIds = new Set(DEFAULT_GENRE_TAGS.map((tag) => tag.id));
   const defaultNames = new Set(DEFAULT_GENRE_TAGS.map((tag) => normalizeGenreName(tag.name)));
   const customTags: GenreTag[] = [];

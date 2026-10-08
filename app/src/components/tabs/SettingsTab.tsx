@@ -13,7 +13,7 @@ import {
   Trash2,
   Sparkles,
 } from 'lucide-react';
-import { migrateOngoing, useApp } from '@/context/AppContext';
+import { migrateGenreTags, migrateOngoing, useApp } from '@/context/AppContext';
 import { useWrapped } from '@/context/WrappedContext';
 import { useAnnualWrapped } from '@/context/AnnualWrappedContext';
 import { saveToIndexedDB, clearIndexedDB } from '@/hooks/useIndexedDB';
@@ -216,6 +216,7 @@ export default function SettingsTab() {
 
         newState = {
           entries: processedEntries as unknown as AppState['entries'],
+          genreTags: migrateGenreTags(data.genreTags),
           actors: Array.isArray(data.actors) ? data.actors as AppState['actors'] : [],
           ongoing: importedOngoing,
           favorites: Array.isArray(data.favorites)
@@ -243,6 +244,7 @@ export default function SettingsTab() {
         // Legacy format - entries only
         newState = {
           entries: processedEntries as unknown as AppState['entries'],
+          genreTags: migrateGenreTags(undefined),
           actors: [],
           ongoing: [],
           favorites: [],
@@ -294,6 +296,7 @@ export default function SettingsTab() {
       type: 'SET_STATE',
       payload: {
         entries: [],
+        genreTags: migrateGenreTags(undefined),
         actors: [],
         ongoing: [],
         favorites: [],
