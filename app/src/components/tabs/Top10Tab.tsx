@@ -20,7 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Star, ChevronDown, ChevronRight, Trash2, Plus, X, AlertTriangle, Edit3, Lock } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
-import type { Entry, FavoriteEntry } from "@/types";
+import type { Entry } from "@/types";
 import EntryModal from "../EntryModal";
 import ShareButton from "../ShareCard";
 import {
@@ -32,7 +32,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
 import { Input } from "@/components/ui/input";
-import RatingTierBadge from "../RatingTierBadge";
 import {
   Select,
   SelectContent,
@@ -64,14 +63,12 @@ const Top10Card = memo(function Top10Card({
   isEditMode,
   onRemove,
   onClick,
-  rating,
 }: {
   entry: { title: string; season?: number; poster: string | null; type: string; country: string };
   rank: number;
   isEditMode: boolean;
   onRemove: () => void;
   onClick?: () => void;
-  rating?: FavoriteEntry;
 }) {
   return (
     <div
@@ -116,7 +113,6 @@ const Top10Card = memo(function Top10Card({
       <div className="p-2.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <p className="text-sm font-bold truncate">{entry.title}</p>
-          <RatingTierBadge rating={rating} compact />
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#E50914]/15 text-[#E50914]">
@@ -136,12 +132,10 @@ const SortableTop10Card = memo(function SortableTop10Card({
   entry,
   rank,
   onRemove,
-  rating,
 }: {
   entry: { id: string; title: string; poster: string | null; type: string; country: string };
   rank: number;
   onRemove: () => void;
-  rating?: FavoriteEntry;
 }) {
   const {
     attributes,
@@ -163,7 +157,7 @@ const SortableTop10Card = memo(function SortableTop10Card({
       {...attributes}
       {...listeners}
     >
-      <Top10Card entry={entry} rank={rank} isEditMode onRemove={onRemove} rating={rating} />
+      <Top10Card entry={entry} rank={rank} isEditMode onRemove={onRemove} />
     </div>
   );
 });
@@ -263,9 +257,6 @@ function RankingModal({
 
 export default function Top10Tab() {
   const { state, dispatch, getEntryById, checkMilestones } = useApp();
-  const getSavedRating = (entryId: string) =>
-    state.favorites.find((rating) => rating.entryId === entryId) ??
-    state.ratings.find((rating) => rating.entryId === entryId);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -583,7 +574,6 @@ export default function Top10Tab() {
                                   key={entry.entryId}
                                   entry={e}
                                   rank={entry.rank}
-                                  rating={getSavedRating(e.id)}
                                   onRemove={() =>
                                     dispatch({
                                       type: "REMOVE_FROM_TOP10",
@@ -609,7 +599,6 @@ export default function Top10Tab() {
                                   entry={e}
                                   rank={entry.rank}
                                   isEditMode={false}
-                                  rating={getSavedRating(e.id)}
                                   onRemove={() => undefined}
                                   onClick={() => setSelectedEntry(e)}
                                 />
@@ -721,7 +710,6 @@ export default function Top10Tab() {
                   <Poster src={entry.poster} title={entry.title} size="sm" />
                   <div className="flex min-w-0 flex-1 items-center gap-1.5">
                     <span className="text-sm font-semibold truncate">{entry.title}</span>
-                    <RatingTierBadge rating={getSavedRating(entry.id)} compact />
                   </div>
                   <Button
                     size="sm"

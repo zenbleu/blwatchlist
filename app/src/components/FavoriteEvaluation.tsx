@@ -13,7 +13,6 @@ import {
   getEpisodeAverage,
 } from '@/lib/rating';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
-import RatingTierBadge from './RatingTierBadge';
 
 /* ============================================================
    Animated Counter Hook
@@ -723,20 +722,6 @@ export default function FavoriteEvaluation({
   const displayOverall = isEditable
     ? overallRating
     : (existingFavorite?.overallRating ?? 0);
-  const displayedBonuses = {
-    originality: displayOriginality,
-    characterDepth: displayCharacterDepth,
-    relationshipDynamics: displayRelationshipDynamics,
-    outstandingChemistry: displayOutstandingChemistry,
-    naturalSkinship: displayNaturalSkinship,
-    secondaryCouple: displaySecondaryCouple,
-    soundtrack: displaySoundtrack,
-    cinematographyBonus: displayCinematographyBonus,
-    emotionalImpact: displayEmotionalImpact,
-    ending: displayEnding,
-    comfortAura: displayComfortAura,
-    rewatchValue: displayRewatchValue,
-  };
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -756,10 +741,6 @@ export default function FavoriteEvaluation({
                 <h2 className="text-sm font-bold text-white truncate">
                   {entry.title}
                 </h2>
-                <RatingTierBadge
-                  rating={{ overallRating: displayOverall, ...displayedBonuses }}
-                  compact
-                />
               </div>
               <button
                 onClick={onClose}

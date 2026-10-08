@@ -26,6 +26,7 @@ const OngoingTab       = lazy(() => import('@/components/tabs/OngoingTab'));
 const FavoritesTab     = lazy(() => import('@/components/tabs/FavoritesTab'));
 const Top10Tab         = lazy(() => import('@/components/tabs/Top10Tab'));
 const StatisticsTab    = lazy(() => import('@/components/tabs/StatisticsTab'));
+const GenresTab        = lazy(() => import('@/components/tabs/GenresTab'));
 const ActorsTab        = lazy(() => import('@/components/tabs/ActorsTab'));
 const SettingsTab      = lazy(() => import('@/components/tabs/SettingsTab'));
 const SearchOverlay    = lazy(() => import('@/components/SearchOverlay'));
@@ -141,6 +142,7 @@ function AppContent() {
               {activeTab === 'favorites'  && <FavoritesTab />}
               {activeTab === 'top10'      && <Top10Tab />}
               {activeTab === 'statistics' && <StatisticsTab onViewProfile={() => setProfileOpen(true)} />}
+              {activeTab === 'genres'     && <GenresTab />}
               {activeTab === 'actors'     && <ActorsTab />}
               {activeTab === 'settings'   && <SettingsTab />}
             </Suspense>

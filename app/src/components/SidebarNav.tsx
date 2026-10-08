@@ -7,13 +7,14 @@ import {
   Heart,
   Star,
   BarChart3,
+  Tags,
   UsersRound,
   Settings,
   X,
   Menu
 } from 'lucide-react';
 
-export type TabId = 'overview' | 'blseries' | 'ongoing' | 'favorites' | 'top10' | 'statistics' | 'actors' | 'settings';
+export type TabId = 'overview' | 'blseries' | 'ongoing' | 'favorites' | 'top10' | 'statistics' | 'genres' | 'actors' | 'settings';
 
 interface SidebarNavProps {
   activeTab: TabId;
@@ -27,6 +28,7 @@ const navItems: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'favorites', label: 'Favorite BL Of All Time', icon: Heart },
   { id: 'top10', label: 'Top 10 BL Series & Movies', icon: Star },
   { id: 'statistics', label: 'Statistics', icon: BarChart3 },
+  { id: 'genres', label: 'Genres', icon: Tags },
   { id: 'actors', label: 'Actors', icon: UsersRound },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];

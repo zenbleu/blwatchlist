@@ -12,9 +12,11 @@ import type {
   AirDay,
   OngoingTrackingMode,
   LinkedReleaseMode,
+  GenreTag,
   SpecialEpisode,
   EpisodeRating,
 } from '@/types';
+import { DEFAULT_GENRE_TAGS, normalizeGenreName } from '@/lib/genres';
 import { saveToIndexedDB, loadFromIndexedDB } from '@/hooks/useIndexedDB';
 import type { Milestone, MilestoneType } from '@/components/MilestoneModal';
 import { trackWrappedEvent } from '@/lib/wrappedTracker';
@@ -62,6 +64,7 @@ function getMilestoneMessage(type: MilestoneType, value: number): string {
 
 export const initialState: AppState = {
   entries: [],
+  genreTags: [...DEFAULT_GENRE_TAGS],
   actors: [],
   ongoing: [],
   favorites: [],
@@ -147,8 +150,43 @@ function migrateEntry(e: Record<string, unknown>): Entry {
       : (typeof e.createdAt === 'number' ? e.createdAt : Date.now()),
     parentEntryId,
     linkedReleaseMode,
+    genres: Array.isArray(e.genres)
+      ? [...new Set(e.genres.filter((genre): genre is string => typeof genre === 'string'))]
+      : undefined,
     ...(episodeRatings && Object.keys(episodeRatings).length > 0 ? { episodeRatings } : {}),
   };
+}
+
+function migrateGenreTags(raw: unknown): GenreTag[] {
+  const defaultIds = new Set(DEFAULT_GENRE_TAGS.map((tag) => tag.id));
+  const defaultNames = new Set(DEFAULT_GENRE_TAGS.map((tag) => normalizeGenreName(tag.name)));
+  const customTags: GenreTag[] = [];
+  const seenNames = new Set(defaultNames);
+  const seenIds = new Set(defaultIds);
+
+  if (Array.isArray(raw)) {
+    raw.forEach((value) => {
+      if (!value || typeof value !== 'object') return;
+      const tag = value as Record<string, unknown>;
+      const id = typeof tag.id === 'string' ? tag.id.trim() : '';
+      const name = typeof tag.name === 'string' ? tag.name.trim() : '';
+      const category = typeof tag.category === 'string' && tag.category.trim()
+        ? tag.category.trim()
+        : 'Custom';
+      const color = typeof tag.color === 'string'
+        && (/^#[0-9a-f]{6}$/i.test(tag.color) || /^hsl\(\d{1,3}\s+\d{1,3}%\s+\d{1,3}%\)$/i.test(tag.color))
+        ? tag.color
+        : '';
+      if (!id || !name || !color || defaultIds.has(id)) return;
+      const normalizedName = normalizeGenreName(name);
+      if (seenIds.has(id) || seenNames.has(normalizedName)) return;
+      seenIds.add(id);
+      seenNames.add(normalizedName);
+      customTags.push({ id, name, category, color, custom: true });
+    });
+  }
+
+  return [...DEFAULT_GENRE_TAGS, ...customTags];
 }
 
 function migrateSpecialEpisode(raw: unknown, index: number): SpecialEpisode | null {
@@ -255,6 +293,8 @@ function validateData(data: unknown): AppState {
   if (!data || typeof data !== 'object') return { ...initialState };
   const d = data as Record<string, unknown>;
   const entries = Array.isArray(d.entries) ? d.entries : [];
+  const genreTags = migrateGenreTags(d.genreTags);
+  const genreIds = new Set(genreTags.map((tag) => tag.id));
   const actors = Array.isArray(d.actors)
     ? d.actors
       .map((actor, index) => migrateActor(actor, index))
@@ -272,7 +312,13 @@ function validateData(data: unknown): AppState {
   // Migrate milestone-related fields
   const celebratedMilestones = Array.isArray(d.celebratedMilestones) ? d.celebratedMilestones as string[] : [];
 
-  const migratedEntriesRaw = entries.map((e: Record<string, unknown>) => migrateEntry(e));
+  const migratedEntriesRaw = entries.map((e: Record<string, unknown>) => {
+    const entry = migrateEntry(e);
+    return {
+      ...entry,
+      ...(entry.genres ? { genres: entry.genres.filter((genreId) => genreIds.has(genreId)) } : {}),
+    };
+  });
   const entriesById = new Map<string, Entry>(
     migratedEntriesRaw.map((entry) => [entry.id, entry] as const),
   );
@@ -387,6 +433,7 @@ function validateData(data: unknown): AppState {
 
   return {
     entries: migratedEntries as unknown as Entry[],
+    genreTags,
     actors,
     ongoing: ongoing
       .map((o) => migrateOngoing(o as Record<string, unknown>))
@@ -466,7 +513,8 @@ function entryContentChanged(previous: Entry, next: Entry): boolean {
     || previous.status !== next.status
     || previous.poster !== next.poster
     || previous.season !== next.season
-    || previous.plannedDate !== next.plannedDate;
+    || previous.plannedDate !== next.plannedDate
+    || JSON.stringify(previous.genres || []) !== JSON.stringify(next.genres || []);
 }
 
 function evaluationChanged(previous: FavoriteEntry | undefined, next: FavoriteEntry): boolean {
@@ -568,6 +616,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ongoing = [...state.ongoing, o];
       }
       return { ...state, entries: [...state.entries, entry], ongoing };
+    }
+
+    case 'ADD_GENRE_TAG': {
+      const name = action.payload.name.trim();
+      if (!name
+        || state.genreTags.some((tag) =>
+          tag.id === action.payload.id
+          || normalizeGenreName(tag.name) === normalizeGenreName(name),
+        )) return state;
+      return {
+        ...state,
+        genreTags: [...state.genreTags, { ...action.payload, name }],
+      };
     }
 
     case 'ADD_ACTOR':
@@ -1000,7 +1061,14 @@ async function migrateFromLocalStorage(): Promise<AppState | null> {
 // Load from IndexedDB (with localStorage migration fallback)
 async function loadInitialState(): Promise<AppState> {
   const indexedDBData = await loadFromIndexedDB();
-  if (indexedDBData && (indexedDBData.entries.length > 0 || indexedDBData.favorites.length > 0 || indexedDBData.ratings.length > 0)) {
+  const savedGenreTags = indexedDBData?.genreTags;
+  const hasCustomGenres = Array.isArray(savedGenreTags) && savedGenreTags.some((tag) => tag?.custom);
+  if (indexedDBData && (
+    indexedDBData.entries.length > 0
+    || indexedDBData.favorites.length > 0
+    || indexedDBData.ratings.length > 0
+    || hasCustomGenres
+  )) {
     return validateData(indexedDBData);
   }
   const migrated = await migrateFromLocalStorage();

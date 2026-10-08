@@ -17,7 +17,7 @@ import { useApp } from '@/context/AppContext';
 import { formatSeasonLabel } from '@/lib/entry';
 import Poster from '../Poster';
 import EntryModal from '../EntryModal';
-import type { Entry, OngoingEntry, FavoriteEntry } from '@/types';
+import type { Entry, OngoingEntry } from '@/types';
 import {
   getNextPlannedPremiereRelease,
   getNextUpcomingRelease,
@@ -25,7 +25,6 @@ import {
   type UpcomingRelease,
 } from '@/lib/episodeSchedule';
 import { formatRating } from '@/lib/rating';
-import RatingTierBadge from '../RatingTierBadge';
 import BLGamesPanel from '../BLGamesPanel';
 
 const RECENTLY_ADDED_WINDOW = 24 * 60 * 60 * 1000;
@@ -70,7 +69,6 @@ function dailyShuffle<T>(values: T[], day: string, salt: string): T[] {
 function AiringTodayCarousel({
   airingToday,
   onEntryClick,
-  ratingEntryById,
 }: {
   airingToday: {
     entry: Entry;
@@ -78,7 +76,6 @@ function AiringTodayCarousel({
     schedule: ReturnType<typeof getOngoingSchedule>;
   }[];
   onEntryClick: (entry: Entry) => void;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -266,7 +263,6 @@ function AiringTodayCarousel({
                       <div className="absolute bottom-0 left-0 right-0 p-4">
                          <div className="flex items-center gap-1.5">
                            <p className="text-white font-bold text-sm truncate">{item.entry.title}</p>
-                           <RatingTierBadge rating={ratingEntryById.get(item.entry.id)} compact />
                          </div>
                         {item.entry.season != null && (
                           <p className="text-[#777] text-[10px]">{formatSeasonLabel(item.entry.season)}</p>
@@ -309,7 +305,6 @@ function AiringTodayCarousel({
                        <p className="text-[#888] text-[11px] truncate text-center">
                          {item.entry.title}
                        </p>
-                       <RatingTierBadge rating={ratingEntryById.get(item.entry.id)} compact />
                      </div>
                   )}
                 </div>
@@ -396,7 +391,6 @@ function PersonalSnapshot({
 function ContinueWatchingSection({
   items,
   onEntryClick,
-  ratingEntryById,
 }: {
   items: {
     entry: Entry;
@@ -404,7 +398,6 @@ function ContinueWatchingSection({
     schedule: ReturnType<typeof getOngoingSchedule>;
   }[];
   onEntryClick: (entry: Entry) => void;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
 }) {
   return (
     <section>
@@ -447,7 +440,6 @@ function ContinueWatchingSection({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1.5">
                       <p className="truncate text-sm font-bold text-white group-hover:text-[#ff6670]">{entry.title}</p>
-                      <RatingTierBadge rating={ratingEntryById.get(entry.id)} compact />
                     </div>
                     <span className="shrink-0 rounded-full bg-[#E50914]/15 px-2 py-0.5 text-[9px] font-semibold text-red-200">
                       Watching
@@ -500,12 +492,10 @@ function UpcomingReleasesSection({
   releases,
   now,
   onEntryClick,
-  ratingEntryById,
 }: {
   releases: { entry: Entry; ongoingData?: OngoingEntry; release: UpcomingRelease }[];
   now: Date;
   onEntryClick: (entry: Entry) => void;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
 }) {
   return (
     <section>
@@ -539,7 +529,6 @@ function UpcomingReleasesSection({
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center gap-1.5">
                     <p className="truncate text-sm font-bold text-white group-hover:text-[#ff6670]">{entry.title}</p>
-                    <RatingTierBadge rating={ratingEntryById.get(entry.id)} compact />
                   </div>
                   <div className="mt-1 flex min-w-0 items-center gap-1.5">
                     {release.isPremiere ? (
@@ -567,12 +556,10 @@ function UpcomingReleasesSection({
 function RecentlyCompletedSection({
   entries,
   ratingByEntryId,
-  ratingEntryById,
   onEntryClick,
 }: {
   entries: Entry[];
   ratingByEntryId: ReadonlyMap<string, number>;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
   onEntryClick: (entry: Entry) => void;
 }) {
   if (entries.length === 0) return null;
@@ -602,7 +589,6 @@ function RecentlyCompletedSection({
               </div>
               <div className="mt-2 flex items-center gap-1">
                 <p className="truncate text-xs font-medium text-white group-hover:text-[#ff6670]">{entry.title}</p>
-                <RatingTierBadge rating={ratingEntryById.get(entry.id)} compact />
               </div>
               <p className="mt-0.5 truncate text-[10px] text-[#777]">
                 {entry.year} · {entry.type}
@@ -621,11 +607,9 @@ function RecentlyCompletedSection({
 function RecentlyAddedSection({
   entries,
   onEntryClick,
-  ratingEntryById,
 }: {
   entries: Entry[];
   onEntryClick: (entry: Entry) => void;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
 }) {
   const [now] = useState(() => Date.now());
 
@@ -656,7 +640,6 @@ function RecentlyAddedSection({
             <Poster src={entry.poster} title={entry.title} size="lg" className="w-28 h-40 rounded-xl" />
             <div className="mt-2 flex items-center gap-1">
               <p className="text-white text-xs font-medium truncate">{entry.title}</p>
-              <RatingTierBadge rating={ratingEntryById.get(entry.id)} compact />
             </div>
             {entry.season != null && (
               <p className="text-[#777] text-[10px]">{formatSeasonLabel(entry.season)}</p>
@@ -675,13 +658,11 @@ function RecentlyAddedSection({
 function RewatchPosterCard({
   entry,
   rating,
-  ratingEntry,
   isFavorite = false,
   onClick,
 }: {
   entry: Entry;
   rating: number;
-  ratingEntry?: FavoriteEntry;
   isFavorite?: boolean;
   onClick: () => void;
 }) {
@@ -730,7 +711,6 @@ function RewatchPosterCard({
              <h3 className="line-clamp-2 text-base font-bold leading-tight text-white transition-colors group-hover:text-[#ff6670] sm:text-lg">
                {entry.title}
              </h3>
-             <RatingTierBadge rating={ratingEntry} compact />
            </div>
           <p className="mt-1.5 text-[11px] text-white/75">
             {entry.year}
@@ -753,13 +733,11 @@ function RewatchPosterCarousel({
   entries,
   favorites,
   ratingByEntryId,
-  ratingEntryById,
   onEntryClick,
 }: {
   entries: Entry[];
   favorites?: Entry[];
   ratingByEntryId: ReadonlyMap<string, number>;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
   onEntryClick: (entry: Entry) => void;
 }) {
   return (
@@ -772,7 +750,6 @@ function RewatchPosterCarousel({
             key={entry.id}
             entry={entry}
             rating={ratingByEntryId.get(entry.id) ?? 0}
-            ratingEntry={ratingEntryById.get(entry.id)}
             isFavorite={favorites?.some((favorite) => favorite.id === entry.id)}
             onClick={() => onEntryClick(entry)}
           />
@@ -786,13 +763,11 @@ function RewatchPicksSection({
   entries,
   favorites,
   ratingByEntryId,
-  ratingEntryById,
   onEntryClick
 }: {
   entries: Entry[];
   favorites: Entry[];
   ratingByEntryId: ReadonlyMap<string, number>;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
   onEntryClick: (entry: Entry) => void;
 }) {
   const [today, setToday] = useState(() => new Date().toDateString());
@@ -856,7 +831,6 @@ function RewatchPicksSection({
         entries={picks}
         favorites={favorites}
         ratingByEntryId={ratingByEntryId}
-        ratingEntryById={ratingEntryById}
         onEntryClick={onEntryClick}
       />
     </div>
@@ -875,12 +849,10 @@ const REWATCH_GROUPS = [
 function CountryRewatchSections({
   entries,
   ratingByEntryId,
-  ratingEntryById,
   onEntryClick,
 }: {
   entries: Entry[];
   ratingByEntryId: ReadonlyMap<string, number>;
-  ratingEntryById: ReadonlyMap<string, FavoriteEntry>;
   onEntryClick: (entry: Entry) => void;
 }) {
   const [today, setToday] = useState(() => new Date().toDateString());
@@ -914,7 +886,6 @@ function CountryRewatchSections({
           <RewatchPosterCarousel
             entries={group.entries}
             ratingByEntryId={ratingByEntryId}
-            ratingEntryById={ratingEntryById}
             onEntryClick={onEntryClick}
           />
         </div>
@@ -973,13 +944,6 @@ export default function OverviewTab() {
     const ratings = new Map<string, number>();
     state.favorites.forEach((rating) => ratings.set(rating.entryId, rating.overallRating));
     state.ratings.forEach((rating) => ratings.set(rating.entryId, rating.overallRating));
-    return ratings;
-  }, [state.favorites, state.ratings]);
-
-  const ratingEntryById = useMemo(() => {
-    const ratings = new Map<string, FavoriteEntry>();
-    state.favorites.forEach((rating) => ratings.set(rating.entryId, rating));
-    state.ratings.forEach((rating) => ratings.set(rating.entryId, rating));
     return ratings;
   }, [state.favorites, state.ratings]);
 
@@ -1058,7 +1022,6 @@ export default function OverviewTab() {
       <AiringTodayCarousel
         airingToday={airingToday}
         onEntryClick={setSelectedEntry}
-        ratingEntryById={ratingEntryById}
       />
 
       {/* Personal Snapshot */}
@@ -1076,7 +1039,6 @@ export default function OverviewTab() {
         <ContinueWatchingSection
           items={continueWatching}
           onEntryClick={setSelectedEntry}
-          ratingEntryById={ratingEntryById}
         />
         <BLGamesPanel entries={state.entries} />
       </div>
@@ -1086,14 +1048,12 @@ export default function OverviewTab() {
         releases={upcomingReleases}
         now={now}
         onEntryClick={setSelectedEntry}
-        ratingEntryById={ratingEntryById}
       />
 
       {/* Recently Completed */}
       <RecentlyCompletedSection
         entries={recentlyCompleted}
         ratingByEntryId={ratingByEntryId}
-        ratingEntryById={ratingEntryById}
         onEntryClick={setSelectedEntry}
       />
 
@@ -1101,7 +1061,6 @@ export default function OverviewTab() {
       <RecentlyAddedSection
         entries={generalListEntries}
         onEntryClick={setSelectedEntry}
-        ratingEntryById={ratingEntryById}
       />
 
       {/* Curated Rewatch Picks */}
@@ -1109,14 +1068,12 @@ export default function OverviewTab() {
         entries={state.entries}
         favorites={favoritedEntries}
         ratingByEntryId={ratingByEntryId}
-        ratingEntryById={ratingEntryById}
         onEntryClick={setSelectedEntry}
       />
 
       <CountryRewatchSections
         entries={state.entries}
         ratingByEntryId={ratingByEntryId}
-        ratingEntryById={ratingEntryById}
         onEntryClick={setSelectedEntry}
       />
 

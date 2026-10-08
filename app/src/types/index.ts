@@ -3,6 +3,14 @@ import type { Milestone } from '@/components/MilestoneModal';
 export type Status = 'COMPLETE' | 'ONGOING' | 'DROPPED' | 'PLANNED';
 export type LinkedReleaseMode = 'independent' | 'included';
 
+export interface GenreTag {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
+  custom?: boolean;
+}
+
 export type AirDay = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 export type OngoingTrackingMode = 'recurring' | 'calendar';
 
@@ -22,6 +30,8 @@ export interface Entry {
   parentEntryId?: string;
   /** Included releases are tracked separately but are not independently ranked. */
   linkedReleaseMode?: LinkedReleaseMode;
+  /** Genre IDs assigned to this entry; one entry may belong to several genres. */
+  genres?: string[];
   year: number;
   country: string;
   status: Status;
@@ -179,6 +189,7 @@ export interface CollectionStats {
 
 export interface AppState {
   entries: Entry[];
+  genreTags: GenreTag[];
   actors: Actor[];
   ongoing: OngoingEntry[];
   favorites: FavoriteEntry[];
@@ -197,6 +208,7 @@ export interface BackupMetadata {
 export interface FullBackup {
   metadata: BackupMetadata;
   entries: Entry[];
+  genreTags: GenreTag[];
   actors: Actor[];
   ongoing: OngoingEntry[];
   favorites: FavoriteEntry[];
@@ -214,6 +226,7 @@ export type AppAction =
   | { type: 'SET_STATE'; payload: AppState }
   | { type: 'ADD_ENTRY'; payload: Entry }
   | { type: 'UPDATE_ENTRY'; payload: Entry }
+  | { type: 'ADD_GENRE_TAG'; payload: GenreTag }
   | { type: 'DELETE_ENTRY'; payload: string }
   | { type: 'ADD_ACTOR'; payload: Actor }
   | { type: 'UPDATE_ACTOR'; payload: Actor }

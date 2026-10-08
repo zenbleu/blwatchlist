@@ -2,14 +2,14 @@ import { useState, useMemo, memo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Heart, Star, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import { useApp } from "@/context/AppContext";
-import type { Entry, FavoriteEntry } from "@/types";
+import type { Entry, GenreTag } from "@/types";
 import { getDateOnly, getOngoingSchedule } from "@/lib/episodeSchedule";
 import Poster from "../Poster";
 import StatusBadge from "../StatusBadge";
 import EntryModal from "../EntryModal";
 import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
-import RatingTierBadge from "../RatingTierBadge";
+import GenreChip from "../GenreChip";
 import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
 import {
   AlertDialog,
@@ -49,7 +49,7 @@ const EntryCard = memo(function EntryCard({
   canAddToTop10,
   airingBadge,
   linkedParentTitle,
-  rating,
+  genreTags,
 }: {
   entry: Entry;
   favorited: boolean;
@@ -63,7 +63,7 @@ const EntryCard = memo(function EntryCard({
   canAddToTop10: boolean;
   airingBadge: "Airing Today" | "Final EP" | "Special Episode" | "Premiere" | null;
   linkedParentTitle?: string;
-  rating?: FavoriteEntry;
+  genreTags: GenreTag[];
 }) {
   const canRank = isEligibleForFavoriteOrTop10(entry);
   return (
@@ -90,13 +90,15 @@ const EntryCard = memo(function EntryCard({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="text-base font-bold truncate">{entry.title}</p>
-              <RatingTierBadge rating={rating} compact />
-            </div>
+            <p className="text-base font-bold truncate">{entry.title}</p>
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
+            {genreTags.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {genreTags.map((tag) => <GenreChip key={tag.id} tag={tag} />)}
+              </div>
+            )}
             {entry.season != null && (
               <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
                 {formatSeasonLabel(entry.season)}
@@ -443,7 +445,7 @@ export default function BLSeriesTab() {
                   canAddToTop10={canAddToTop10}
                   airingBadge={airingBadge}
                   linkedParentTitle={linkedParentTitle}
-                  rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
+                  genreTags={state.genreTags.filter((tag) => entry.genres?.includes(tag.id))}
                 />
               );
             })

@@ -21,6 +21,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import GenreChip from './GenreChip';
 import AirDaySelector from './AirDaySelector';
 import type { Entry, Status, AirDay, SpecialEpisode, LinkedReleaseMode } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
@@ -63,6 +64,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [releaseCalendarOpen, setReleaseCalendarOpen] = useState(false);
   const [parentPickerOpen, setParentPickerOpen] = useState(false);
   const [parentSearchTerm, setParentSearchTerm] = useState('');
+  const [genrePickerOpen, setGenrePickerOpen] = useState(false);
+  const [genreSearchTerm, setGenreSearchTerm] = useState('');
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
   const [plannedDate, setPlannedDate] = useState('');
   const [error, setError] = useState('');
 
@@ -77,11 +81,20 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       `${candidate.title} ${candidate.year}`.toLocaleLowerCase().includes(normalizedParentSearch),
     )
     .slice(0, 50);
+  const selectedGenreTags = state.genreTags.filter((tag) => selectedGenreIds.includes(tag.id));
+  const normalizedGenreSearch = genreSearchTerm.trim().toLocaleLowerCase();
+  const filteredGenreTags = state.genreTags
+    .filter((tag) =>
+      `${tag.name} ${tag.category}`.toLocaleLowerCase().includes(normalizedGenreSearch),
+    )
+    .slice(0, 60);
 
   // Reset form whenever entry changes or modal opens/closes
   const resetForm = useCallback(() => {
     setParentPickerOpen(false);
     setParentSearchTerm('');
+    setGenrePickerOpen(false);
+    setGenreSearchTerm('');
     if (entry) {
       setTitle(entry.title);
       setType(entry.type);
@@ -93,6 +106,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setStatus(entry.status);
       setPosterData(entry.poster);
       setPlannedDate(entry.plannedDate || '');
+      setSelectedGenreIds(entry.genres || []);
       if (ongoing) {
         setAirDays(ongoing.airDays as AirDay[]);
         setAirTime(ongoing.airTime || '00:00');
@@ -119,6 +133,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setStatus('COMPLETE');
       setPosterData(null);
       setPlannedDate('');
+      setSelectedGenreIds([]);
       setAirDays([]);
       setAirTime('00:00');
       setCurrentEp(0);
@@ -194,6 +209,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       country,
       status,
       poster: posterData,
+      genres: [...selectedGenreIds],
       createdAt: entry?.createdAt || Date.now(),
       lastUpdatedAt: entry?.lastUpdatedAt || entry?.createdAt || Date.now(),
       ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
@@ -354,6 +370,93 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             <p className="text-[10px] text-[#666]">
               Keep each season as its own entry with its own poster, progress, and evaluation.
             </p>
+          </div>
+
+          {/* Genre tags */}
+          <div className="space-y-2">
+            <Label className="text-[#B3B3B3]">Genres</Label>
+            <Popover
+              open={genrePickerOpen}
+              onOpenChange={(open) => {
+                setGenrePickerOpen(open);
+                if (!open) setGenreSearchTerm('');
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={genrePickerOpen}
+                  className="h-10 w-full justify-between border-white/10 bg-white/[0.06] text-left font-normal text-white hover:bg-white/[0.1]"
+                >
+                  <span className="truncate">
+                    {selectedGenreTags.length
+                      ? `${selectedGenreTags.length} genre${selectedGenreTags.length === 1 ? '' : 's'} selected`
+                      : 'Search and select genres...'}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-[#888]" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-[min(24rem,calc(100vw-3rem))] border-white/10 bg-[#1a1a1a] p-0"
+              >
+                <Command shouldFilter={false} className="bg-transparent text-white">
+                  <CommandInput
+                    value={genreSearchTerm}
+                    onValueChange={setGenreSearchTerm}
+                    placeholder="Search genre or category..."
+                    className="text-white placeholder:text-[#777]"
+                  />
+                  <CommandList className="max-h-60">
+                    <CommandEmpty className="text-[#999]">
+                      {state.genreTags.length === 0 ? 'No genres have been added yet.' : 'No matches.'}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {filteredGenreTags.map((tag) => {
+                        const selected = selectedGenreIds.includes(tag.id);
+                        return (
+                          <CommandItem
+                            key={tag.id}
+                            value={tag.id}
+                            onSelect={() => {
+                              setSelectedGenreIds((current) =>
+                                selected
+                                  ? current.filter((id) => id !== tag.id)
+                                  : [...current, tag.id],
+                              );
+                            }}
+                            className="cursor-pointer text-white data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
+                          >
+                            <Check className={`h-4 w-4 ${selected ? 'opacity-100' : 'opacity-0'}`} />
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+                            <span className="max-w-[45%] truncate text-[10px] text-[#888]">{tag.category}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {selectedGenreTags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedGenreTags.map((tag) => (
+                  <GenreChip
+                    key={tag.id}
+                    tag={tag}
+                    onRemove={() => setSelectedGenreIds((current) => current.filter((id) => id !== tag.id))}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-[#666]">Choose multiple genres; entries can appear in more than one genre list.</p>
+            )}
           </div>
 
           {/* Linked release */}

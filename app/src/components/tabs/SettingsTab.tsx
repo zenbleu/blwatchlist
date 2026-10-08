@@ -89,6 +89,7 @@ export default function SettingsTab() {
     const backup: FullBackup = {
       metadata,
       entries: state.entries,
+      genreTags: state.genreTags,
       actors: state.actors,
       ongoing: state.ongoing,
       favorites: state.favorites,

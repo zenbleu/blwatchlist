@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { PlayCircle, ArrowUpDown, Filter, Pencil, Check, X, Calendar } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
-import type { AirDay, Entry, OngoingEntry, FavoriteEntry, EpisodeRating } from "@/types";
+import type { AirDay, Entry, OngoingEntry, EpisodeRating } from "@/types";
 import AirDaySelector from "../AirDaySelector";
 import {
   getNextTimedSpecialEpisodeReleaseAt,
@@ -16,7 +16,6 @@ import EpisodeRatingGrid from "../EpisodeRatingGrid";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
 import { formatSeasonLabel } from "@/lib/entry";
-import RatingTierBadge from "../RatingTierBadge";
 
 const OngoingCard = memo(function OngoingCard({
   entryId,
@@ -28,7 +27,6 @@ const OngoingCard = memo(function OngoingCard({
   onEntryClick,
   onFinishPrompt,
   linkedParentTitle,
-  rating,
 }: {
   entryId: string;
   entry: Entry;
@@ -39,7 +37,6 @@ const OngoingCard = memo(function OngoingCard({
   onEntryClick: (entry: Entry) => void;
   onFinishPrompt: (entryId: string, schedule: ReturnType<typeof getOngoingSchedule>, ongoingData: OngoingEntry) => boolean;
   linkedParentTitle?: string;
-  rating?: FavoriteEntry;
 }) {
   const isAiringToday = schedule.isAiringToday;
   const isSpecialEpisodeToday = schedule.isSpecialEpisodeScheduledToday;
@@ -102,7 +99,6 @@ const OngoingCard = memo(function OngoingCard({
           <div className={`flex items-center gap-2 min-w-0 ${showCountdown ? "pr-2 sm:pr-[165px]" : "pr-2"}`}>
             <div className="flex min-w-0 items-center gap-2">
               <p className="text-base font-bold truncate">{entry.title}</p>
-              <RatingTierBadge rating={rating} compact />
             </div>
             {showBadge && (
               <span className={`shrink-0 whitespace-nowrap text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -642,7 +638,6 @@ export default function OngoingTab() {
             linkedParentTitle={entry.parentEntryId
               ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)?.title
               : undefined}
-            rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
           />
         ))}
       </div>

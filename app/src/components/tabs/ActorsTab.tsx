@@ -21,7 +21,6 @@ import {
 import { useApp } from '@/context/AppContext';
 import type { Actor, ActorCredit, ActorRole, Entry } from '@/types';
 import Poster from '../Poster';
-import RatingTierBadge from '../RatingTierBadge';
 import { formatRating, getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -318,7 +317,6 @@ function FilmographyRow({
             {overallRating ? <span className="inline-flex items-center gap-1 text-yellow-400"><Star className="h-3 w-3 fill-current" /> {formatRating(overallRating)}</span> : null}
             {favorite && <Heart className="h-3.5 w-3.5 fill-[#E50914] text-[#E50914]" aria-label="Favorite" />}
             {top10 && <span className="font-bold text-[#E50914]">Top 10 #{top10.rank}</span>}
-            <RatingTierBadge rating={rating} compact />
           </div>
         </div>
       </div>

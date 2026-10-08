@@ -17,9 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import type { Entry, FavoriteEntry } from '@/types';
+import type { Entry } from '@/types';
 import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
-import RatingTierBadge from './RatingTierBadge';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -50,7 +49,6 @@ const SearchResultCard = memo(function SearchResultCard({
   onAddToTop10,
   onEdit,
   onDelete,
-  rating,
 }: {
   entry: Entry;
   favorited: boolean;
@@ -62,7 +60,6 @@ const SearchResultCard = memo(function SearchResultCard({
   onAddToTop10: (entry: Entry) => void;
   onEdit: (entry: Entry) => void;
   onDelete: (id: string) => void;
-  rating?: FavoriteEntry;
 }) {
   const canRank = isEligibleForFavoriteOrTop10(entry);
   return (
@@ -82,10 +79,7 @@ const SearchResultCard = memo(function SearchResultCard({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="text-base font-bold truncate">{entry.title}</p>
-              <RatingTierBadge rating={rating} compact />
-            </div>
+            <p className="text-base font-bold truncate">{entry.title}</p>
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
@@ -348,7 +342,6 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                         onAddToTop10={handleAddToTop10}
                         onEdit={handleEdit}
                         onDelete={setDeleteConfirm}
-                        rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
                       />
                     );
                   })}

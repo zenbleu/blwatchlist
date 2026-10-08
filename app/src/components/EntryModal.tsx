@@ -9,7 +9,7 @@ import { getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
 import { getOngoingSchedule } from '@/lib/episodeSchedule';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
-import RatingTierBadge from './RatingTierBadge';
+import GenreChip from './GenreChip';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -32,6 +32,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   const linkedReleases = entry
     ? state.entries.filter((candidate) => candidate.parentEntryId === entry.id)
     : [];
+  const entryGenres = state.genreTags.filter((tag) => entry?.genres?.includes(tag.id));
   const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const episodeCount = entry
     ? Math.max(1, ongoing?.totalEpisodes || 0, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))
@@ -66,7 +67,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
       <DialogContent
         showCloseButton={true}
         closeButtonClassName="top-4 right-4 z-20"
-         className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] p-0 overflow-x-hidden shadow-2xl"
+         className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] max-h-[90vh] p-0 overflow-x-hidden overflow-y-auto shadow-2xl"
       >
         {/* Top Bar: Heart (top-left) + Rating (top-right, before X button) */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-4">
@@ -151,11 +152,10 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
 
             {/* Title with Year */}
             <div className="px-6 pb-3 text-center">
-              <div className="flex flex-col items-center justify-center gap-2">
+              <div className="flex flex-col items-center justify-center">
                 <h2 className="text-center text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
                   {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
                 </h2>
-                <RatingTierBadge rating={rating} />
               </div>
               {entry.season != null && (
                 <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
@@ -172,6 +172,11 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
                 </span>
               )}
             </div>
+            {entryGenres.length > 0 && (
+              <div className="mx-5 flex flex-wrap justify-center gap-1.5 pb-3">
+                {entryGenres.map((tag) => <GenreChip key={tag.id} tag={tag} size="regular" />)}
+              </div>
+            )}
 
             {/* Type & Country */}
             <div className="flex items-center justify-center gap-3 pb-6 text-sm" style={{ opacity: 0.7, letterSpacing: '0.5px' }}>
