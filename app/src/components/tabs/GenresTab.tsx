@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Plus, Tags } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, Settings2, Tags, Trash2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import type { Entry, GenreTag } from '@/types';
 import { createCustomGenreTag, normalizeGenreName } from '@/lib/genres';
@@ -15,6 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const HISTORY_COPY =
   "Originating from the 1970s Japanese Shōnen-ai and Yaoi manga subcultures, Boys' Love (BL) has evolved into a massive, multi-billion dollar global phenomenon. Far more than a typical romance category, the genre is celebrated for its highly structured character dynamics, rich emotional frameworks, and creative narrative tropes that explore identity, connection, and the many facets of love.";
@@ -92,16 +102,22 @@ export default function GenresTab() {
   const [genreName, setGenreName] = useState('');
   const [genreCategory, setGenreCategory] = useState('Custom');
   const [genreError, setGenreError] = useState('');
+  const [manageDialogOpen, setManageDialogOpen] = useState(false);
+  const [deleteGenreConfirm, setDeleteGenreConfirm] = useState<GenreTag | null>(null);
 
   const genresByCategory = useMemo(() => {
     const groups = new Map<string, GenreTag[]>();
-    state.genreTags.forEach((tag) => {
-      const tags = groups.get(tag.category) || [];
-      tags.push(tag);
-      groups.set(tag.category, tags);
-    });
+    const usedGenreIds = new Set(state.entries.flatMap((entry) => entry.genres ?? []));
+    state.genreTags
+      .filter((tag) => usedGenreIds.has(tag.id))
+      .forEach((tag) => {
+        const tags = groups.get(tag.category) || [];
+        tags.push(tag);
+        groups.set(tag.category, tags);
+      });
     return [...groups.entries()];
-  }, [state.genreTags]);
+  }, [state.entries, state.genreTags]);
+  const customTags = state.genreTags.filter((tag) => tag.custom);
 
   const entriesForGenre = (genreId: string) =>
     state.entries.filter((entry) => entry.genres?.includes(genreId));
@@ -131,6 +147,12 @@ export default function GenresTab() {
   const openAddDialog = () => {
     setGenreError('');
     setAddDialogOpen(true);
+  };
+
+  const handleDeleteGenre = () => {
+    if (!deleteGenreConfirm) return;
+    dispatch({ type: 'DELETE_GENRE_TAG', payload: deleteGenreConfirm.id });
+    setDeleteGenreConfirm(null);
   };
 
   return (
@@ -226,37 +248,58 @@ export default function GenresTab() {
                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#777]">Genre Tags</p>
                 <p className="mt-1 text-sm text-[#888]">Browse your collection by genre. An entry can appear in multiple lists.</p>
               </div>
-              <Button
-                type="button"
-                onClick={openAddDialog}
-                className="bg-[#E50914] text-white hover:bg-[#c90811]"
-              >
-                <Plus className="h-4 w-4" />
-                Add genre
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={openAddDialog}
+                  className="bg-[#E50914] text-white hover:bg-[#c90811]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add genre
+                </Button>
+                {customTags.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setManageDialogOpen(true)}
+                    className="border-white/10 bg-white/[0.04] text-white hover:bg-white/10 hover:text-white"
+                  >
+                    <Settings2 className="h-4 w-4" />
+                    Manage custom tags
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-7">
-              {genresByCategory.map(([category, tags]) => (
-                <div key={category} className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#aaa]">{category}</h3>
-                    <span className="h-px flex-1 bg-white/[0.07]" />
-                    <span className="text-[10px] text-[#666]">{tags.length}</span>
+            {genresByCategory.length > 0 ? (
+              <div className="space-y-7">
+                {genresByCategory.map(([category, tags]) => (
+                  <div key={category} className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#aaa]">{category}</h3>
+                      <span className="h-px flex-1 bg-white/[0.07]" />
+                      <span className="text-[10px] text-[#666]">{tags.length}</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                      {tags.map((tag) => (
+                        <GenrePosterCard
+                          key={tag.id}
+                          tag={tag}
+                          entries={entriesForGenre(tag.id)}
+                          onClick={() => setSelectedGenreId(tag.id)}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                    {tags.map((tag) => (
-                      <GenrePosterCard
-                        key={tag.id}
-                        tag={tag}
-                        entries={entriesForGenre(tag.id)}
-                        onClick={() => setSelectedGenreId(tag.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-5 py-10 text-center">
+                <Tags className="mx-auto h-7 w-7 text-[#555]" />
+                <p className="mt-3 text-sm font-medium text-white">No genres assigned yet</p>
+                <p className="mt-1 text-xs text-[#777]">Genre tags appear here after they’re assigned to an entry.</p>
+              </div>
+            )}
           </section>
         </>
       )}
@@ -306,6 +349,78 @@ export default function GenresTab() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto border-white/10 bg-[#141414] text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Manage custom genre tags</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {customTags.length > 0 ? customTags.map((tag) => {
+              const assignedCount = entriesForGenre(tag.id).length;
+              return (
+                <div
+                  key={tag.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3"
+                >
+                  <div className="min-w-0">
+                    <GenreChip tag={tag} size="regular" />
+                    <p className="mt-2 text-xs text-[#888]">
+                      {tag.category} · {assignedCount} {assignedCount === 1 ? 'entry' : 'entries'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Delete ${tag.name}`}
+                    onClick={() => setDeleteGenreConfirm(tag)}
+                    className="text-[#aaa] hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            }) : (
+              <p className="py-6 text-center text-sm text-[#888]">No custom genre tags remain.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!deleteGenreConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDeleteGenreConfirm(null);
+        }}
+      >
+        <AlertDialogContent className="border-white/10 bg-[#141414] text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete custom genre?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[#aaa]">
+              {deleteGenreConfirm && (
+                <>
+                  Delete “{deleteGenreConfirm.name}”?
+                  {entriesForGenre(deleteGenreConfirm.id).length > 0
+                    ? ` It will also be removed from ${entriesForGenre(deleteGenreConfirm.id).length} ${entriesForGenre(deleteGenreConfirm.id).length === 1 ? 'entry' : 'entries'}.`
+                    : ' This tag is not assigned to any entries.'}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="border-white/10 bg-white/[0.06] text-white hover:bg-white/10 hover:text-white">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteGenre}
+              className="bg-[#E50914] text-white hover:bg-[#E50914]/90"
+            >
+              Delete tag
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <EntryModal
         isOpen={!!selectedEntry}

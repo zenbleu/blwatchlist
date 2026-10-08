@@ -631,6 +631,24 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
 
+    case 'DELETE_GENRE_TAG': {
+      const tag = state.genreTags.find((item) => item.id === action.payload);
+      if (!tag?.custom) return state;
+      const timestamp = nextEntryTimestamp(state.entries);
+      return {
+        ...state,
+        genreTags: state.genreTags.filter((item) => item.id !== action.payload),
+        entries: state.entries.map((entry) => {
+          if (!entry.genres?.includes(action.payload)) return entry;
+          return {
+            ...entry,
+            genres: (entry.genres ?? []).filter((genreId) => genreId !== action.payload),
+            lastUpdatedAt: timestamp,
+          };
+        }),
+      };
+    }
+
     case 'ADD_ACTOR':
       if (state.actors.some((actor) => actor.name.trim().toLocaleLowerCase() === action.payload.name.trim().toLocaleLowerCase())) {
         return state;

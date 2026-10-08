@@ -227,6 +227,7 @@ export type AppAction =
   | { type: 'ADD_ENTRY'; payload: Entry }
   | { type: 'UPDATE_ENTRY'; payload: Entry }
   | { type: 'ADD_GENRE_TAG'; payload: GenreTag }
+  | { type: 'DELETE_GENRE_TAG'; payload: string }
   | { type: 'DELETE_ENTRY'; payload: string }
   | { type: 'ADD_ACTOR'; payload: Actor }
   | { type: 'UPDATE_ACTOR'; payload: Actor }
