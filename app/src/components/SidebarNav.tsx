@@ -19,6 +19,7 @@ export type TabId = 'overview' | 'blseries' | 'ongoing' | 'favorites' | 'top10' 
 interface SidebarNavProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
+  windowed?: boolean;
 }
 
 const navItems: { id: TabId; label: string; icon: React.ElementType }[] = [
@@ -33,7 +34,7 @@ const navItems: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-export default function SidebarNav({ activeTab, onTabChange }: SidebarNavProps) {
+export default function SidebarNav({ activeTab, onTabChange, windowed = false }: SidebarNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -90,7 +91,7 @@ export default function SidebarNav({ activeTab, onTabChange }: SidebarNavProps) 
       {/* Hamburger Button - Top Left */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed top-0 left-0 z-[60] w-14 h-14 flex items-center justify-center tap-active"
+        className={`fixed ${windowed ? 'top-8' : 'top-0'} left-0 z-[60] flex h-14 w-14 items-center justify-center tap-active`}
         aria-label="Open menu"
       >
         <Menu className="w-5 h-5 text-white" />

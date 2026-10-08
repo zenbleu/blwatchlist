@@ -10,6 +10,8 @@ interface DesktopUpdateProgress {
   percent: number | null;
 }
 
+type DesktopDisplayMode = 'fullscreen' | 'windowed' | 'borderless';
+
 interface DesktopUpdater {
   checkForUpdate: () => Promise<DesktopUpdateInfo | null>;
   downloadUpdate: () => Promise<{ cancelled: boolean }>;
@@ -18,6 +20,17 @@ interface DesktopUpdater {
   onProgress: (listener: (progress: DesktopUpdateProgress) => void) => () => void;
 }
 
+interface DesktopShell {
+  getDisplayMode: () => Promise<DesktopDisplayMode>;
+  setDisplayMode: (mode: DesktopDisplayMode) => Promise<DesktopDisplayMode>;
+  minimizeWindow: () => Promise<void>;
+  toggleMaximizeWindow: () => Promise<boolean>;
+  isWindowMaximized: () => Promise<boolean>;
+  onMaximizeStateChange: (listener: (maximized: boolean) => void) => () => void;
+  closeWindow: () => Promise<void>;
+}
+
 interface Window {
   blDesktopUpdater?: DesktopUpdater;
+  blDesktopShell?: DesktopShell;
 }

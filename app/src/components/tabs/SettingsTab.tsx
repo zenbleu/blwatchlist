@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -12,6 +12,7 @@ import {
   Settings,
   Trash2,
   Sparkles,
+  Monitor,
 } from 'lucide-react';
 import { migrateGenreTags, migrateOngoing, useApp } from '@/context/AppContext';
 import { useWrapped } from '@/context/WrappedContext';
@@ -62,6 +63,48 @@ export default function SettingsTab() {
 
   // Post-import profile prompt
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
+  const [displayMode, setDisplayMode] = useState<DesktopDisplayMode>('fullscreen');
+  const [isDisplayModeSaving, setIsDisplayModeSaving] = useState(false);
+  const [displayModeError, setDisplayModeError] = useState('');
+  const hasDesktopShell = Boolean(window.blDesktopShell);
+
+  useEffect(() => {
+    let isActive = true;
+    const desktopShell = window.blDesktopShell;
+    if (!desktopShell) return;
+
+    desktopShell.getDisplayMode()
+      .then((mode) => {
+        if (isActive) setDisplayMode(mode);
+      })
+      .catch(() => {
+        if (isActive) setDisplayModeError('Could not load the saved display mode.');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const handleDisplayModeChange = async (mode: DesktopDisplayMode) => {
+    const desktopShell = window.blDesktopShell;
+    if (!desktopShell) return;
+
+    setIsDisplayModeSaving(true);
+    setDisplayModeError('');
+    try {
+      const savedState = await saveToIndexedDB(state);
+      if (!savedState.success) throw new Error('Save your app data before changing display mode.');
+
+      const appliedMode = await desktopShell.setDisplayMode(mode);
+      setDisplayMode(appliedMode);
+      window.dispatchEvent(new CustomEvent('bl-display-mode-changed', { detail: appliedMode }));
+    } catch (error) {
+      setDisplayModeError(error instanceof Error ? error.message : 'Could not change the display mode.');
+    } finally {
+      setIsDisplayModeSaving(false);
+    }
+  };
 
   const handleSave = useCallback(async () => {
     setSaveResult(null);
@@ -319,6 +362,41 @@ export default function SettingsTab() {
       <div className="flex items-center gap-2">
         <Settings className="w-6 h-6 text-[#E50914]" />
         <h1 className="text-2xl font-extrabold">Settings</h1>
+      </div>
+
+      {/* Display Mode */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">Display</h2>
+        <div className="flex flex-col gap-4 rounded-xl border border-white/[0.06] bg-[#141414] p-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#E50914]/10">
+              <Monitor className="h-5 w-5 text-[#E50914]" />
+            </div>
+            <div className="min-w-0">
+              <label htmlFor="display-mode" className="text-sm font-semibold text-white">Display Mode</label>
+              <p className="mt-1 text-xs text-[#777]">
+                Choose how the desktop app uses your screen.
+              </p>
+            </div>
+          </div>
+          <select
+            id="display-mode"
+            value={displayMode}
+            disabled={!hasDesktopShell || isDisplayModeSaving}
+            onChange={(event) => void handleDisplayModeChange(event.target.value as DesktopDisplayMode)}
+            className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-[#E50914] disabled:cursor-not-allowed disabled:opacity-60 sm:w-56"
+          >
+            <option value="fullscreen">Fullscreen (Default)</option>
+            <option value="windowed">Windowed</option>
+            <option value="borderless">Borderless Window</option>
+          </select>
+        </div>
+        {!hasDesktopShell && (
+          <p className="text-xs text-[#777]">
+            Display modes are available in the Windows desktop app.
+          </p>
+        )}
+        {displayModeError && <p role="alert" className="text-xs text-red-400">{displayModeError}</p>}
       </div>
 
       {/* Data Management Section */}

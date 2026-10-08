@@ -11,3 +11,17 @@ contextBridge.exposeInMainWorld('blDesktopUpdater', {
     return () => ipcRenderer.removeListener('updater:progress', handler);
   },
 });
+
+contextBridge.exposeInMainWorld('blDesktopShell', {
+  getDisplayMode: () => ipcRenderer.invoke('display-mode:get'),
+  setDisplayMode: (mode) => ipcRenderer.invoke('display-mode:set', mode),
+  minimizeWindow: () => ipcRenderer.invoke('window:minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('window:toggle-maximize'),
+  isWindowMaximized: () => ipcRenderer.invoke('window:maximized:get'),
+  onMaximizeStateChange: (listener) => {
+    const handler = (_event, maximized) => listener(maximized);
+    ipcRenderer.on('window:maximize-state', handler);
+    return () => ipcRenderer.removeListener('window:maximize-state', handler);
+  },
+  closeWindow: () => ipcRenderer.invoke('window:close'),
+});

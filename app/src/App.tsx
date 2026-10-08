@@ -14,6 +14,7 @@ import AnnualWrappedHistory from '@/components/wrapped/AnnualWrappedHistory';
 import FavoriteEvaluation from '@/components/FavoriteEvaluation';
 import CompletionCelebrationModal from '@/components/CompletionCelebrationModal';
 import DesktopUpdatePrompt from '@/components/DesktopUpdatePrompt';
+import { Maximize2, Minimize, Minus, X } from 'lucide-react';
 // Overview is the landing tab — keep it eager so first paint is instant
 import OverviewTab from '@/components/tabs/OverviewTab';
 import './App.css';
@@ -45,6 +46,65 @@ function TabFallback() {
   );
 }
 
+function isDesktopDisplayMode(value: unknown): value is DesktopDisplayMode {
+  return value === 'fullscreen' || value === 'windowed' || value === 'borderless';
+}
+
+function DesktopWindowTitleBar() {
+  const desktopShell = window.blDesktopShell;
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    if (!desktopShell) return;
+    let isActive = true;
+    desktopShell.isWindowMaximized().then((maximized) => {
+      if (isActive) setIsMaximized(maximized);
+    }).catch(() => {});
+    const unsubscribe = desktopShell.onMaximizeStateChange(setIsMaximized);
+    return () => {
+      isActive = false;
+      unsubscribe();
+    };
+  }, [desktopShell]);
+
+  if (!desktopShell) return null;
+
+  return (
+    <div className="fixed inset-x-0 top-0 z-[70] flex h-8 items-center justify-between bg-[#111] px-3 text-white/80 [-webkit-app-region:drag]">
+      <span className="select-none text-[11px] font-semibold tracking-wide">BL WATCHLIST</span>
+      <div className="flex h-full items-center gap-1 [-webkit-app-region:no-drag]">
+        <button
+          type="button"
+          onClick={() => void desktopShell.minimizeWindow()}
+          className="flex h-7 w-8 items-center justify-center rounded hover:bg-white/10"
+          aria-label="Minimize window"
+          title="Minimize window"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => void desktopShell.toggleMaximizeWindow()}
+          className="flex h-7 w-8 items-center justify-center rounded hover:bg-white/10"
+          aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
+          title={isMaximized ? 'Restore window' : 'Maximize window'}
+        >
+          {isMaximized ? <Minimize className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => void desktopShell.closeWindow()}
+          className="flex h-7 w-8 items-center justify-center rounded hover:bg-red-500/20 hover:text-red-300"
+          aria-label="Close window"
+          title="Close window"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const {
     isLoaded,
@@ -56,10 +116,34 @@ function AppContent() {
     isFavorited,
   } = useApp();
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [desktopMode, setDesktopMode] = useState<DesktopDisplayMode>('fullscreen');
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [completionRatingOpen, setCompletionRatingOpen] = useState(false);
   const [completionRatingEntryId, setCompletionRatingEntryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const desktopShell = window.blDesktopShell;
+    if (!desktopShell) return;
+
+    let isActive = true;
+    desktopShell.getDisplayMode()
+      .then((mode) => {
+        if (isActive) setDesktopMode(mode);
+      })
+      .catch(() => {});
+
+    const handleDisplayModeChange = (event: Event) => {
+      const mode = (event as CustomEvent<unknown>).detail;
+      if (isDesktopDisplayMode(mode)) setDesktopMode(mode);
+    };
+    window.addEventListener('bl-display-mode-changed', handleDisplayModeChange);
+
+    return () => {
+      isActive = false;
+      window.removeEventListener('bl-display-mode-changed', handleDisplayModeChange);
+    };
+  }, []);
 
   // Handle import events from SettingsTab
   useEffect(() => {
@@ -118,14 +202,15 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
+      {desktopMode === 'windowed' && <DesktopWindowTitleBar />}
       {/* Sidebar Navigation */}
-      <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} windowed={desktopMode === 'windowed'} />
 
       {/* Header */}
-      <Header onSearchOpen={() => setSearchOpen(true)} />
+      <Header onSearchOpen={() => setSearchOpen(true)} desktopMode={desktopMode} />
 
       {/* Main Content */}
-      <main className="pt-16 px-4 pb-6">
+      <main className={`${desktopMode === 'windowed' ? 'pt-24' : 'pt-16'} px-4 pb-6`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}

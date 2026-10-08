@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 
 const REMOTE_APP_URL = 'https://zenbleu.github.io/blwatchlist/';
 const UPDATE_MANIFEST_URL = `${REMOTE_APP_URL}update-manifest.json`;
@@ -19,6 +19,55 @@ let mainWindow = null;
 let availableUpdate = null;
 let downloadAbortController = null;
 let downloadedInstallerPath = null;
+const DISPLAY_MODES = new Set(['fullscreen', 'windowed', 'borderless']);
+let currentDisplayMode = 'fullscreen';
+
+function getDisplayModePath() {
+  return path.join(app.getPath('userData'), 'display-mode.json');
+}
+
+function getWindowBounds(mode) {
+  const { workArea } = screen.getPrimaryDisplay();
+  if (mode === 'borderless') return workArea;
+
+  const width = Math.min(1280, workArea.width);
+  const height = Math.min(900, workArea.height);
+  return {
+    x: Math.round(workArea.x + (workArea.width - width) / 2),
+    y: Math.round(workArea.y + (workArea.height - height) / 2),
+    width,
+    height,
+  };
+}
+
+function leaveFullscreen(window) {
+  if (!window.isFullScreen()) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let timeout;
+    const finish = () => {
+      if (timeout) clearTimeout(timeout);
+      resolve();
+    };
+    window.once('leave-full-screen', finish);
+    timeout = setTimeout(finish, 1000);
+    window.setFullScreen(false);
+  });
+}
+
+async function readDisplayMode() {
+  try {
+    const saved = JSON.parse(await fsp.readFile(getDisplayModePath(), 'utf8'));
+    return DISPLAY_MODES.has(saved.mode) ? saved.mode : 'fullscreen';
+  } catch {
+    return 'fullscreen';
+  }
+}
+
+async function saveDisplayMode(mode) {
+  await fsp.mkdir(app.getPath('userData'), { recursive: true });
+  await fsp.writeFile(getDisplayModePath(), JSON.stringify({ mode }), 'utf8');
+}
 
 function compareVersions(left, right) {
   const normalize = (value) => value.replace(/^v/i, '').split('.').map((part) => Number.parseInt(part, 10) || 0);
@@ -163,14 +212,17 @@ function installUpdate() {
   app.quit();
 }
 
-function createWindow() {
+function createWindow(mode = currentDisplayMode) {
+  const bounds = getWindowBounds(mode);
   const window = new BrowserWindow({
-    width: 1280,
-    height: 900,
-    minWidth: 900,
-    minHeight: 640,
+    ...bounds,
+    minWidth: Math.min(900, bounds.width),
+    minHeight: Math.min(640, bounds.height),
     backgroundColor: '#0a0a0a',
     autoHideMenuBar: true,
+    frame: false,
+    fullscreen: mode === 'fullscreen',
+    resizable: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -179,6 +231,13 @@ function createWindow() {
     },
   });
   mainWindow = window;
+  const notifyMaximizeState = () => {
+    if (!window.isDestroyed()) {
+      window.webContents.send('window:maximize-state', window.isMaximized());
+    }
+  };
+  window.on('maximize', notifyMaximizeState);
+  window.on('unmaximize', notifyMaximizeState);
 
   let usingLocalFallback = false;
   const loadLocalFallback = () => {
@@ -208,9 +267,47 @@ ipcMain.handle('updater:cancel', () => {
   downloadAbortController?.abort();
 });
 ipcMain.handle('updater:install', () => installUpdate());
+ipcMain.handle('display-mode:get', () => currentDisplayMode);
+ipcMain.handle('display-mode:set', async (_event, mode) => {
+  if (!DISPLAY_MODES.has(mode)) {
+    throw new Error('Unsupported display mode');
+  }
 
-app.whenReady().then(() => {
-  createWindow();
+  await saveDisplayMode(mode);
+  currentDisplayMode = mode;
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mode === 'fullscreen') {
+      mainWindow.setFullScreen(true);
+    } else {
+      const window = mainWindow;
+      await leaveFullscreen(window);
+      if (window.isDestroyed()) return currentDisplayMode;
+      if (mainWindow.isMaximized()) mainWindow.unmaximize();
+      mainWindow.setBounds(getWindowBounds(mode));
+    }
+  }
+
+  return currentDisplayMode;
+});
+ipcMain.handle('window:minimize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+});
+ipcMain.handle('window:toggle-maximize', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  return mainWindow.isMaximized();
+});
+ipcMain.handle('window:maximized:get', () =>
+  Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized()));
+ipcMain.handle('window:close', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+});
+
+app.whenReady().then(async () => {
+  currentDisplayMode = await readDisplayMode();
+  createWindow(currentDisplayMode);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
