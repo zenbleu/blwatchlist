@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useState } from 'react';
-import { Check, MessageSquareText, X } from 'lucide-react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, Pencil, Star } from 'lucide-react';
 import type { EpisodeRating } from '@/types';
 import { formatRating } from '@/lib/rating';
+import { formatSeasonLabel } from '@/lib/entry';
 import Poster from './Poster';
 
 
@@ -14,23 +15,17 @@ interface EpisodeRatingGridProps {
   compact?: boolean;
   poster?: string | null;
   entryTitle?: string;
+  season?: number | null;
 }
 
 const DEFAULT_EPISODE_RATING: EpisodeRating = {
   yourRating: 5,
 };
 
-const FLOW_COLUMN_WIDTH = 48;
-const FLOW_COLUMN_GAP = 8;
-const FLOW_BASELINE = 68;
-const FLOW_MAX_BAR_HEIGHT = 56;
-
-function flowRatingColor(rating: number): { fill: string; text: string } {
-  if (rating <= 4) return { fill: '#64748b', text: '#f8fafc' };
-  if (rating <= 7) return { fill: '#fef08a', text: '#fef08a' };
-  if (rating === 8) return { fill: '#fcd34d', text: '#fde68a' };
-  return { fill: '#facc15', text: '#fde047' };
-}
+const FLOW_COLUMN_WIDTH = 50;
+const FLOW_COLUMN_GAP = 7;
+const FLOW_BASELINE = 70;
+const FLOW_MAX_BAR_HEIGHT = 58;
 
 function buildFlowPath(values: Array<number | null>): string {
   return values.reduce((path, rating, index) => {
@@ -40,13 +35,6 @@ function buildFlowPath(values: Array<number | null>): string {
     const previousRating = index > 0 ? values[index - 1] : null;
     return `${path}${previousRating === null ? 'M' : 'L'} ${x} ${y} `;
   }, '');
-}
-
-function ratingColor(rating: number): string {
-  if (rating <= 4) return 'bg-slate-500/70 border-slate-300/30 text-white';
-  if (rating <= 7) return 'bg-yellow-200 border-yellow-100/70 text-slate-900';
-  if (rating === 8) return 'bg-yellow-300 border-yellow-100 text-slate-900 shadow-[0_0_10px_rgba(250,204,21,0.25)]';
-  return 'bg-yellow-400 border-yellow-100 text-slate-950 shadow-[0_0_13px_rgba(250,204,21,0.48)]';
 }
 
 const STAR_PATH = 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01L12 2z';
@@ -96,12 +84,14 @@ function InteractiveRatingStars({
   starCount,
   scale,
   label,
+  compact = false,
 }: {
   value: number;
   onChange?: (value: number) => void;
   starCount: number;
   scale: StarScale;
   label: string;
+  compact?: boolean;
 }) {
   const [hoverValue, setHoverValue] = useState<number | null>(null);
   const gradientPrefix = useId().replace(/:/g, '');
@@ -120,10 +110,13 @@ function InteractiveRatingStars({
         const fill = getStarFill(displayValue, starIndex, scale);
 
         return (
-          <div key={starIndex} className="relative flex h-8 w-8 items-center justify-center">
+          <div
+            key={starIndex}
+            className={`relative flex items-center justify-center ${compact ? 'h-6 w-5' : 'h-8 w-8'}`}
+          >
             <HalfStarIcon
               fill={fill}
-              size={20}
+              size={compact ? 15 : 20}
               gradientId={`${gradientPrefix}-${starIndex}`}
             />
             {onChange && (
@@ -157,18 +150,22 @@ function EpisodeRatingRow({
   label,
   description,
   value,
+  valueLabel,
   onChange,
   editable,
   scale = 'whole',
   starCount = 5,
+  compact = false,
 }: {
   label: string;
   description?: string;
   value: number;
+  valueLabel?: string;
   onChange: (value: number) => void;
   editable: boolean;
   scale?: StarScale;
   starCount?: number;
+  compact?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -185,18 +182,19 @@ function EpisodeRatingRow({
             </span>
           )}
         </span>
-        <span className="shrink-0 text-[10px] font-bold tabular-nums text-yellow-400">
-          {formatRating(value)}
-        </span>
       </div>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-hide">
         <InteractiveRatingStars
           value={value}
           onChange={editable ? onChange : undefined}
           starCount={starCount}
           scale={scale}
           label={label}
+          compact={compact}
         />
+        <span className="shrink-0 text-[10px] font-bold tabular-nums text-yellow-400">
+          {valueLabel ?? formatRating(value)}
+        </span>
       </div>
     </div>
   );
@@ -205,9 +203,13 @@ function EpisodeRatingRow({
 function EpisodeRatingFlow({
   episodes,
   ratings,
+  selectedEpisode,
+  onSelectEpisode,
 }: {
   episodes: number[];
   ratings: Record<string, EpisodeRating>;
+  selectedEpisode: number;
+  onSelectEpisode: (episodeNumber: number) => void;
 }) {
   const values = episodes.map((episodeNumber) => ratings[String(episodeNumber)]?.yourRating ?? null);
   const chartWidth = Math.max(
@@ -218,77 +220,69 @@ function EpisodeRatingFlow({
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-black/20 px-3 py-2.5">
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#bdbdbd]">Episode Rating Flow</p>
-          <p className="text-[10px] text-[#666]">See where the show rises and falls</p>
-        </div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#bdbdbd]">Episode Rating Flow</p>
         <span className="shrink-0 text-[10px] text-[#777]">Your Rating · 1–10</span>
       </div>
 
       <div
         className="overflow-x-auto pb-0.5 scrollbar-hide"
-        role="img"
-        aria-label="Episode rating flow chart"
+        role="group"
+        aria-label="Episode rating flow"
       >
-        <div className="relative h-[104px]" style={{ width: chartWidth }}>
-          <div className="absolute inset-x-0 top-[68px] border-t border-dashed border-white/20" />
+        <div className="relative h-[96px]" style={{ width: chartWidth }}>
+          <div className="absolute inset-x-0 top-[10px] border-t border-dashed border-white/30" />
+          <div className="absolute inset-x-0 bottom-[25px] border-t border-white/10" />
           <svg
             aria-hidden="true"
-            className="pointer-events-none absolute left-0 top-0 overflow-visible"
+            className="pointer-events-none absolute left-0 top-0"
             width={chartWidth}
-            height={104}
-            viewBox={`0 0 ${chartWidth} 104`}
+            height={72}
+            viewBox={`0 0 ${chartWidth} 72`}
           >
             <path
               d={trendPath}
               fill="none"
-              stroke="#facc15"
+              stroke="#9ca3af"
+              strokeDasharray="4 4"
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth="1.5"
-              opacity="0.75"
+              opacity="0.8"
             />
-            {values.map((rating, index) => {
-              if (rating === null) return null;
-              const x = FLOW_COLUMN_WIDTH / 2 + index * (FLOW_COLUMN_WIDTH + FLOW_COLUMN_GAP);
-              const y = FLOW_BASELINE - (rating / 10) * FLOW_MAX_BAR_HEIGHT;
-              const color = flowRatingColor(rating);
-              return <circle key={episodes[index]} cx={x} cy={y} r="2.5" fill={color.fill} stroke="#111" strokeWidth="1" />;
-            })}
           </svg>
 
-          <div className="absolute left-0 top-0 flex h-[104px] items-start" style={{ gap: FLOW_COLUMN_GAP }}>
+          <div className="absolute left-0 top-0 flex h-[96px]" style={{ gap: FLOW_COLUMN_GAP }}>
             {episodes.map((episodeNumber, index) => {
               const rating = values[index];
-              const color = rating === null ? null : flowRatingColor(rating);
+              const isSelected = selectedEpisode === episodeNumber;
               const barHeight = rating === null
-                ? 10
-                : Math.max(12, (rating / 10) * FLOW_MAX_BAR_HEIGHT);
+                ? 14
+                : Math.max(18, (rating / 10) * FLOW_MAX_BAR_HEIGHT);
 
               return (
-                <div key={episodeNumber} className="relative h-[104px] shrink-0" style={{ width: FLOW_COLUMN_WIDTH }}>
-                  <div className="absolute bottom-[36px] flex h-[68px] w-full items-end justify-center">
-                    <div
-                      className={`relative flex w-10 items-center justify-center overflow-hidden rounded-md border text-[10px] font-semibold tabular-nums ${
-                        rating === null ? 'border-dashed border-white/20 bg-white/[0.035] text-[#666]' : ''
-                      }`}
-                      style={{
-                        height: barHeight,
-                        ...(color
-                          ? {
-                              borderColor: 'rgba(255,255,255,0.35)',
-                              color: color.text,
-                              background: `linear-gradient(to top, ${color.fill} 0%, ${color.fill} 34%, rgba(255,255,255,0.08) 35%, rgba(255,255,255,0.08) 100%)`,
-                            }
-                          : {}),
-                      }}
-                    >
-                      {rating === null ? '—' : formatRating(rating)}
-                    </div>
-                  </div>
-                  <span className="absolute bottom-1 left-0 w-full text-center text-[10px] font-semibold text-[#bdbdbd]">
-                    E{episodeNumber}
+                <div key={episodeNumber} className="relative h-[96px] shrink-0" style={{ width: FLOW_COLUMN_WIDTH }}>
+                  <button
+                    type="button"
+                    data-episode={episodeNumber}
+                    onClick={() => onSelectEpisode(episodeNumber)}
+                    aria-pressed={isSelected}
+                    aria-label={`EP${episodeNumber}${rating === null ? ', not rated' : `, rating ${formatRating(rating)}`}`}
+                    className={`absolute bottom-[25px] left-1/2 flex -translate-x-1/2 items-start justify-center overflow-hidden rounded-md border px-0.5 pt-1 text-[10px] font-semibold tabular-nums transition-colors ${
+                      isSelected
+                        ? 'border-yellow-300 bg-yellow-400 text-[#181818] shadow-[0_0_12px_rgba(250,204,21,0.25)]'
+                        : rating === null
+                          ? 'border-dashed border-white/35 bg-white/[0.035] text-[#8b8b8b] hover:border-white/60'
+                          : 'border-[#b7b7b7] bg-[#e7e7e7] text-[#363636] hover:bg-white'
+                    }`}
+                    style={{ height: barHeight, width: 44 }}
+                  >
+                    {rating === null ? '—' : formatRating(rating)}
+                  </button>
+                  <span className={`absolute bottom-0 left-0 w-full text-center text-[10px] font-semibold ${
+                    isSelected ? 'text-yellow-300' : 'text-[#bdbdbd]'
+                  }`}>
+                    EP{episodeNumber}
                   </span>
                 </div>
               );
@@ -300,84 +294,188 @@ function EpisodeRatingFlow({
   );
 }
 
-function EpisodeRatingForm({
+function EpisodeSummaryPanel({
   episodeNumber,
+  episodeCount,
   value,
+  savedRating,
+  topRated,
+  isAvailable,
+  isEditing,
+  editable,
+  compact,
+  poster,
+  entryTitle,
+  season,
   onChange,
   onSave,
   onClear,
-  onClose,
+  onEdit,
+  onNavigate,
 }: {
   episodeNumber: number;
+  episodeCount: number;
   value: EpisodeRating;
+  savedRating: number | null;
+  topRated: boolean;
+  isAvailable: boolean;
+  isEditing: boolean;
+  editable: boolean;
+  compact: boolean;
+  poster: string | null;
+  entryTitle: string;
+  season?: number | null;
   onChange: (value: EpisodeRating) => void;
   onSave: () => void;
   onClear: () => void;
-  onClose: () => void;
+  onEdit: () => void;
+  onNavigate: (episodeNumber: number) => void;
 }) {
-  const update = (field: keyof EpisodeRating, nextValue: number) => {
-    if (field === 'commentary') return;
-    onChange({ ...value, [field]: nextValue });
+  const touchStartX = useRef<number | null>(null);
+  const seasonLabel = season == null ? null : formatSeasonLabel(season);
+  const displayRating = isEditing ? value.yourRating : savedRating ?? 0;
+
+  const navigate = (direction: -1 | 1) => {
+    onNavigate(Math.min(episodeCount, Math.max(1, episodeNumber + direction)));
   };
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#171717] p-3 shadow-xl">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-white">Episode {episodeNumber}</p>
-          <p className="text-[10px] text-[#777]">Rate your episode from 1–10</p>
+    <section
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowLeft' && episodeNumber > 1) navigate(-1);
+        if (event.key === 'ArrowRight' && episodeNumber < episodeCount) navigate(1);
+      }}
+      onTouchStart={(event) => {
+        touchStartX.current = event.changedTouches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(event) => {
+        const startX = touchStartX.current;
+        const endX = event.changedTouches[0]?.clientX;
+        touchStartX.current = null;
+        if (startX === null || endX === undefined) return;
+        const movement = endX - startX;
+        if (movement > 45 && episodeNumber > 1) navigate(-1);
+        if (movement < -45 && episodeNumber < episodeCount) navigate(1);
+      }}
+      className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#1d1d1d] to-[#101010] outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/70"
+      aria-label={`Episode ${episodeNumber} rating details`}
+    >
+      <div className="flex min-h-11 items-center justify-between gap-2 border-b border-white/[0.08] bg-black/20 px-2.5 py-1.5">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          disabled={episodeNumber <= 1}
+          className="rounded-lg p-1.5 text-white/80 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label="Previous episode"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="flex min-w-0 items-center justify-center gap-2">
+          <span className="rounded-md bg-white/10 px-2 py-1 text-xs font-bold tracking-wide text-white">
+            EP{episodeNumber}
+          </span>
+          <span className="text-[10px] tabular-nums text-[#888]">{episodeNumber} / {episodeCount}</span>
+          {seasonLabel && <span className="hidden text-[10px] text-[#9a9a9a] sm:inline">{seasonLabel}</span>}
+          {topRated && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-yellow-400/35 bg-yellow-400/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-yellow-300">
+              <Star className="h-3 w-3 fill-current" /> Top-Rated
+            </span>
+          )}
         </div>
         <button
           type="button"
-          onClick={onClose}
-          className="rounded-full p-1 text-[#777] hover:bg-white/[0.08] hover:text-white"
-          aria-label="Close episode rating popover"
+          onClick={() => navigate(1)}
+          disabled={episodeNumber >= episodeCount}
+          className="rounded-lg p-1.5 text-white/80 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label="Next episode"
         >
-          <X className="h-3.5 w-3.5" />
+          <ChevronRight className="h-5 w-5" />
         </button>
       </div>
 
-      <div className="space-y-3">
-        <EpisodeRatingRow
-          label="Your Rating"
-          value={value.yourRating}
-          onChange={(nextValue) => update('yourRating', nextValue)}
-          editable
-          scale="half"
-          starCount={10}
-        />
-      </div>
+      <div className={`grid gap-3 p-3 ${compact ? 'grid-cols-1' : 'grid-cols-[88px_minmax(0,1fr)] sm:grid-cols-[112px_minmax(0,1fr)]'}`}>
+        {!compact && (
+          <div className="flex items-start justify-center">
+            <div className="h-[124px] w-[88px] overflow-hidden rounded-xl border border-white/10 bg-black/30 sm:h-[148px] sm:w-[112px]">
+              <Poster
+                src={poster}
+                title={`${entryTitle} episode ${episodeNumber}`}
+                size="lg"
+                className="!h-full !w-full !rounded-none"
+              />
+            </div>
+          </div>
+        )}
 
-      <label className="mt-4 block">
-        <span className="mb-1 flex items-center gap-1 text-[10px] text-[#888]">
-          <MessageSquareText className="h-3 w-3" /> Commentary (optional)
-        </span>
-        <textarea
-          value={value.commentary ?? ''}
-          onChange={(event) => onChange({ ...value, commentary: event.target.value })}
-          placeholder="What stood out?"
-          rows={2}
-          className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-2 text-xs text-white outline-none placeholder:text-[#555] focus:border-[#E50914]"
-        />
-      </label>
+        <div className="flex min-w-0 flex-col justify-between gap-3">
+          <div>
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-semibold text-white sm:text-base">
+                  {entryTitle} · Episode {episodeNumber}
+                </h3>
+                <p className="mt-0.5 text-[10px] text-[#888]">
+                  {isAvailable ? 'Your episode rating' : 'This episode has not aired yet'}
+                  {seasonLabel ? ` · ${seasonLabel}` : ''}
+                </p>
+              </div>
+            </div>
+          </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-[10px] text-[#888] hover:text-red-300"
-        >
-          Clear rating
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          className="flex items-center gap-1 rounded-lg bg-[#E50914] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E50914]/90"
-        >
-          <Check className="h-3 w-3" /> Save
-        </button>
+          <div className="rounded-xl border border-white/[0.06] bg-black/20 p-2.5">
+            <EpisodeRatingRow
+              label="Your Rating"
+              value={displayRating}
+              valueLabel={!isEditing && savedRating === null ? 'Not rated' : `${formatRating(displayRating)} / 10`}
+              onChange={(nextValue) => onChange({ yourRating: nextValue })}
+              editable={editable && isEditing && isAvailable}
+              scale="half"
+              starCount={10}
+              compact
+            />
+            {editable && !isAvailable && (
+              <p className="mt-1 text-[10px] text-[#777]">Rating becomes available after the episode airs.</p>
+            )}
+          </div>
+
+          {editable && (
+            <div className="flex items-center justify-end gap-2">
+              {isEditing ? (
+                <>
+                  {savedRating !== null && (
+                    <button
+                      type="button"
+                      onClick={onClear}
+                      className="mr-auto text-[10px] text-[#999] hover:text-red-300"
+                    >
+                      Clear rating
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onSave}
+                    disabled={!isAvailable}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#E50914] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#E50914]/90 disabled:opacity-50"
+                  >
+                    <Check className="h-3.5 w-3.5" /> Done
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  disabled={!isAvailable}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold text-white/80 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit rating
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -390,137 +488,97 @@ export default function EpisodeRatingGrid({
   compact = false,
   poster = null,
   entryTitle = 'Entry',
+  season = null,
 }: EpisodeRatingGridProps) {
   const episodeCount = Math.max(1, totalEpisodes, ...Object.keys(ratings).map(Number).filter(Number.isFinite));
-  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+  const [selectedEpisode, setSelectedEpisode] = useState(1);
+  const [isEditing, setIsEditing] = useState(false);
   const [draftRating, setDraftRating] = useState<EpisodeRating>(DEFAULT_EPISODE_RATING);
+  const flowContainerRef = useRef<HTMLDivElement>(null);
 
-  const selectedRating = selectedEpisode ? ratings[String(selectedEpisode)] : undefined;
+  const selectedRating = ratings[String(selectedEpisode)]?.yourRating ?? null;
+  const maxRating = Math.max(
+    0,
+    ...Object.values(ratings)
+      .map((rating) => rating.yourRating)
+      .filter(Number.isFinite),
+  );
+  const isTopRated = selectedRating !== null && selectedRating === maxRating;
+  const isAvailable = airedEpisode === null || selectedEpisode <= airedEpisode;
 
   useEffect(() => {
-    if (selectedEpisode === null) return;
-    setDraftRating(selectedRating ? { ...DEFAULT_EPISODE_RATING, ...selectedRating } : DEFAULT_EPISODE_RATING);
-  }, [selectedEpisode, selectedRating]);
+    setSelectedEpisode((current) => Math.min(current, episodeCount));
+  }, [episodeCount]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraftRating({ yourRating: selectedRating ?? DEFAULT_EPISODE_RATING.yourRating });
+    }
+  }, [selectedEpisode, selectedRating, isEditing]);
+
+  useEffect(() => {
+    flowContainerRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-episode="${selectedEpisode}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [selectedEpisode]);
 
   const episodes = useMemo(
     () => Array.from({ length: episodeCount }, (_, index) => index + 1),
     [episodeCount],
   );
 
+  const selectEpisode = (episodeNumber: number) => {
+    setSelectedEpisode(Math.max(1, Math.min(episodeCount, episodeNumber)));
+    setIsEditing(false);
+  };
+
+  const startEditing = () => {
+    if (!editable || !isAvailable) return;
+    setDraftRating({ yourRating: selectedRating ?? DEFAULT_EPISODE_RATING.yourRating });
+    setIsEditing(true);
+  };
+
   const saveRating = () => {
-    if (!selectedEpisode || !onChange) return;
-    onChange(selectedEpisode, {
-      ...draftRating,
-      ...(draftRating.commentary?.trim() ? { commentary: draftRating.commentary.trim() } : { commentary: undefined }),
-    });
-    setSelectedEpisode(null);
+    if (!editable || !isAvailable || !onChange) return;
+    onChange(selectedEpisode, { yourRating: draftRating.yourRating });
+    setIsEditing(false);
   };
 
   const clearRating = () => {
-    if (!selectedEpisode || !onChange) return;
+    if (!editable || !onChange) return;
     onChange(selectedEpisode);
-    setSelectedEpisode(null);
+    setIsEditing(false);
   };
 
   return (
-    <div className="relative min-w-0 space-y-2">
-      {!compact && <EpisodeRatingFlow episodes={episodes} ratings={ratings} />}
-
-      <div className="overflow-x-auto pb-1 scrollbar-hide">
-        <div className={compact ? 'flex min-w-max items-end gap-1.5' : 'divide-y divide-white/[0.08] overflow-hidden rounded-xl border border-white/[0.08] bg-black/20'}>
-          {episodes.map((episodeNumber) => {
-            const episode = ratings[String(episodeNumber)];
-            const yourRating = episode?.yourRating ?? null;
-            const isAvailable = airedEpisode === null || episodeNumber <= airedEpisode;
-            const isSelected = selectedEpisode === episodeNumber;
-
-            if (!compact) {
-              return (
-                <div key={episodeNumber} className="p-2.5">
-                  <button
-                    type="button"
-                    disabled={!editable || !isAvailable}
-                    onClick={() => setSelectedEpisode(isSelected ? null : episodeNumber)}
-                    className={`flex w-full items-start gap-3 text-left transition-colors ${
-                      editable && isAvailable ? 'cursor-pointer hover:bg-white/[0.04]' : 'cursor-default'
-                    } ${isSelected ? 'rounded-lg bg-white/[0.05] ring-1 ring-[#E50914]/60' : ''}`}
-                    aria-label={`${episode ? `Episode ${episodeNumber}, Your Rating ${formatRating(yourRating ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
-                  >
-                    <div className="relative shrink-0">
-                      <Poster src={poster} title={`${entryTitle} episode ${episodeNumber}`} size="md" />
-                      <span className="absolute left-1 top-1 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        E{episodeNumber}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1 pt-0.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">
-                            {entryTitle} · Episode #{episodeNumber}
-                          </p>
-                          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[#777]">
-                            {isAvailable ? `Episode ${episodeNumber}` : 'Upcoming episode'}
-                          </p>
-                        </div>
-                        {episode ? (
-                          <span className="shrink-0 whitespace-nowrap text-xs font-semibold tabular-nums text-yellow-400">
-                             ⭐ {formatRating(yourRating ?? 0)}/10
-                          </span>
-                        ) : (
-                          <span className="shrink-0 whitespace-nowrap text-[10px] text-[#777]">
-                            {editable && isAvailable ? 'Rate episode' : 'Not rated'}
-                          </span>
-                        )}
-                      </div>
-                      <p className={`mt-2 line-clamp-2 text-xs leading-relaxed ${
-                        episode?.commentary ? 'text-[#c8c8c8]' : 'text-[#666]'
-                      }`}>
-                        {episode?.commentary || (isAvailable ? 'No commentary added yet.' : 'This episode is not available to rate yet.')}
-                      </p>
-                    </div>
-                  </button>
-                </div>
-              );
-            }
-
-            return (
-              <div key={episodeNumber} className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-medium text-[#888]">E{episodeNumber}</span>
-                <button
-                  type="button"
-                  disabled={!editable || !isAvailable}
-                  onClick={() => setSelectedEpisode(isSelected ? null : episodeNumber)}
-                  className={`flex shrink-0 items-center justify-center rounded-md border font-bold tabular-nums transition-all ${
-                    compact ? 'h-9 w-9 text-[11px]' : 'h-11 w-11 text-xs'
-                  } ${
-                    episode
-                    ? ratingColor(yourRating ?? 0)
-                      : `border-dotted border-white/30 bg-white/[0.035] text-transparent ${!isAvailable ? 'opacity-45' : ''}`
-                  } ${
-                    isSelected ? 'ring-2 ring-[#E50914] ring-offset-2 ring-offset-[#0a0a0a]' : ''
-                  } ${
-                    editable && isAvailable ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
-                  }`}
-                   aria-label={`${episode ? `Episode ${episodeNumber}, your rating ${formatRating(yourRating ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
-                >
-                   {yourRating !== null ? formatRating(yourRating) : ''}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {editable && selectedEpisode !== null && (
-        <EpisodeRatingForm
-          episodeNumber={selectedEpisode}
-          value={draftRating}
-          onChange={setDraftRating}
-          onSave={saveRating}
-          onClear={clearRating}
-          onClose={() => setSelectedEpisode(null)}
+    <div className="relative min-w-0 space-y-3">
+      <div ref={flowContainerRef}>
+        <EpisodeRatingFlow
+          episodes={episodes}
+          ratings={ratings}
+          selectedEpisode={selectedEpisode}
+          onSelectEpisode={selectEpisode}
         />
-      )}
+      </div>
+      <EpisodeSummaryPanel
+        episodeNumber={selectedEpisode}
+        episodeCount={episodeCount}
+        value={draftRating}
+        savedRating={selectedRating}
+        topRated={isTopRated}
+        isAvailable={isAvailable}
+        isEditing={isEditing}
+        editable={editable}
+        compact={compact}
+        poster={poster}
+        entryTitle={entryTitle}
+        season={season}
+        onChange={setDraftRating}
+        onSave={saveRating}
+        onClear={clearRating}
+        onEdit={startEditing}
+        onNavigate={selectEpisode}
+      />
     </div>
   );
 }

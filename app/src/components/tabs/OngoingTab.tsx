@@ -146,6 +146,9 @@ const OngoingCard = memo(function OngoingCard({
               ratings={entry.episodeRatings}
               totalEpisodes={progressTotal}
               airedEpisode={schedule.airedEpisode}
+              poster={entry.poster}
+              entryTitle={entry.title}
+              season={entry.season}
               editable
               compact
               onChange={(episodeNumber, value) => onEpisodeRating(entryId, episodeNumber, value)}
@@ -154,7 +157,7 @@ const OngoingCard = memo(function OngoingCard({
             {schedule.isConfigured ? (
               <p className="text-xs text-[#B3B3B3]">
                 Latest aired: <span className="text-white font-medium">
-                  Ep {schedule.airedEpisode} / {progressTotal}
+                  EP{schedule.airedEpisode} / {progressTotal}
                 </span>
               </p>
             ) : (

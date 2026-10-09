@@ -820,6 +820,7 @@ export default function FavoriteEvaluation({
                 totalEpisodes={Math.max(1, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))}
                 poster={entry.poster}
                 entryTitle={entry.title}
+                season={entry.season}
                 editable={isEditable}
                 onChange={(episodeNumber, value) => {
                   dispatch({

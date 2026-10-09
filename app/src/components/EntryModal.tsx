@@ -67,7 +67,9 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
       <DialogContent
         showCloseButton={true}
         closeButtonClassName="top-4 right-4 z-20"
-         className="bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] max-h-[90vh] p-0 overflow-x-hidden overflow-y-auto shadow-2xl"
+        className={`bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] max-h-[90vh] p-0 overflow-x-hidden shadow-2xl ${
+          activePage === 'episodes' ? 'overflow-y-hidden' : 'overflow-y-auto'
+        }`}
       >
         {/* Top Bar: Heart (top-left) + Rating (top-right, before X button) */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-4">
@@ -201,7 +203,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             )}
           </section>
 
-          <section className="episode-page max-h-[90vh] overflow-y-auto scrollbar-hide px-4 pb-5 pt-14" data-page-id="2" aria-hidden={activePage !== 'episodes'}>
+          <section className="episode-page scrollbar-hide px-4 pb-4 pt-14" data-page-id="2" aria-hidden={activePage !== 'episodes'}>
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-white">Episode Summary</p>
@@ -217,6 +219,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               airedEpisode={episodeSchedule?.airedEpisode ?? null}
               poster={entry.poster}
               entryTitle={entry.title}
+              season={entry.season}
               editable
               onChange={(episodeNumber, value) => {
                 dispatch({
