@@ -13,6 +13,7 @@ interface EpisodeReleaseCalendarProps {
   onSave: (releaseDates: string[]) => void;
   specialEpisodes?: SpecialEpisode[];
   onSpecialEpisodesSave?: (specialEpisodes: SpecialEpisode[]) => void;
+  allowSpecialEpisodes?: boolean;
 }
 
 function dateToKey(date: Date): string {
@@ -42,6 +43,7 @@ export default function EpisodeReleaseCalendar({
   onSave,
   specialEpisodes = [],
   onSpecialEpisodesSave,
+  allowSpecialEpisodes = false,
 }: EpisodeReleaseCalendarProps) {
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [episodeCounts, setEpisodeCounts] = useState<Record<string, number>>({});
@@ -81,7 +83,7 @@ export default function EpisodeReleaseCalendar({
       return Array.from({ length: episodeCounts[key] || 1 }, () => key);
     });
     onSave(dates.sort());
-    onSpecialEpisodesSave?.(editedSpecialEpisodes);
+    if (allowSpecialEpisodes) onSpecialEpisodesSave?.(editedSpecialEpisodes);
     onClose();
   };
 
@@ -242,6 +244,8 @@ export default function EpisodeReleaseCalendar({
             </div>
           )}
 
+          {allowSpecialEpisodes && (
+          <>
           {/* Special Episodes */}
           <div className="border-t border-white/[0.08] pt-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -371,6 +375,8 @@ export default function EpisodeReleaseCalendar({
               </div>
             )}
           </div>
+          </>
+          )}
 
           <div className="flex gap-3 pt-1">
             <Button

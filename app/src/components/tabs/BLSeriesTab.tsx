@@ -10,7 +10,11 @@ import EntryModal from "../EntryModal";
 import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import GenreChip from "../GenreChip";
-import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
+import {
+  formatSeasonLabel,
+  formatLinkedReleaseDescription,
+  isEligibleForFavoriteOrTop10,
+} from "@/lib/entry";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,14 +103,14 @@ const EntryCard = memo(function EntryCard({
                 {genreTags.map((tag) => <GenreChip key={tag.id} tag={tag} />)}
               </div>
             )}
-            {entry.season != null && (
+            {entry.season != null && !linkedParentTitle && (
               <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
                 {formatSeasonLabel(entry.season)}
               </span>
             )}
             {linkedParentTitle && (
               <p className="mt-1 truncate text-[10px] text-[#999]">
-                {entry.linkedReleaseMode === 'included' ? 'Part of' : 'Continuation of'} {linkedParentTitle}
+                {formatLinkedReleaseDescription(entry, linkedParentTitle)}
               </p>
             )}
           </div>

@@ -6,7 +6,7 @@ import Poster from "../Poster";
 import RatingCircle from "../RatingCircle";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import { formatRating } from "@/lib/rating";
-import { formatSeasonLabel } from "@/lib/entry";
+import { formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
 type SortOption = "ratingDesc" | "ratingAsc" | "yearDesc" | "yearAsc" | "titleAZ" | "titleZA";
 type FilterOption = "all" | "movies" | "series";
 
@@ -202,10 +202,10 @@ export default function FavoritesTab() {
                 <p className="text-[#888] text-xs mt-0.5">{entry.year} &middot; {entry.country}</p>
                 {parentEntry && (
                   <p className="mt-1 text-[10px] text-[#999]">
-                    Continuation of {parentEntry.title}
+                    {formatLinkedReleaseDescription(entry, parentEntry.title)}
                   </p>
                 )}
-                {entry.season != null && (
+                {entry.season != null && !parentEntry && (
                   <p className="text-[#B3B3B3] text-[10px] mt-1">{formatSeasonLabel(entry.season)}</p>
                 )}
                 <div className="flex items-center gap-2 mt-1.5">

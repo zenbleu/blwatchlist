@@ -2,6 +2,7 @@ import type { Milestone } from '@/components/MilestoneModal';
 
 export type Status = 'COMPLETE' | 'ONGOING' | 'DROPPED' | 'PLANNED';
 export type LinkedReleaseMode = 'independent' | 'included';
+export type EntryRelationshipType = 'original' | 'continuation' | 'specialEpisode' | 'season' | 'spinOff' | 'sideStory';
 
 export interface GenreTag {
   id: string;
@@ -26,6 +27,10 @@ export interface Entry {
   type: 'Movie' | 'Series';
   /** Optional season metadata. Omitted means this is a standalone entry. */
   season?: number;
+  /** Relationship to the parent entry; original entries are not shown as linked-release badges. */
+  relationshipType?: EntryRelationshipType;
+  /** Number used to distinguish special episodes within a linked release. */
+  specialNumber?: number;
   /** Parent title for a separately tracked continuation or special release. */
   parentEntryId?: string;
   /** Included releases are tracked separately but are not independently ranked. */
@@ -40,6 +45,8 @@ export interface Entry {
   lastUpdatedAt: number;
   /** Release date entered for a Planned entry; retained as the premiere date after promotion. */
   plannedDate?: string; // ISO date string (YYYY-MM-DD)
+  /** Local release time for a planned title. */
+  plannedTime?: string;
   /** Episode ratings keyed by episode number. */
   episodeRatings?: Record<string, EpisodeRating>;
 }

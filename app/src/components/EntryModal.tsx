@@ -6,7 +6,12 @@ import Poster from './Poster';
 import type { ActorRole, Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
 import { getEpisodeAverage } from '@/lib/rating';
-import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
+import {
+  formatSeasonLabel,
+  formatLinkedReleaseDescription,
+  getEntryRelationshipLabel,
+  isEligibleForFavoriteOrTop10,
+} from '@/lib/entry';
 import { getOngoingSchedule } from '@/lib/episodeSchedule';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
 import GenreChip from './GenreChip';
@@ -159,7 +164,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
                   {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
                 </h2>
               </div>
-              {entry.season != null && (
+              {entry.season != null && !linkedParent && (
                 <p className="mt-1 text-sm text-[#B3B3B3]">{formatSeasonLabel(entry.season)}</p>
               )}
             </div>
@@ -190,13 +195,14 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               <div className="mx-6 mb-5 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-left">
                 {linkedParent && (
                   <p className="text-[11px] text-[#B3B3B3]">
-                    {entry.linkedReleaseMode === 'included' ? 'Part of' : 'Continuation of'}{' '}
-                    <span className="font-medium text-white">{linkedParent.title} ({linkedParent.year})</span>
+                    {formatLinkedReleaseDescription(entry, `${linkedParent.title} (${linkedParent.year})`)}
                   </p>
                 )}
                 {linkedReleases.length > 0 && (
                   <p className="text-[11px] text-[#B3B3B3]">
-                    Linked releases: <span className="text-white">{linkedReleases.map((release) => release.title).join(', ')}</span>
+                    Related: <span className="text-white">{linkedReleases.map((release) =>
+                      `${getEntryRelationshipLabel(release) || 'Entry'} · ${release.title}`,
+                    ).join(', ')}</span>
                   </p>
                 )}
               </div>

@@ -75,6 +75,7 @@ export default function CalendarSheet({
       type: "ongoing" | "planned" | "special";
       ongoingData?: OngoingEntry;
       specialEpisode?: SpecialEpisode;
+      eventKey: string;
     }[] = [];
 
     const now = new Date();
@@ -82,7 +83,7 @@ export default function CalendarSheet({
     // Add ongoing entries with their air days in the next 14 days
     for (const { entry, ongoingData } of ongoingEntries) {
       if (ongoingData.trackingMode === 'calendar') {
-        for (const releaseDate of ongoingData.releaseDates || []) {
+        for (const [releaseIndex, releaseDate] of (ongoingData.releaseDates || []).entries()) {
           const date = parseReleaseDate(releaseDate);
           if (!date) continue;
           const daysUntil = Math.floor(
@@ -90,7 +91,13 @@ export default function CalendarSheet({
               (24 * 60 * 60 * 1000),
           );
           if (daysUntil >= 0 && daysUntil <= 14) {
-            result.push({ date, entry, type: "ongoing", ongoingData });
+            result.push({
+              date,
+              entry,
+              type: "ongoing",
+              ongoingData,
+              eventKey: `${entry.id}:release:${releaseDate}:${releaseIndex}`,
+            });
           }
         }
         continue;
@@ -105,13 +112,13 @@ export default function CalendarSheet({
         if (daysUntil <= 14) {
           const date = new Date(now);
           date.setDate(date.getDate() + daysUntil);
-          result.push({ date, entry, type: "ongoing", ongoingData });
+          result.push({ date, entry, type: "ongoing", ongoingData, eventKey: `${entry.id}:recurring:${date.toDateString()}` });
         }
         // Also check next week
         if (daysUntil + 7 <= 14) {
           const date = new Date(now);
           date.setDate(date.getDate() + daysUntil + 7);
-          result.push({ date, entry, type: "ongoing", ongoingData });
+          result.push({ date, entry, type: "ongoing", ongoingData, eventKey: `${entry.id}:recurring:${date.toDateString()}` });
         }
       }
     }
@@ -126,7 +133,14 @@ export default function CalendarSheet({
             (24 * 60 * 60 * 1000),
         );
         if (daysUntil >= 0 && daysUntil <= 14) {
-          result.push({ date, entry, type: "special", ongoingData, specialEpisode });
+          result.push({
+            date,
+            entry,
+            type: "special",
+            ongoingData,
+            specialEpisode,
+            eventKey: `${entry.id}:special:${specialEpisode.id}`,
+          });
         }
       }
     }
@@ -138,17 +152,17 @@ export default function CalendarSheet({
         const date = entry.plannedDate
           ? new Date(entry.plannedDate + "T00:00:00")
           : new Date(entry.year, 0, 1);
-        result.push({ date, entry, type: "planned" });
+        result.push({ date, entry, type: "planned", eventKey: `${entry.id}:planned:${date.toDateString()}` });
       }
     }
 
     // Sort by date
     result.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // Remove duplicates (same entry, same day)
+    // Deduplicate repeated source events without hiding distinct releases on the same day.
     const seen = new Set<string>();
     return result.filter((item) => {
-      const key = `${item.entry.id}-${item.date.toDateString()}`;
+      const key = item.eventKey;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -322,9 +336,12 @@ export default function CalendarSheet({
                 ) : (
                   <div className="space-y-1.5">
                     {upcomingEntries.slice(0, 14).map((item, idx) => {
+                      const isLinkedSpecialEpisode = item.entry.relationshipType === "specialEpisode";
                       const epInfo =
                         item.type === "special" && item.specialEpisode
                           ? `Special ${item.specialEpisode.specialNumber} · ${item.specialEpisode.title}`
+                          : isLinkedSpecialEpisode
+                          ? `Special Episode${item.entry.specialNumber ? ` ${item.entry.specialNumber}` : ''}`
                           : item.type === "ongoing" && item.ongoingData
                           ? `Ep ${item.ongoingData.currentEpisode + 1}/${item.ongoingData.totalEpisodes}`
                           : item.type === "planned"
@@ -333,7 +350,7 @@ export default function CalendarSheet({
 
                       return (
                         <div
-                          key={`${item.entry.id}-${idx}`}
+                          key={item.eventKey}
                           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.03] text-left"
                         >
                           <span className="text-[10px] text-[#E50914] font-semibold w-14 flex-shrink-0">
@@ -359,7 +376,15 @@ export default function CalendarSheet({
                                 ? item.specialEpisode?.watched
                                   ? "Watched"
                                   : "Special release"
+                                : isLinkedSpecialEpisode
+                                ? "Special release"
                                 : item.entry.country}
+                              {(() => {
+                                const time = item.specialEpisode?.releaseTime
+                                  || item.ongoingData?.airTime
+                                  || item.entry.plannedTime;
+                                return time ? ` · ${time}` : '';
+                              })()}
                             </p>
                           </div>
                         </div>

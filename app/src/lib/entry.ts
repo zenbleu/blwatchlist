@@ -1,10 +1,15 @@
-import type { Entry } from '@/types';
+import type { Entry, EntryRelationshipType } from '@/types';
 
-type EntryIdentity = {
-  title: string;
-  type: 'Movie' | 'Series';
-  season?: number | null;
-};
+type EntryIdentity = Pick<
+  Entry,
+  'title' | 'type' | 'year' | 'country' | 'season' | 'parentEntryId' | 'relationshipType' | 'specialNumber'
+>;
+
+function effectiveRelationshipType(entry: EntryIdentity): EntryRelationshipType {
+  if (entry.relationshipType) return entry.relationshipType;
+  if (entry.parentEntryId) return entry.season == null ? 'continuation' : 'season';
+  return entry.season == null ? 'original' : 'season';
+}
 
 export function formatSeasonLabel(season?: number | null): string {
   return season == null ? 'Standalone' : `Season ${season}`;
@@ -13,7 +18,44 @@ export function formatSeasonLabel(season?: number | null): string {
 export function isSameEntryIdentity(a: EntryIdentity, b: EntryIdentity): boolean {
   return a.type === b.type
     && a.title.trim().toLocaleLowerCase() === b.title.trim().toLocaleLowerCase()
-    && (a.season ?? null) === (b.season ?? null);
+    && a.year === b.year
+    && a.country.trim().toLocaleLowerCase() === b.country.trim().toLocaleLowerCase()
+    && (a.season ?? null) === (b.season ?? null)
+    && (a.specialNumber ?? null) === (b.specialNumber ?? null)
+    && (a.parentEntryId ?? null) === (b.parentEntryId ?? null)
+    && effectiveRelationshipType(a) === effectiveRelationshipType(b);
+}
+
+export function getRelationshipType(entry: Pick<Entry, 'relationshipType' | 'season' | 'parentEntryId'>): EntryRelationshipType {
+  if (entry.relationshipType) return entry.relationshipType;
+  if (entry.parentEntryId) return entry.season == null ? 'continuation' : 'season';
+  return entry.season == null ? 'original' : 'season';
+}
+
+export function getEntryRelationshipLabel(
+  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId'>,
+): string | null {
+  switch (getRelationshipType(entry)) {
+    case 'specialEpisode':
+      return `Special Episode${entry.specialNumber ? ` ${entry.specialNumber}` : ''}`;
+    case 'season':
+      return `Season ${entry.season ?? 1}`;
+    case 'spinOff':
+      return 'Spin-off';
+    case 'sideStory':
+      return 'Side Story';
+    case 'continuation':
+      return 'Continuation';
+    default:
+      return null;
+  }
+}
+
+export function formatLinkedReleaseDescription(
+  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId'>,
+  parentTitle: string,
+): string {
+  return `${getEntryRelationshipLabel(entry) || 'Related entry'} of ${parentTitle}`;
 }
 
 export function isIndependentlyRankable(entry: Pick<Entry, 'linkedReleaseMode'>): boolean {

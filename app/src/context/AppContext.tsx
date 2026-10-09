@@ -12,6 +12,7 @@ import type {
   AirDay,
   OngoingTrackingMode,
   LinkedReleaseMode,
+  EntryRelationshipType,
   GenreTag,
   SpecialEpisode,
   EpisodeRating,
@@ -99,6 +100,20 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     && (e.linkedReleaseMode === 'independent' || e.linkedReleaseMode === 'included')
     ? e.linkedReleaseMode as LinkedReleaseMode
     : undefined;
+  const relationshipTypeValues: EntryRelationshipType[] = [
+    'original',
+    'continuation',
+    'specialEpisode',
+    'season',
+    'spinOff',
+    'sideStory',
+  ];
+  const relationshipType = parentEntryId
+    ? relationshipTypeValues.includes(e.relationshipType as EntryRelationshipType)
+      && e.relationshipType !== 'original'
+      ? e.relationshipType as EntryRelationshipType
+      : season == null ? 'continuation' : 'season'
+    : season == null ? 'original' : 'season';
 
   const episodeRatings = e.episodeRatings && typeof e.episodeRatings === 'object'
     ? Object.entries(e.episodeRatings as Record<string, unknown>).reduce<Record<string, EpisodeRating>>((result, [episode, raw]) => {
@@ -140,6 +155,10 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     poster: (e.poster as string) ?? null,
     type: (e.type as 'Movie' | 'Series') || 'Series',
     season,
+    relationshipType,
+    specialNumber: typeof e.specialNumber === 'number' && Number.isInteger(e.specialNumber) && e.specialNumber > 0
+      ? e.specialNumber
+      : undefined,
     year: typeof e.year === 'number' ? e.year : new Date().getFullYear(),
     country: (e.country as string) || 'Unknown',
     title: (e.title as string) || 'Untitled',
@@ -154,6 +173,9 @@ function migrateEntry(e: Record<string, unknown>): Entry {
       ? [...new Set(e.genres.filter((genre): genre is string => typeof genre === 'string'))]
       : undefined,
     ...(episodeRatings && Object.keys(episodeRatings).length > 0 ? { episodeRatings } : {}),
+    ...(typeof e.plannedTime === 'string' && /^\d{2}:\d{2}$/.test(e.plannedTime)
+      ? { plannedTime: e.plannedTime }
+      : {}),
   };
 }
 
@@ -325,10 +347,81 @@ function validateData(data: unknown): AppState {
   const migratedEntries = migratedEntriesRaw.map((entry) =>
     entry.parentEntryId
       && entry.parentEntryId !== entry.id
-      && entriesById.get(entry.parentEntryId)?.type === 'Series'
+      && entriesById.has(entry.parentEntryId)
       && !entriesById.get(entry.parentEntryId)?.parentEntryId
       ? entry
-      : { ...entry, parentEntryId: undefined, linkedReleaseMode: undefined },
+      : {
+          ...entry,
+          parentEntryId: undefined,
+          linkedReleaseMode: undefined,
+          relationshipType: entry.season == null ? 'original' : 'season',
+        },
+  );
+
+  const migratedOngoing = ongoing
+    .map((o) => migrateOngoing(o as Record<string, unknown>))
+    .filter((o): o is OngoingEntry => o !== null);
+  const migratedSpecialEntries: Entry[] = [];
+  const convertedSpecialParentIds = new Set<string>();
+  const legacySpecialSchedules: OngoingEntry[] = [];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  for (const ongoingEntry of migratedOngoing) {
+    if (ongoingEntry.specialEpisodes?.length) {
+      const parent = migratedEntries.find((entry) => entry.id === ongoingEntry.entryId);
+      if (parent) {
+        convertedSpecialParentIds.add(parent.id);
+        for (const special of ongoingEntry.specialEpisodes) {
+          let id = `linked_special_${parent.id}_${special.id}`;
+          let suffix = 1;
+          while (migratedEntries.some((entry) => entry.id === id)
+            || migratedSpecialEntries.some((entry) => entry.id === id)) {
+            id = `linked_special_${parent.id}_${special.id}_${suffix++}`;
+          }
+          const status: Entry['status'] = special.watched
+            ? 'COMPLETE'
+            : special.releaseDate > today ? 'PLANNED' : 'ONGOING';
+          const timestamp = Math.max(Date.now(), parent.createdAt || 0);
+          migratedSpecialEntries.push({
+            id,
+            title: special.title,
+            type: parent.type,
+            relationshipType: 'specialEpisode',
+            specialNumber: special.specialNumber,
+            parentEntryId: parent.id,
+            linkedReleaseMode: 'included',
+            poster: parent.poster,
+            year: Number(special.releaseDate.slice(0, 4)),
+            country: parent.country,
+            status,
+            createdAt: timestamp,
+            lastUpdatedAt: timestamp,
+            plannedDate: special.releaseDate,
+            ...(special.releaseTime ? { plannedTime: special.releaseTime } : {}),
+          });
+          if (!special.watched) {
+            legacySpecialSchedules.push({
+              entryId: id,
+              currentEpisode: 0,
+              totalEpisodes: 1,
+              airDays: ['Monday'],
+              firstAirDate: special.releaseDate,
+              ...(special.releaseTime ? { airTime: special.releaseTime } : {}),
+              premiereEpisodeCount: 1,
+              trackingMode: 'calendar',
+              releaseDates: [special.releaseDate],
+              specialEpisodes: [],
+            });
+          }
+        }
+      }
+    }
+  }
+  const allMigratedEntries = [...migratedEntries, ...migratedSpecialEntries];
+  const normalizedOngoing = migratedOngoing.map((item) =>
+    convertedSpecialParentIds.has(item.entryId)
+      ? { ...item, specialEpisodes: [] }
+      : item,
   );
 
   // Clean up: remove favorites for dropped entries
@@ -336,7 +429,7 @@ function validateData(data: unknown): AppState {
 
   const validFavorites = favoritesRaw
     .filter((f) => {
-      const entry = migratedEntries.find((e: Entry) => e.id === f.entryId);
+      const entry = allMigratedEntries.find((e: Entry) => e.id === f.entryId);
       return entry && entry.status !== 'DROPPED';
     })
     .map((f) => ({
@@ -368,7 +461,7 @@ function validateData(data: unknown): AppState {
   const recalculatedFavorites = validFavorites.map((favorite) => {
     const next = {
       ...favorite,
-      storyline: getEpisodeAverage(migratedEntries.find((entry) => entry.id === favorite.entryId)?.episodeRatings) ?? favorite.storyline,
+       storyline: getEpisodeAverage(allMigratedEntries.find((entry) => entry.id === favorite.entryId)?.episodeRatings) ?? favorite.storyline,
       gapPenalty: 0,
       overallRating: 0,
     };
@@ -378,7 +471,7 @@ function validateData(data: unknown): AppState {
   });
 
   const validRatings = (ratings as unknown as Record<string, unknown>[])
-    .filter((r) => migratedEntries.some((e: Entry) => e.id === r.entryId))
+    .filter((r) => allMigratedEntries.some((e: Entry) => e.id === r.entryId))
     .map((r) => ({
       entryId: (r.entryId as string) || '',
       storyline: typeof r.storyline === 'number' ? r.storyline : 5,
@@ -408,7 +501,7 @@ function validateData(data: unknown): AppState {
   const recalculatedRatings = validRatings.map((rating) => {
     const next = {
       ...rating,
-      storyline: getEpisodeAverage(migratedEntries.find((entry) => entry.id === rating.entryId)?.episodeRatings) ?? rating.storyline,
+       storyline: getEpisodeAverage(allMigratedEntries.find((entry) => entry.id === rating.entryId)?.episodeRatings) ?? rating.storyline,
       gapPenalty: 0,
       overallRating: 0,
     };
@@ -422,7 +515,7 @@ function validateData(data: unknown): AppState {
     year: typeof td.year === 'number' ? td.year : new Date().getFullYear(),
     entries: (Array.isArray(td.entries) ? (td.entries as unknown as Record<string, unknown>[]) : [])
       .filter((e) => {
-        const entry = migratedEntries.find((en: Entry) => en.id === e.entryId);
+        const entry = allMigratedEntries.find((en: Entry) => en.id === e.entryId);
         return entry && entry.status !== 'DROPPED';
       })
       .map((e) => ({
@@ -432,12 +525,10 @@ function validateData(data: unknown): AppState {
   })) as unknown as Top10Drawer[];
 
   return {
-    entries: migratedEntries as unknown as Entry[],
+    entries: allMigratedEntries as unknown as Entry[],
     genreTags,
     actors,
-    ongoing: ongoing
-      .map((o) => migrateOngoing(o as Record<string, unknown>))
-      .filter((o): o is OngoingEntry => o !== null),
+    ongoing: [...normalizedOngoing, ...legacySpecialSchedules],
     favorites: recalculatedFavorites,
     ratings: recalculatedRatings,
     top10Drawers: validTop10Drawers,
@@ -492,6 +583,7 @@ function createOngoingFromPlanned(entry: Entry): OngoingEntry {
     totalEpisodes: 1,
     airDays: [getCurrentDay() as AirDay],
     firstAirDate: entry.plannedDate,
+    airTime: entry.plannedTime || '00:00',
     trackingMode: 'calendar',
     releaseDates: [entry.plannedDate as string],
     premiereEpisodeCount: 1,
@@ -513,7 +605,12 @@ function entryContentChanged(previous: Entry, next: Entry): boolean {
     || previous.status !== next.status
     || previous.poster !== next.poster
     || previous.season !== next.season
+    || previous.relationshipType !== next.relationshipType
+    || previous.specialNumber !== next.specialNumber
+    || previous.parentEntryId !== next.parentEntryId
+    || previous.linkedReleaseMode !== next.linkedReleaseMode
     || previous.plannedDate !== next.plannedDate
+    || previous.plannedTime !== next.plannedTime
     || JSON.stringify(previous.genres || []) !== JSON.stringify(next.genres || []);
 }
 
@@ -599,7 +696,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'ADD_ENTRY': {
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
       if (action.payload.parentEntryId && !state.entries.some(
-        (entry) => entry.id === action.payload.parentEntryId && entry.type === 'Series' && !entry.parentEntryId,
+        (entry) => entry.id === action.payload.parentEntryId && !entry.parentEntryId,
       )) return state;
       const entry = {
         ...action.payload,
@@ -718,7 +815,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (parentEntryId && (
         parentEntryId === action.payload.id
         || !state.entries.some((candidate) =>
-          candidate.id === parentEntryId && candidate.type === 'Series' && !candidate.parentEntryId,
+          candidate.id === parentEntryId && !candidate.parentEntryId,
         )
       )) return state;
       // Episode ratings have their own UPDATE_EPISODE_RATING action. Generic
@@ -774,7 +871,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         entries: state.entries
           .filter(e => e.id !== id)
           .map(e => e.parentEntryId === id
-            ? { ...e, parentEntryId: undefined, linkedReleaseMode: undefined }
+            ? {
+                ...e,
+                parentEntryId: undefined,
+                linkedReleaseMode: undefined,
+                relationshipType: e.season == null ? 'original' : 'season',
+                specialNumber: undefined,
+              }
             : e),
         ongoing: state.ongoing.filter(o => o.entryId !== id),
         favorites: state.favorites.filter(f => f.entryId !== id),

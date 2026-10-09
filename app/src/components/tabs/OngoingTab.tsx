@@ -15,7 +15,7 @@ import EntryModal from "../EntryModal";
 import EpisodeRatingGrid from "../EpisodeRatingGrid";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
-import { formatSeasonLabel } from "@/lib/entry";
+import { formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
 
 const OngoingCard = memo(function OngoingCard({
   entryId,
@@ -40,9 +40,10 @@ const OngoingCard = memo(function OngoingCard({
 }) {
   const isAiringToday = schedule.isAiringToday;
   const isSpecialEpisodeToday = schedule.isSpecialEpisodeScheduledToday;
+  const isLinkedSpecialEpisode = entry.relationshipType === 'specialEpisode';
   const premiereDate = ongoingData.firstAirDate || [...(ongoingData.releaseDates || [])].sort()[0];
   const isPremiereToday = premiereDate === getDateOnly();
-  const showBadge = isPremiereToday || isAiringToday || isSpecialEpisodeToday || schedule.isFinalEpisodeScheduledToday;
+  const showBadge = isLinkedSpecialEpisode || isPremiereToday || isAiringToday || isSpecialEpisodeToday || schedule.isFinalEpisodeScheduledToday;
   const progressTotal = schedule.totalEpisodes || ongoingData.totalEpisodes;
   const specialEpisodes = ongoingData.specialEpisodes || [];
   const watchedSpecialEpisodes = specialEpisodes.filter((special) => special.watched).length;
@@ -106,7 +107,7 @@ const OngoingCard = memo(function OngoingCard({
                    ? "bg-[#E50914]"
                    : schedule.isFinalEpisodeScheduledToday
                    ? "bg-orange-500"
-                   : isSpecialEpisodeToday
+                    : isSpecialEpisodeToday || isLinkedSpecialEpisode
                      ? "bg-yellow-400 text-black"
                      : "bg-[#E50914]"
               }`}>
@@ -114,18 +115,18 @@ const OngoingCard = memo(function OngoingCard({
                    ? "Premiere"
                    : schedule.isFinalEpisodeScheduledToday
                    ? "Final EP"
-                   : isSpecialEpisodeToday
+                    : isSpecialEpisodeToday || isLinkedSpecialEpisode
                      ? "Special Episode"
                      : "Airing Today"}
               </span>
             )}
           </div>
           <p className="text-xs text-[#B3B3B3]">
-            {entry.season != null ? `${formatSeasonLabel(entry.season)} · ` : ''}{entry.country}
+            {entry.season != null && !linkedParentTitle ? `${formatSeasonLabel(entry.season)} · ` : ''}{entry.country}
           </p>
           {linkedParentTitle && (
             <p className="mt-1 text-[11px] text-[#999]">
-              {entry.linkedReleaseMode === 'included' ? 'Part of' : 'Continuation of'} {linkedParentTitle}
+              {formatLinkedReleaseDescription(entry, linkedParentTitle)}
             </p>
           )}
 

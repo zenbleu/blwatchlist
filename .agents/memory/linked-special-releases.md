@@ -5,8 +5,8 @@ description: Product rule for separately tracking future continuations and speci
 
 # Linked special releases
 
-**Rule:** A linked release has its own status, year, schedule, and progress so the parent series can remain completed. Independent continuations may be favorited and ranked; releases marked as part of the parent may not.
+**Rule:** Seasons, specials, continuations, spin-offs, and side stories are separate `Entry` records linked to a top-level movie or series. Each linked entry keeps its own status, year, schedule, and progress. Independent links may be favorited and ranked; links marked as part of the parent may not.
 
-**Why:** A later special season should not make the original season appear unfinished, while a brief add-on special should not automatically receive a separate Favorite or Top 10 spot.
+**Why:** One linked-entry model avoids competing special-episode routes and keeps release-calendar events distinct. A later release should not make the parent appear unfinished, and included releases should not gain a separate Favorite or Top 10 spot.
 
-**How to apply:** Use the linked-release relationship fields and entry form when adding future specials. Preserve older attached `SpecialEpisode` data during migration and avoid changing the parent entry's completion status.
+**How to apply:** Convert legacy nested specials into linked entries during data validation, preserving their release date/time, watched state, and parent. Keep `Standalone (Original)` editor-only, and preserve the existing independent-versus-included ranking rule.

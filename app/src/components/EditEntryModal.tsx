@@ -23,9 +23,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import GenreChip from './GenreChip';
 import AirDaySelector from './AirDaySelector';
-import type { Entry, Status, AirDay, SpecialEpisode, LinkedReleaseMode } from '@/types';
+import type { Entry, Status, AirDay, LinkedReleaseMode, EntryRelationshipType } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
-import { formatSeasonLabel, isSameEntryIdentity } from '@/lib/entry';
+import { isSameEntryIdentity } from '@/lib/entry';
 
 const COUNTRIES = [
   'Thailand', 'Japan', 'South Korea', 'Taiwan', 'China', 'Hong Kong', 'Philippines',
@@ -48,7 +48,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   // Form state
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'Movie' | 'Series'>('Series');
+  const [relationshipType, setRelationshipType] = useState<EntryRelationshipType>('original');
   const [season, setSeason] = useState<number | null>(null);
+  const [specialNumber, setSpecialNumber] = useState(1);
   const [parentEntryId, setParentEntryId] = useState('');
   const [linkedReleaseMode, setLinkedReleaseMode] = useState<LinkedReleaseMode>('independent');
   const [year, setYear] = useState(new Date().getFullYear());
@@ -60,7 +62,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [currentEp, setCurrentEp] = useState(0);
   const [totalEp, setTotalEp] = useState(1);
   const [releaseDates, setReleaseDates] = useState<string[]>([]);
-  const [specialEpisodes, setSpecialEpisodes] = useState<SpecialEpisode[]>([]);
+  const [plannedTime, setPlannedTime] = useState('');
   const [releaseCalendarOpen, setReleaseCalendarOpen] = useState(false);
   const [parentPickerOpen, setParentPickerOpen] = useState(false);
   const [parentSearchTerm, setParentSearchTerm] = useState('');
@@ -73,12 +75,14 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const ongoing = entry ? getOngoingByEntryId(entry.id) : null;
   const selectedParentEntry = state.entries.find((candidate) => candidate.id === parentEntryId);
   const availableParentEntries = state.entries
-    .filter((candidate) => candidate.id !== entry?.id && !candidate.parentEntryId && candidate.type === 'Series')
+    .filter((candidate) => candidate.id !== entry?.id && !candidate.parentEntryId)
     .sort((a, b) => a.title.localeCompare(b.title));
   const normalizedParentSearch = parentSearchTerm.trim().toLocaleLowerCase();
   const filteredParentEntries = availableParentEntries
     .filter((candidate) =>
-      `${candidate.title} ${candidate.year}`.toLocaleLowerCase().includes(normalizedParentSearch),
+      `${candidate.title} ${candidate.year} ${candidate.country} ${candidate.type}`
+        .toLocaleLowerCase()
+        .includes(normalizedParentSearch),
     )
     .slice(0, 50);
   const selectedGenreTags = state.genreTags.filter((tag) => selectedGenreIds.includes(tag.id));
@@ -98,7 +102,10 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     if (entry) {
       setTitle(entry.title);
       setType(entry.type);
+      setRelationshipType(entry.relationshipType
+        || (entry.parentEntryId ? (entry.season == null ? 'continuation' : 'season') : (entry.season == null ? 'original' : 'season')));
       setSeason(entry.season ?? null);
+      setSpecialNumber(entry.specialNumber ?? 1);
       setParentEntryId(entry.parentEntryId || '');
       setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
       setYear(entry.year);
@@ -106,6 +113,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setStatus(entry.status);
       setPosterData(entry.poster);
       setPlannedDate(entry.plannedDate || '');
+      setPlannedTime(entry.plannedTime || '');
       setSelectedGenreIds(entry.genres || []);
       if (ongoing) {
         setAirDays(ongoing.airDays as AirDay[]);
@@ -113,19 +121,19 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         setCurrentEp(ongoing.currentEpisode);
         setTotalEp(ongoing.releaseDates?.length || 1);
         setReleaseDates(ongoing.releaseDates || []);
-        setSpecialEpisodes(ongoing.specialEpisodes || []);
       } else {
         setAirDays([]);
         setAirTime('00:00');
         setCurrentEp(0);
         setTotalEp(1);
         setReleaseDates([]);
-        setSpecialEpisodes([]);
       }
     } else {
       setTitle('');
       setType('Series');
+      setRelationshipType('original');
       setSeason(null);
+      setSpecialNumber(1);
       setParentEntryId('');
       setLinkedReleaseMode('independent');
       setYear(new Date().getFullYear());
@@ -133,13 +141,13 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setStatus('COMPLETE');
       setPosterData(null);
       setPlannedDate('');
+      setPlannedTime('');
       setSelectedGenreIds([]);
       setAirDays([]);
       setAirTime('00:00');
       setCurrentEp(0);
       setTotalEp(1);
       setReleaseDates([]);
-      setSpecialEpisodes([]);
     }
     setError('');
   }, [entry, ongoing]);
@@ -163,10 +171,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     setTotalEp(Math.max(1, dates.length));
   };
 
-  const handleSpecialEpisodesSave = (episodes: SpecialEpisode[]) => {
-    setSpecialEpisodes(episodes);
-  };
-
   const handleSave = () => {
     if (!title.trim()) {
       setError('Title is required');
@@ -176,7 +180,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       ? state.entries.find((existing) => existing.id === parentEntryId && existing.id !== entry?.id && !existing.parentEntryId)
       : undefined;
     if (parentEntryId && !selectedParent) {
-      setError('Choose an existing top-level series as the parent.');
+      setError('Choose an existing top-level entry as the parent.');
       return;
     }
     const includedReleaseHasRankings = linkedReleaseMode === 'included'
@@ -189,19 +193,36 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     }
     const duplicateSeason = state.entries.some((existing) =>
       existing.id !== entry?.id &&
-      isSameEntryIdentity(existing, { title, type, season }),
+      isSameEntryIdentity(existing, {
+        title,
+        type,
+        year,
+        country,
+        season: relationshipType === 'season' ? season : null,
+        specialNumber: relationshipType === 'specialEpisode' ? specialNumber : null,
+        parentEntryId: selectedParent?.id,
+        relationshipType: selectedParent
+          ? relationshipType === 'original' ? 'continuation' : relationshipType
+          : relationshipType === 'season' ? 'season' : 'original',
+      }),
     );
     if (duplicateSeason) {
-      setError(`An entry for ${title.trim()} — ${formatSeasonLabel(season)} already exists.`);
+      setError(`An entry with this title, year, country, and relationship already exists.`);
       return;
     }
     setError('');
+    const savedRelationshipType: EntryRelationshipType = selectedParent
+      ? relationshipType === 'original' ? 'continuation' : relationshipType
+      : relationshipType === 'season' ? 'season' : 'original';
+    const savedSeason = savedRelationshipType === 'season' ? season ?? 1 : undefined;
 
     const newEntry: Entry = {
       id: entry?.id || `bl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: title.trim(),
       type,
-      ...(season !== null ? { season } : {}),
+      relationshipType: savedRelationshipType,
+      ...(savedSeason !== undefined ? { season: savedSeason } : {}),
+      ...(savedRelationshipType === 'specialEpisode' ? { specialNumber: Math.max(1, specialNumber) } : {}),
       ...(selectedParent
         ? { parentEntryId: selectedParent.id, linkedReleaseMode }
         : {}),
@@ -213,7 +234,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       createdAt: entry?.createdAt || Date.now(),
       lastUpdatedAt: entry?.lastUpdatedAt || entry?.createdAt || Date.now(),
       ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
-      ...(status === 'PLANNED' && plannedDate ? { plannedDate } : {}),
+      ...(plannedDate && (status === 'PLANNED' || savedRelationshipType === 'specialEpisode') ? { plannedDate } : {}),
+      ...(plannedTime ? { plannedTime } : {}),
     };
 
     if (onSave) {
@@ -231,13 +253,18 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         type: 'UPDATE_ONGOING',
         payload: {
           entryId: newEntry.id,
-          currentEpisode: currentEp,
-          totalEpisodes: totalEp,
+          currentEpisode: savedRelationshipType === 'specialEpisode' ? Math.min(currentEp, 1) : currentEp,
+          totalEpisodes: savedRelationshipType === 'specialEpisode' ? 1 : totalEp,
             airDays: airDays.length > 0 ? airDays : ['Monday'] as AirDay[],
-            airTime,
-            trackingMode: releaseDates.length > 0 ? 'calendar' : (ongoing?.trackingMode || 'recurring'),
-            releaseDates,
-           specialEpisodes,
+            airTime: savedRelationshipType === 'specialEpisode' && plannedTime ? plannedTime : airTime,
+            trackingMode: (savedRelationshipType === 'specialEpisode' && (plannedDate || releaseDates.length > 0))
+              || releaseDates.length > 0
+              ? 'calendar'
+              : (ongoing?.trackingMode || 'recurring'),
+            releaseDates: savedRelationshipType === 'specialEpisode'
+              ? plannedDate ? [plannedDate] : releaseDates.slice(0, 1)
+              : releaseDates,
+            specialEpisodes: [],
         }
       });
     }
@@ -329,49 +356,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             </div>
           </div>
 
-          {/* Season */}
-          <div className="space-y-2">
-            <Label className="text-[#B3B3B3]">Season</Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setSeason(null)}
-                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                  season === null
-                    ? 'bg-[#E50914] text-white'
-                    : 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]'
-                }`}
-              >
-                Standalone
-              </button>
-              <button
-                type="button"
-                onClick={() => setSeason(season ?? 1)}
-                className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                  season !== null
-                    ? 'bg-[#E50914] text-white'
-                    : 'bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]'
-                }`}
-              >
-                Season
-              </button>
-            </div>
-            {season !== null && (
-              <Input
-                type="number"
-                value={season}
-                onChange={e => setSeason(Math.max(1, parseInt(e.target.value) || 1))}
-                min={1}
-                max={999}
-                className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
-                aria-label="Season number"
-              />
-            )}
-            <p className="text-[10px] text-[#666]">
-              Keep each season as its own entry with its own poster, progress, and evaluation.
-            </p>
-          </div>
-
           {/* Genre tags */}
           <div className="space-y-2">
             <Label className="text-[#B3B3B3]">Genres</Label>
@@ -459,9 +443,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             )}
           </div>
 
-          {/* Linked release */}
+          {/* Parent and relationship */}
           <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-            <Label className="text-[#B3B3B3]">Link to an existing series (optional)</Label>
+            <Label className="text-[#B3B3B3]">Related entry</Label>
             <div className="space-y-2">
               <Popover
                 open={parentPickerOpen}
@@ -480,8 +464,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   >
                     <span className="truncate">
                       {selectedParentEntry
-                        ? `${selectedParentEntry.title} (${selectedParentEntry.year})`
-                        : 'Search by series title or year...'}
+                        ? `${selectedParentEntry.title} · ${selectedParentEntry.year} · ${selectedParentEntry.country}`
+                        : 'Search by title, year, country, or type...'}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-[#888]" />
                   </Button>
@@ -494,13 +478,13 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     <CommandInput
                       value={parentSearchTerm}
                       onValueChange={setParentSearchTerm}
-                      placeholder="Search series title or year..."
+                      placeholder="Search title, year, country, or type..."
                       className="text-white placeholder:text-[#777]"
                     />
                     <CommandList className="max-h-60">
                       <CommandEmpty className="text-[#999]">
                         {availableParentEntries.length === 0
-                          ? 'No eligible series to link yet.'
+                          ? 'No top-level entries available to link.'
                           : 'No matches. Try another title or year.'}
                       </CommandEmpty>
                       <CommandGroup>
@@ -510,6 +494,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                             value={candidate.id}
                             onSelect={() => {
                               setParentEntryId(candidate.id);
+                              setRelationshipType((current) => current === 'original' ? 'continuation' : current);
                               setParentPickerOpen(false);
                               setParentSearchTerm('');
                               setError('');
@@ -517,8 +502,10 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                             className="cursor-pointer text-white data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
                           >
                             <Check className={`h-4 w-4 ${parentEntryId === candidate.id ? 'opacity-100' : 'opacity-0'}`} />
-                            <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
-                            <span className="text-xs text-[#999]">{candidate.year}</span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {candidate.title} · {candidate.year} · {candidate.country}
+                            </span>
+                            <span className="text-[10px] text-[#999]">{candidate.type}</span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -531,6 +518,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   type="button"
                   onClick={() => {
                     setParentEntryId('');
+                    setRelationshipType(season === null ? 'original' : 'season');
+                    setLinkedReleaseMode('independent');
                     setError('');
                   }}
                   className="text-[11px] text-[#999] underline underline-offset-2 hover:text-white"
@@ -539,33 +528,124 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 </button>
               )}
             </div>
-            {parentEntryId && (
+            {!parentEntryId ? (
               <div className="space-y-2 pt-1">
-                <p className="text-[11px] text-[#888]">How should this release be counted?</p>
-                <div className="grid grid-cols-1 gap-2">
+                <p className="text-[11px] text-[#888]">Standalone (Original)</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRelationshipType('original');
+                      setSeason(null);
+                    }}
+                    className={`flex-1 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
+                      relationshipType === 'original'
+                        ? 'border-[#E50914]/50 bg-[#E50914]/10 text-white'
+                        : 'border-white/10 bg-white/[0.03] text-[#999]'
+                    }`}
+                  >
+                    Original
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRelationshipType('season');
+                      setSeason(season ?? 1);
+                    }}
+                    className={`flex-1 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
+                      relationshipType === 'season'
+                        ? 'border-[#E50914]/50 bg-[#E50914]/10 text-white'
+                        : 'border-white/10 bg-white/[0.03] text-[#999]'
+                    }`}
+                  >
+                    Season
+                  </button>
+                </div>
+                {relationshipType === 'season' && (
+                  <Input
+                    type="number"
+                    value={season ?? 1}
+                    onChange={(event) => setSeason(Math.max(1, parseInt(event.target.value) || 1))}
+                    min={1}
+                    max={999}
+                    className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                    aria-label="Season number"
+                  />
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                <Label className="text-[11px] text-[#888]">Relationship</Label>
+                <Select
+                  value={relationshipType === 'original' ? 'continuation' : relationshipType}
+                  onValueChange={(value) => {
+                    const nextType = value as EntryRelationshipType;
+                    setRelationshipType(nextType);
+                    if (nextType === 'specialEpisode') {
+                      setLinkedReleaseMode('included');
+                    }
+                    if (nextType === 'season') setSeason(season ?? 1);
+                    else setSeason(null);
+                  }}
+                >
+                  <SelectTrigger className="h-9 border-white/10 bg-white/[0.06] text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-white/10 bg-[#1a1a1a] text-white">
+                    <SelectItem value="continuation">Continuation</SelectItem>
+                    <SelectItem value="specialEpisode">Special Episode</SelectItem>
+                    <SelectItem value="season">Season</SelectItem>
+                    <SelectItem value="spinOff">Spin-off</SelectItem>
+                    <SelectItem value="sideStory">Side Story</SelectItem>
+                  </SelectContent>
+                </Select>
+                {relationshipType === 'season' && (
+                  <Input
+                    type="number"
+                    value={season ?? 1}
+                    onChange={(event) => setSeason(Math.max(1, parseInt(event.target.value) || 1))}
+                    min={1}
+                    max={999}
+                    className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                    aria-label="Season number"
+                  />
+                )}
+                {relationshipType === 'specialEpisode' && (
+                  <Input
+                    type="number"
+                    value={specialNumber}
+                    onChange={(event) => setSpecialNumber(Math.max(1, parseInt(event.target.value) || 1))}
+                    min={1}
+                    max={999}
+                    className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                    aria-label="Special episode number"
+                  />
+                )}
+                <p className="text-[11px] text-[#888]">Rating eligibility</p>
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setLinkedReleaseMode('independent')}
-                    className={`rounded-lg border p-2.5 text-left transition-colors ${
+                    className={`flex-1 rounded-lg border p-2 text-left transition-colors ${
                       linkedReleaseMode === 'independent'
                         ? 'border-[#E50914]/50 bg-[#E50914]/10'
                         : 'border-white/10 bg-white/[0.03]'
                     }`}
                   >
-                    <span className="block text-xs font-semibold text-white">Independent continuation</span>
-                    <span className="mt-1 block text-[10px] text-[#999]">Track separately and allow its own Favorite and Top 10 entry after completion.</span>
+                    <span className="block text-xs font-semibold text-white">Separate</span>
+                    <span className="mt-0.5 block text-[10px] text-[#999]">Own favorite and ranking.</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setLinkedReleaseMode('included')}
-                    className={`rounded-lg border p-2.5 text-left transition-colors ${
+                    className={`flex-1 rounded-lg border p-2 text-left transition-colors ${
                       linkedReleaseMode === 'included'
                         ? 'border-[#E50914]/50 bg-[#E50914]/10'
                         : 'border-white/10 bg-white/[0.03]'
                     }`}
                   >
-                    <span className="block text-xs font-semibold text-white">Part of the parent series</span>
-                    <span className="mt-1 block text-[10px] text-[#999]">Track its release and progress, but don’t rank or favorite it separately.</span>
+                    <span className="block text-xs font-semibold text-white">Part of parent</span>
+                    <span className="mt-0.5 block text-[10px] text-[#999]">No separate ranking.</span>
                   </button>
                 </div>
               </div>
@@ -606,29 +686,27 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
           </div>
 
           {/* Planned Date */}
-          {status === 'PLANNED' && (
+          {(status === 'PLANNED' || relationshipType === 'specialEpisode') && (
             <div className="space-y-3 bg-white/[0.04] rounded-xl p-4">
               <div>
                 <label className="text-sm font-medium text-[#B3B3B3]">
                   Release Date <span className="text-[#666] text-xs">(optional)</span>
                 </label>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-[1fr_auto] gap-2">
                 <input
                   type="date"
                   value={plannedDate}
                   onChange={(e) => setPlannedDate(e.target.value)}
-                  className="flex-1 h-9 bg-white/[0.06] border border-white/10 rounded-lg px-3 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
+                  className="h-9 min-w-0 bg-white/[0.06] border border-white/10 rounded-lg px-3 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
                 />
-                {plannedDate && (
-                  <button
-                    onClick={() => setPlannedDate('')}
-                    className="text-[#666] hover:text-[#B3B3B3] transition-colors tap-active"
-                    aria-label="Clear date"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+                <input
+                  type="time"
+                  value={plannedTime}
+                  onChange={(e) => setPlannedTime(e.target.value)}
+                  className="h-9 w-28 bg-white/[0.06] border border-white/10 rounded-lg px-2 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
+                  aria-label="Release time"
+                />
               </div>
               <p className="text-[10px] text-[#666]">Links to Release Calendar in Ongoing BL tab</p>
             </div>
@@ -701,8 +779,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             parentTitle={title}
             releaseDates={releaseDates}
             onSave={handleReleaseDatesSave}
-            specialEpisodes={specialEpisodes}
-            onSpecialEpisodesSave={handleSpecialEpisodesSave}
           />
 
           {/* Cancel & Save Buttons */}
