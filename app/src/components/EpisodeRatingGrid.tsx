@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Pencil, Star } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, MessageSquareText, Pencil, Star, X } from 'lucide-react';
 import type { EpisodeRating } from '@/types';
 import { formatRating } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
@@ -16,6 +16,7 @@ interface EpisodeRatingGridProps {
   poster?: string | null;
   entryTitle?: string;
   season?: number | null;
+  compactGrid?: boolean;
 }
 
 const DEFAULT_EPISODE_RATING: EpisodeRating = {
@@ -26,6 +27,13 @@ const FLOW_COLUMN_WIDTH = 50;
 const FLOW_COLUMN_GAP = 7;
 const FLOW_BASELINE = 70;
 const FLOW_MAX_BAR_HEIGHT = 58;
+
+function compactRatingColor(rating: number): string {
+  if (rating <= 4) return 'bg-slate-500/70 border-slate-300/30 text-white';
+  if (rating <= 7) return 'bg-yellow-200 border-yellow-100/70 text-slate-900';
+  if (rating === 8) return 'bg-yellow-300 border-yellow-100 text-slate-900 shadow-[0_0_10px_rgba(250,204,21,0.25)]';
+  return 'bg-yellow-400 border-yellow-100 text-slate-950 shadow-[0_0_13px_rgba(250,204,21,0.48)]';
+}
 
 function buildFlowPath(values: Array<number | null>): string {
   return values.reduce((path, rating, index) => {
@@ -196,6 +204,160 @@ function EpisodeRatingRow({
           {valueLabel ?? formatRating(value)}
         </span>
       </div>
+    </div>
+  );
+}
+
+function CompactEpisodeRatingForm({
+  episodeNumber,
+  value,
+  onChange,
+  onSave,
+  onClear,
+  onClose,
+}: {
+  episodeNumber: number;
+  value: EpisodeRating;
+  onChange: (value: EpisodeRating) => void;
+  onSave: () => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#171717] p-3 shadow-xl">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold text-white">Episode {episodeNumber}</p>
+          <p className="text-[10px] text-[#777]">Rate your episode from 1–10</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full p-1 text-[#777] hover:bg-white/[0.08] hover:text-white"
+          aria-label="Close episode rating form"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <EpisodeRatingRow
+        label="Your Rating"
+        value={value.yourRating}
+        onChange={(yourRating) => onChange({ ...value, yourRating })}
+        editable
+        scale="half"
+        starCount={10}
+      />
+
+      <label className="mt-4 block">
+        <span className="mb-1 flex items-center gap-1 text-[10px] text-[#888]">
+          <MessageSquareText className="h-3 w-3" /> Commentary (optional)
+        </span>
+        <textarea
+          value={value.commentary ?? ''}
+          onChange={(event) => onChange({ ...value, commentary: event.target.value })}
+          placeholder="What stood out?"
+          rows={2}
+          className="w-full resize-none rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-2 text-xs text-white outline-none placeholder:text-[#555] focus:border-[#E50914]"
+        />
+      </label>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <button type="button" onClick={onClear} className="text-[10px] text-[#888] hover:text-red-300">
+          Clear rating
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          className="flex items-center gap-1 rounded-lg bg-[#E50914] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#E50914]/90"
+        >
+          <Check className="h-3 w-3" /> Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CompactEpisodeRatingGrid({
+  ratings,
+  totalEpisodes,
+  airedEpisode,
+  editable,
+  onChange,
+}: {
+  ratings: Record<string, EpisodeRating>;
+  totalEpisodes: number;
+  airedEpisode: number | null;
+  editable: boolean;
+  onChange?: (episodeNumber: number, value?: EpisodeRating) => void;
+}) {
+  const episodeCount = Math.max(1, totalEpisodes, ...Object.keys(ratings).map(Number).filter(Number.isFinite));
+  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
+  const [draftRating, setDraftRating] = useState<EpisodeRating>(DEFAULT_EPISODE_RATING);
+  const selectedRating = selectedEpisode === null ? undefined : ratings[String(selectedEpisode)];
+
+  useEffect(() => {
+    if (selectedEpisode === null) return;
+    setDraftRating(selectedRating ? { ...DEFAULT_EPISODE_RATING, ...selectedRating } : DEFAULT_EPISODE_RATING);
+  }, [selectedEpisode, selectedRating]);
+
+  const episodes = useMemo(() => Array.from({ length: episodeCount }, (_, index) => index + 1), [episodeCount]);
+  const close = () => setSelectedEpisode(null);
+  const save = () => {
+    if (selectedEpisode === null || !onChange) return;
+    const commentary = draftRating.commentary?.trim();
+    onChange(selectedEpisode, { ...draftRating, commentary: commentary || undefined });
+    close();
+  };
+  const clear = () => {
+    if (selectedEpisode === null || !onChange) return;
+    onChange(selectedEpisode);
+    close();
+  };
+
+  return (
+    <div className="relative min-w-0 space-y-2">
+      <div className="overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex min-w-max items-end gap-1.5">
+          {episodes.map((episodeNumber) => {
+            const episode = ratings[String(episodeNumber)];
+            const rating = episode?.yourRating ?? null;
+            const isAvailable = airedEpisode === null || episodeNumber <= airedEpisode;
+            const isSelected = selectedEpisode === episodeNumber;
+            return (
+              <div key={episodeNumber} className="flex flex-col items-center gap-1">
+                <span className="text-[10px] font-medium text-[#888]">E{episodeNumber}</span>
+                <button
+                  type="button"
+                  disabled={!editable || !isAvailable}
+                  onClick={() => setSelectedEpisode(isSelected ? null : episodeNumber)}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-[11px] font-bold tabular-nums transition-all ${
+                    episode
+                      ? compactRatingColor(rating ?? 0)
+                      : `border-dotted border-white/30 bg-white/[0.035] text-transparent ${!isAvailable ? 'opacity-45' : ''}`
+                  } ${isSelected ? 'ring-2 ring-[#E50914] ring-offset-2 ring-offset-[#0a0a0a]' : ''} ${
+                    editable && isAvailable ? 'cursor-pointer hover:brightness-110' : 'cursor-default'
+                  }`}
+                  aria-label={`${episode ? `Episode ${episodeNumber}, your rating ${formatRating(rating ?? 0)}` : `Episode ${episodeNumber}, not rated`}${!isAvailable ? ', not aired yet' : ''}`}
+                >
+                  {rating !== null ? formatRating(rating) : ''}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {editable && selectedEpisode !== null && (
+        <CompactEpisodeRatingForm
+          episodeNumber={selectedEpisode}
+          value={draftRating}
+          onChange={setDraftRating}
+          onSave={save}
+          onClear={clear}
+          onClose={close}
+        />
+      )}
     </div>
   );
 }
@@ -479,7 +641,7 @@ function EpisodeSummaryPanel({
   );
 }
 
-export default function EpisodeRatingGrid({
+function FlowEpisodeRatingGrid({
   ratings = {},
   totalEpisodes,
   airedEpisode = null,
@@ -581,4 +743,20 @@ export default function EpisodeRatingGrid({
       />
     </div>
   );
+}
+
+export default function EpisodeRatingGrid(props: EpisodeRatingGridProps) {
+  if (props.compactGrid) {
+    return (
+      <CompactEpisodeRatingGrid
+        ratings={props.ratings ?? {}}
+        totalEpisodes={props.totalEpisodes}
+        airedEpisode={props.airedEpisode ?? null}
+        editable={props.editable ?? false}
+        onChange={props.onChange}
+      />
+    );
+  }
+
+  return <FlowEpisodeRatingGrid {...props} />;
 }

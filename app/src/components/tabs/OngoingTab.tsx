@@ -151,6 +151,7 @@ const OngoingCard = memo(function OngoingCard({
               season={entry.season}
               editable
               compact
+              compactGrid
               onChange={(episodeNumber, value) => onEpisodeRating(entryId, episodeNumber, value)}
             />
 
