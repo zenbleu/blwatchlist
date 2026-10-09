@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "H9IfG74ScI2UbuhyjXEKC"
+uri = "file://attached_assets/BL-Watchlist-Backup-2026-10-09_with-masterlist-genres.json"
+type = "unspecified"
+title = "BL Watchlist backup with masterlist genres"
+description = "Import-ready backup with workbook genres applied to all 232 matching entries."
+logical_id = "1c6a0f3f-b4c4-413c-9941-b879a3aacd1d"
+content_hash = "sha256:5a887fda2ea47e5dc4286c4575d54cbbd4708c1e0e91d0ce3f4b75b84a156940"
+size = 52264476
+mtime_ms = 1791517349014
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:86438497-c946-46e4-a613-88232bf1e117/1c6a0f3f-b4c4-413c-9941-b879a3aacd1d/10d8c3d9-d5c3-4e50-a5b9-22d6030cb0b7"
+storage_version_token = "1791517358943462"
+content_type = "application/octet-stream"
