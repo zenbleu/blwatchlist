@@ -335,7 +335,7 @@ export default function CalendarSheet({
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    {upcomingEntries.slice(0, 14).map((item, idx) => {
+                    {upcomingEntries.slice(0, 14).map((item) => {
                       const isLinkedSpecialEpisode = item.entry.relationshipType === "specialEpisode";
                       const epInfo =
                         item.type === "special" && item.specialEpisode
