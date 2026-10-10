@@ -1,0 +1,68 @@
+I have a concern.
+
+The recent implementation about linking flow of a parent entry succeeded and satisfied, but i have some concerns i need you to address:
+
+1. Remove the 'Continuation' because it is a general link term for all specific links we already have (Special Episode, Season, Spin-off, Side Story). Instead of 'Continuation' let's have sequel and prequel. In selecting 'Spin-off' in dropdown, can you add a another dropdown field beside it? Selectable: Sequel and Prequel.
+
+For example:
+
+Cherry Magic (2020) - Series, Japan [Parent Entry - Original]
+
+Cherry Magic (2022) - Movie, Japan [Sequel]
+
+The Novelist (2018) - Series, Japan [Parent Entry - Original]
+
+Mood Indigo (2019) - Series, Japan [Prequel]
+
+2. Add another 'Adaptation' dropdown. This should work with multiple adaptations of a parent entry:
+
+For example:
+
+Addicted Heroin (2016) - Series, China [Parent Entry - Original]
+
+Stay With Me (2023) - Series, China [Adaptation]
+
+Addicted Heroin (2024) - Series, Thailand [Adaptation]
+
+Note: The recent implementation already has a duplication validation pass. Ensure examples above should be valid and passed.
+
+3. Add a behavior modifier when adding a related entry (back-end only):
+
+Example:
+
+A user added a related entry and select it as a Season 1 in EditEntryModal, considering it as a parent entry and assuming the added related entry is a season 2.
+
+Now, when a user navigates to EditEntryModal of a Season 2 of that entry, it should automatically fill the field as Season 2 and a related entry field should automatically filled since the user already marked a recent Season 1.
+
+Now what happens if a user marked it first as a Season 2? 
+- A user CANNOT save the entry and a message will appear below the relationship field to add a season 1 first.
+
+Note: 
+
+- This behavior modifier should also be applied to other relationship links not just Season.
+
+4. This is more about visual changes:
+
+(See attached photo)
+
+Instead of displaying a text "Season # of [Parent Entry]", "Special Episode # of [Parent Entry]", etc... Display the existing badges already made specifically for seasons. Make also a similar badge on the following:
+
+- Special Episode
+- Adaptation
+- Sequel
+- Prequel
+- Side Story
+
+(Keep 'Standalone' as a non-displayable badge)
+
+The placement of the badges:
+
+Place the relationship badges below and after the Type • Year • Country AND before the genre tags.
+
+Note: the placement should be done only based on the attached photo. EntryModal and others should NOT be affected.
+
+Final Note: 
+
+What should be written as a back-end, should be kept as a back-end. What should be written as a front-end, should be kept as front-end.
+
+Purpose: To minimize details and prioritized visually clean and organized components.

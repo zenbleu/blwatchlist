@@ -11,8 +11,7 @@ import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import GenreChip from "../GenreChip";
 import {
-  formatSeasonLabel,
-  formatLinkedReleaseDescription,
+  getEntryRelationshipLabel,
   isEligibleForFavoriteOrTop10,
 } from "@/lib/entry";
 import {
@@ -52,7 +51,6 @@ const EntryCard = memo(function EntryCard({
   onView,
   canAddToTop10,
   airingBadge,
-  linkedParentTitle,
   genreTags,
 }: {
   entry: Entry;
@@ -66,10 +64,10 @@ const EntryCard = memo(function EntryCard({
   onView: (entry: Entry) => void;
   canAddToTop10: boolean;
   airingBadge: "Airing Today" | "Final EP" | "Special Episode" | "Premiere" | null;
-  linkedParentTitle?: string;
   genreTags: GenreTag[];
 }) {
   const canRank = isEligibleForFavoriteOrTop10(entry);
+  const relationshipBadge = getEntryRelationshipLabel(entry);
   return (
     <motion.div
       layout
@@ -98,20 +96,17 @@ const EntryCard = memo(function EntryCard({
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
+            {relationshipBadge && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                <span className="inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
+                  {relationshipBadge}
+                </span>
+              </div>
+            )}
             {genreTags.length > 0 && (
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {genreTags.map((tag) => <GenreChip key={tag.id} tag={tag} />)}
               </div>
-            )}
-            {entry.season != null && !linkedParentTitle && (
-              <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
-                {formatSeasonLabel(entry.season)}
-              </span>
-            )}
-            {linkedParentTitle && (
-              <p className="mt-1 truncate text-[10px] text-[#999]">
-                {formatLinkedReleaseDescription(entry, linkedParentTitle)}
-              </p>
             )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -419,9 +414,6 @@ export default function BLSeriesTab() {
                 ? state.ongoing.find((item) => item.entryId === entry.id)
                 : undefined;
               const schedule = ongoing ? getOngoingSchedule(ongoing, now) : null;
-              const linkedParentTitle = entry.parentEntryId
-                ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)?.title
-                : undefined;
               const premiereDate = ongoing?.firstAirDate || [...(ongoing?.releaseDates || [])].sort()[0];
               const isPremiereToday = premiereDate === getDateOnly(now);
               const airingBadge = isPremiereToday
@@ -448,7 +440,6 @@ export default function BLSeriesTab() {
                   onView={handleView}
                   canAddToTop10={canAddToTop10}
                   airingBadge={airingBadge}
-                  linkedParentTitle={linkedParentTitle}
                   genreTags={state.genreTags.filter((tag) => entry.genres?.includes(tag.id))}
                 />
               );

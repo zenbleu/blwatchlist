@@ -2,7 +2,15 @@ import type { Milestone } from '@/components/MilestoneModal';
 
 export type Status = 'COMPLETE' | 'ONGOING' | 'DROPPED' | 'PLANNED';
 export type LinkedReleaseMode = 'independent' | 'included';
-export type EntryRelationshipType = 'original' | 'continuation' | 'specialEpisode' | 'season' | 'spinOff' | 'sideStory';
+export type EntryRelationshipType =
+  | 'original'
+  | 'continuation'
+  | 'specialEpisode'
+  | 'season'
+  | 'spinOff'
+  | 'adaptation'
+  | 'sideStory';
+export type SpinOffDirection = 'sequel' | 'prequel';
 
 export interface GenreTag {
   id: string;
@@ -29,9 +37,11 @@ export interface Entry {
   season?: number;
   /** Relationship to the parent entry; original entries are not shown as linked-release badges. */
   relationshipType?: EntryRelationshipType;
+  /** Whether a spin-off is a sequel or prequel. */
+  spinOffDirection?: SpinOffDirection;
   /** Number used to distinguish special episodes within a linked release. */
   specialNumber?: number;
-  /** Parent title for a separately tracked continuation or special release. */
+  /** Related entry that anchors this separately tracked release. */
   parentEntryId?: string;
   /** Included releases are tracked separately but are not independently ranked. */
   linkedReleaseMode?: LinkedReleaseMode;

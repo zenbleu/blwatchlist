@@ -2,7 +2,7 @@ import type { Entry, EntryRelationshipType } from '@/types';
 
 type EntryIdentity = Pick<
   Entry,
-  'title' | 'type' | 'year' | 'country' | 'season' | 'parentEntryId' | 'relationshipType' | 'specialNumber'
+  'title' | 'type' | 'year' | 'country' | 'season' | 'parentEntryId' | 'relationshipType' | 'specialNumber' | 'spinOffDirection'
 >;
 
 function effectiveRelationshipType(entry: EntryIdentity): EntryRelationshipType {
@@ -23,6 +23,7 @@ export function isSameEntryIdentity(a: EntryIdentity, b: EntryIdentity): boolean
     && (a.season ?? null) === (b.season ?? null)
     && (a.specialNumber ?? null) === (b.specialNumber ?? null)
     && (a.parentEntryId ?? null) === (b.parentEntryId ?? null)
+    && (a.spinOffDirection ?? null) === (b.spinOffDirection ?? null)
     && effectiveRelationshipType(a) === effectiveRelationshipType(b);
 }
 
@@ -33,7 +34,7 @@ export function getRelationshipType(entry: Pick<Entry, 'relationshipType' | 'sea
 }
 
 export function getEntryRelationshipLabel(
-  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId'>,
+  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId' | 'spinOffDirection'>,
 ): string | null {
   switch (getRelationshipType(entry)) {
     case 'specialEpisode':
@@ -41,18 +42,24 @@ export function getEntryRelationshipLabel(
     case 'season':
       return `Season ${entry.season ?? 1}`;
     case 'spinOff':
-      return 'Spin-off';
+      return entry.spinOffDirection === 'sequel'
+        ? 'Sequel'
+        : entry.spinOffDirection === 'prequel'
+          ? 'Prequel'
+          : 'Spin-off';
+    case 'adaptation':
+      return 'Adaptation';
     case 'sideStory':
       return 'Side Story';
     case 'continuation':
-      return 'Continuation';
+      return 'Related';
     default:
       return null;
   }
 }
 
 export function formatLinkedReleaseDescription(
-  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId'>,
+  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId' | 'spinOffDirection'>,
   parentTitle: string,
 ): string {
   return `${getEntryRelationshipLabel(entry) || 'Related entry'} of ${parentTitle}`;

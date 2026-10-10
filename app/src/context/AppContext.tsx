@@ -106,6 +106,7 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     'specialEpisode',
     'season',
     'spinOff',
+    'adaptation',
     'sideStory',
   ];
   const relationshipType = parentEntryId
@@ -156,6 +157,9 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     type: (e.type as 'Movie' | 'Series') || 'Series',
     season,
     relationshipType,
+    spinOffDirection: e.spinOffDirection === 'sequel' || e.spinOffDirection === 'prequel'
+      ? e.spinOffDirection
+      : undefined,
     specialNumber: typeof e.specialNumber === 'number' && Number.isInteger(e.specialNumber) && e.specialNumber > 0
       ? e.specialNumber
       : undefined,
@@ -346,15 +350,15 @@ function validateData(data: unknown): AppState {
   );
   const migratedEntries: Entry[] = migratedEntriesRaw.map((entry): Entry =>
     entry.parentEntryId
-      && entry.parentEntryId !== entry.id
       && entriesById.has(entry.parentEntryId)
-      && !entriesById.get(entry.parentEntryId)?.parentEntryId
+      && canLinkToParent(migratedEntriesRaw, entry.id, entry.parentEntryId)
       ? entry
       : {
           ...entry,
           parentEntryId: undefined,
           linkedReleaseMode: undefined,
           relationshipType: entry.season == null ? 'original' : 'season',
+          spinOffDirection: undefined,
         },
   );
 
@@ -617,6 +621,7 @@ function entryContentChanged(previous: Entry, next: Entry): boolean {
     || previous.poster !== next.poster
     || previous.season !== next.season
     || previous.relationshipType !== next.relationshipType
+    || previous.spinOffDirection !== next.spinOffDirection
     || previous.specialNumber !== next.specialNumber
     || previous.parentEntryId !== next.parentEntryId
     || previous.linkedReleaseMode !== next.linkedReleaseMode
@@ -669,6 +674,37 @@ function hasDuplicateEntry(entries: Entry[], candidate: Entry, excludeId?: strin
   );
 }
 
+function canLinkToParent(entries: Entry[], childId: string, parentId: string): boolean {
+  if (childId === parentId) return false;
+  const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+  let ancestor: Entry | undefined = entriesById.get(parentId);
+  const visited = new Set<string>();
+  while (ancestor) {
+    if (ancestor.id === childId || visited.has(ancestor.id)) return false;
+    visited.add(ancestor.id);
+    ancestor = ancestor.parentEntryId ? entriesById.get(ancestor.parentEntryId) : undefined;
+  }
+  return entriesById.has(parentId);
+}
+
+function hasPreviousNumberedRelease(entries: Entry[], candidate: Entry): boolean {
+  if (candidate.relationshipType === 'season' && (candidate.season ?? 1) > 1) {
+    const season = candidate.season ?? 1;
+    const parent = candidate.parentEntryId
+      ? entries.find((entry) => entry.id === candidate.parentEntryId)
+      : undefined;
+    return parent?.relationshipType === 'season' && parent.season === season - 1;
+  }
+  if (candidate.relationshipType === 'specialEpisode' && (candidate.specialNumber ?? 1) > 1) {
+    const specialNumber = candidate.specialNumber ?? 1;
+    const parent = candidate.parentEntryId
+      ? entries.find((entry) => entry.id === candidate.parentEntryId)
+      : undefined;
+    return parent?.relationshipType === 'specialEpisode' && parent.specialNumber === specialNumber - 1;
+  }
+  return true;
+}
+
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_STATE':
@@ -706,12 +742,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_ENTRY': {
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
-      if (action.payload.parentEntryId && (
-        action.payload.parentEntryId === action.payload.id
-        || !state.entries.some(
-          (entry) => entry.id === action.payload.parentEntryId && !entry.parentEntryId,
-        )
-      )) return state;
+      if (!hasPreviousNumberedRelease(state.entries, action.payload)) return state;
+      if (action.payload.parentEntryId
+        && !canLinkToParent(state.entries, action.payload.id, action.payload.parentEntryId)) return state;
       const entry = {
         ...action.payload,
         lastUpdatedAt: nextEntryTimestamp(state.entries),
@@ -825,13 +858,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
       if (hasDuplicateEntry(state.entries, action.payload, action.payload.id)) return state;
+      if (!hasPreviousNumberedRelease(state.entries, action.payload)) return state;
       const parentEntryId = action.payload.parentEntryId;
-      if (parentEntryId && (
-        parentEntryId === action.payload.id
-        || !state.entries.some((candidate) =>
-          candidate.id === parentEntryId && !candidate.parentEntryId,
-        )
-      )) return state;
+      if (parentEntryId
+        && !canLinkToParent(state.entries, action.payload.id, parentEntryId)) return state;
       // Episode ratings have their own UPDATE_EPISODE_RATING action. Generic
       // entry edits must not overwrite them with stale or incomplete form data.
       const nextPayload = { ...action.payload, episodeRatings: oldEntry.episodeRatings };

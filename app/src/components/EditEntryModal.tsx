@@ -23,7 +23,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import GenreChip from './GenreChip';
 import AirDaySelector from './AirDaySelector';
-import type { Entry, Status, AirDay, LinkedReleaseMode, EntryRelationshipType } from '@/types';
+import type { Entry, Status, AirDay, LinkedReleaseMode, EntryRelationshipType, SpinOffDirection } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
 import { isSameEntryIdentity } from '@/lib/entry';
 
@@ -34,6 +34,42 @@ const COUNTRIES = [
   'Germany', 'Netherlands', 'Belgium', 'Argentina', 'Brazil', 'Mexico',
   'Other'
 ];
+
+function getRelationshipRoot(entry: Entry, entries: Entry[]): Entry {
+  let current = entry;
+  const visited = new Set<string>();
+  while (current.parentEntryId && !visited.has(current.id)) {
+    visited.add(current.id);
+    const parent = entries.find((candidate) => candidate.id === current.parentEntryId);
+    if (!parent) break;
+    current = parent;
+  }
+  return current;
+}
+
+function findPreviousSeason(entries: Entry[], parent: Entry, seasonNumber: number, excludeId?: string): Entry | undefined {
+  const rootId = getRelationshipRoot(parent, entries).id;
+  return entries
+    .filter((candidate) =>
+      candidate.id !== excludeId
+      && candidate.relationshipType === 'season'
+      && candidate.season === seasonNumber
+      && getRelationshipRoot(candidate, entries).id === rootId,
+    )
+    .sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt)[0];
+}
+
+function findPreviousSpecialEpisode(entries: Entry[], parent: Entry, number: number, excludeId?: string): Entry | undefined {
+  const rootId = getRelationshipRoot(parent, entries).id;
+  return entries
+    .filter((candidate) =>
+      candidate.id !== excludeId
+      && candidate.relationshipType === 'specialEpisode'
+      && candidate.specialNumber === number
+      && getRelationshipRoot(candidate, entries).id === rootId,
+    )
+    .sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt)[0];
+}
 
 interface EditEntryModalProps {
   isOpen: boolean;
@@ -49,6 +85,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'Movie' | 'Series'>('Series');
   const [relationshipType, setRelationshipType] = useState<EntryRelationshipType>('original');
+  const [spinOffDirection, setSpinOffDirection] = useState<SpinOffDirection | undefined>();
   const [season, setSeason] = useState<number | null>(null);
   const [specialNumber, setSpecialNumber] = useState(1);
   const [parentEntryId, setParentEntryId] = useState('');
@@ -71,11 +108,23 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
   const [plannedDate, setPlannedDate] = useState('');
   const [error, setError] = useState('');
+  const [relationshipError, setRelationshipError] = useState('');
 
   const ongoing = entry ? getOngoingByEntryId(entry.id) : null;
   const selectedParentEntry = state.entries.find((candidate) => candidate.id === parentEntryId);
+  const canSelectParent = (candidate: Entry) => {
+    if (candidate.id === entry?.id) return false;
+    let current: Entry | undefined = candidate;
+    const visited = new Set<string>();
+    while (current?.parentEntryId) {
+      if (current.parentEntryId === entry?.id || visited.has(current.id)) return false;
+      visited.add(current.id);
+      current = state.entries.find((item) => item.id === current?.parentEntryId);
+    }
+    return true;
+  };
   const availableParentEntries = state.entries
-    .filter((candidate) => candidate.id !== entry?.id && !candidate.parentEntryId)
+    .filter(canSelectParent)
     .sort((a, b) => a.title.localeCompare(b.title));
   const normalizedParentSearch = parentSearchTerm.trim().toLocaleLowerCase();
   const filteredParentEntries = availableParentEntries
@@ -103,10 +152,22 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setTitle(entry.title);
       setType(entry.type);
       setRelationshipType(entry.relationshipType
-        || (entry.parentEntryId ? (entry.season == null ? 'continuation' : 'season') : (entry.season == null ? 'original' : 'season')));
+        || (entry.parentEntryId ? (entry.season == null ? 'spinOff' : 'season') : (entry.season == null ? 'original' : 'season')));
+      if (entry.relationshipType === 'continuation') setRelationshipType('spinOff');
+      setSpinOffDirection(entry.spinOffDirection);
       setSeason(entry.season ?? null);
       setSpecialNumber(entry.specialNumber ?? 1);
-      setParentEntryId(entry.parentEntryId || '');
+      const existingParent = state.entries.find((candidate) => candidate.id === entry.parentEntryId);
+      const previousSeason = entry.relationshipType === 'season' && entry.season != null && entry.season > 1 && existingParent
+        ? findPreviousSeason(state.entries, existingParent, entry.season - 1, entry.id)
+        : undefined;
+      const previousSpecialEpisode = entry.relationshipType === 'specialEpisode'
+        && entry.specialNumber != null
+        && entry.specialNumber > 1
+        && existingParent
+        ? findPreviousSpecialEpisode(state.entries, existingParent, entry.specialNumber - 1, entry.id)
+        : undefined;
+      setParentEntryId(previousSeason?.id || previousSpecialEpisode?.id || entry.parentEntryId || '');
       setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
       setYear(entry.year);
       setCountry(entry.country.replace(/\s*\p{Emoji}\s*/gu, '').trim());
@@ -132,6 +193,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setTitle('');
       setType('Series');
       setRelationshipType('original');
+      setSpinOffDirection(undefined);
       setSeason(null);
       setSpecialNumber(1);
       setParentEntryId('');
@@ -150,7 +212,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setReleaseDates([]);
     }
     setError('');
-  }, [entry, ongoing]);
+    setRelationshipError('');
+  }, [entry, ongoing, state.entries]);
 
   useEffect(() => {
     if (isOpen) {
@@ -177,12 +240,46 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       return;
     }
     const selectedParent = parentEntryId
-      ? state.entries.find((existing) => existing.id === parentEntryId && existing.id !== entry?.id && !existing.parentEntryId)
+      ? state.entries.find((existing) => existing.id === parentEntryId && canSelectParent(existing))
       : undefined;
     if (parentEntryId && !selectedParent) {
-      setError('Choose an existing top-level entry as the parent.');
+      setError('Choose an existing entry as the related entry.');
       return;
     }
+    if (
+      selectedParent
+      && relationshipType === 'spinOff'
+      && !spinOffDirection
+      && entry?.relationshipType !== 'continuation'
+    ) {
+      setRelationshipError('Choose whether this spin-off is a sequel or prequel.');
+      return;
+    }
+    if (relationshipType === 'specialEpisode' && specialNumber > 1) {
+      const previousEpisode = selectedParent
+        ? findPreviousSpecialEpisode(state.entries, selectedParent, specialNumber - 1, entry?.id)
+        : undefined;
+      if (!previousEpisode || previousEpisode.id !== selectedParent?.id) {
+        setRelationshipError(previousEpisode
+          ? `Select Special Episode ${specialNumber - 1} as the related entry first.`
+          : `Add Special Episode ${specialNumber - 1} first.`);
+        return;
+      }
+    }
+    if (relationshipType === 'season' && season != null && season > 1) {
+      const previousSeason = selectedParent?.season === season - 1
+        && selectedParent.relationshipType === 'season';
+      if (!previousSeason) {
+        const priorSeason = selectedParent
+          ? findPreviousSeason(state.entries, selectedParent, season - 1, entry?.id)
+          : undefined;
+        setRelationshipError(priorSeason
+          ? `Select Season ${season - 1} as the related entry first.`
+          : `Add Season ${season - 1} first.`);
+        return;
+      }
+    }
+    setRelationshipError('');
     const includedReleaseHasRankings = linkedReleaseMode === 'included'
       && (state.favorites.some((favorite) => favorite.entryId === entry?.id)
         || state.ratings.some((rating) => rating.entryId === entry?.id)
@@ -202,8 +299,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         specialNumber: relationshipType === 'specialEpisode' ? specialNumber ?? undefined : undefined,
         parentEntryId: selectedParent?.id,
         relationshipType: selectedParent
-          ? relationshipType === 'original' ? 'continuation' : relationshipType
+          ? relationshipType
           : relationshipType === 'season' ? 'season' : 'original',
+        spinOffDirection: relationshipType === 'spinOff' ? spinOffDirection : undefined,
       }),
     );
     if (duplicateSeason) {
@@ -212,7 +310,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     }
     setError('');
     const savedRelationshipType: EntryRelationshipType = selectedParent
-      ? relationshipType === 'original' ? 'continuation' : relationshipType
+      ? relationshipType
       : relationshipType === 'season' ? 'season' : 'original';
     const savedSeason = savedRelationshipType === 'season' ? season ?? 1 : undefined;
 
@@ -221,6 +319,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       title: title.trim(),
       type,
       relationshipType: savedRelationshipType,
+      ...(savedRelationshipType === 'spinOff' && spinOffDirection ? { spinOffDirection } : {}),
       ...(savedSeason !== undefined ? { season: savedSeason } : {}),
       ...(savedRelationshipType === 'specialEpisode' ? { specialNumber: Math.max(1, specialNumber) } : {}),
       ...(selectedParent
@@ -484,7 +583,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     <CommandList className="max-h-60">
                       <CommandEmpty className="text-[#999]">
                         {availableParentEntries.length === 0
-                          ? 'No top-level entries available to link.'
+                          ? 'No entries available to link.'
                           : 'No matches. Try another title or year.'}
                       </CommandEmpty>
                       <CommandGroup>
@@ -494,10 +593,19 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                             value={candidate.id}
                             onSelect={() => {
                               setParentEntryId(candidate.id);
-                              setRelationshipType((current) => current === 'original' ? 'continuation' : current);
+                              if (candidate.relationshipType === 'season' && candidate.season != null) {
+                                setSeason(candidate.season + 1);
+                                setRelationshipType('season');
+                              } else if (candidate.relationshipType === 'specialEpisode' && candidate.specialNumber != null) {
+                                setSpecialNumber(candidate.specialNumber + 1);
+                                setRelationshipType('specialEpisode');
+                              } else if (relationshipType === 'original' || relationshipType === 'continuation') {
+                                setRelationshipType('spinOff');
+                              }
                               setParentPickerOpen(false);
                               setParentSearchTerm('');
                               setError('');
+                              setRelationshipError('');
                             }}
                             className="cursor-pointer text-white data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
                           >
@@ -521,10 +629,11 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     setRelationshipType(season === null ? 'original' : 'season');
                     setLinkedReleaseMode('independent');
                     setError('');
+                    setRelationshipError('');
                   }}
                   className="text-[11px] text-[#999] underline underline-offset-2 hover:text-white"
                 >
-                  Clear linked series
+                  Clear related entry
                 </button>
               )}
             </div>
@@ -572,46 +681,81 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     aria-label="Season number"
                   />
                 )}
+                {relationshipError && (
+                  <p className="text-[11px] text-red-400" role="alert">{relationshipError}</p>
+                )}
               </div>
             ) : (
               <div className="space-y-2 pt-1">
                 <Label className="text-[11px] text-[#888]">Relationship</Label>
-                <Select
-                  value={relationshipType === 'original' ? 'continuation' : relationshipType}
-                  onValueChange={(value) => {
-                    const nextType = value as EntryRelationshipType;
-                    if (nextType === 'original') {
-                      setParentEntryId('');
-                      setLinkedReleaseMode('independent');
-                      setSeason(null);
-                      setRelationshipType('original');
-                      return;
-                    }
-                    setRelationshipType(nextType);
-                    if (nextType === 'specialEpisode') {
-                      setLinkedReleaseMode('included');
-                    }
-                    if (nextType === 'season') setSeason(season ?? 1);
-                    else setSeason(null);
-                  }}
-                >
-                  <SelectTrigger className="h-9 border-white/10 bg-white/[0.06] text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="border-white/10 bg-[#1a1a1a] text-white">
-                    <SelectItem value="original">Standalone (Original)</SelectItem>
-                    <SelectItem value="continuation">Continuation</SelectItem>
-                    <SelectItem value="specialEpisode">Special Episode</SelectItem>
-                    <SelectItem value="season">Season</SelectItem>
-                    <SelectItem value="spinOff">Spin-off</SelectItem>
-                    <SelectItem value="sideStory">Side Story</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className={relationshipType === 'spinOff' ? 'grid grid-cols-2 gap-2' : ''}>
+                  <Select
+                    value={relationshipType === 'continuation' ? 'spinOff' : relationshipType}
+                    onValueChange={(value) => {
+                      const nextType = value as EntryRelationshipType;
+                      if (nextType === 'original') {
+                        setParentEntryId('');
+                        setLinkedReleaseMode('independent');
+                        setSeason(null);
+                        setRelationshipType('original');
+                        setSpinOffDirection(undefined);
+                        setRelationshipError('');
+                        return;
+                      }
+                      setRelationshipType(nextType);
+                      if (nextType === 'specialEpisode') {
+                        setLinkedReleaseMode('included');
+                      }
+                      if (nextType === 'season') {
+                        setSeason(selectedParentEntry?.season != null
+                          ? selectedParentEntry.season + 1
+                          : season ?? 1);
+                      }
+                      else setSeason(null);
+                      if (nextType !== 'spinOff') setSpinOffDirection(undefined);
+                      setRelationshipError('');
+                    }}
+                  >
+                    <SelectTrigger className="h-9 border-white/10 bg-white/[0.06] text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="border-white/10 bg-[#1a1a1a] text-white">
+                      <SelectItem value="original">Standalone (Original)</SelectItem>
+                      <SelectItem value="specialEpisode">Special Episode</SelectItem>
+                      <SelectItem value="season">Season</SelectItem>
+                      <SelectItem value="spinOff">Spin-off</SelectItem>
+                      <SelectItem value="adaptation">Adaptation</SelectItem>
+                      <SelectItem value="sideStory">Side Story</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {relationshipType === 'spinOff' && (
+                    <Select
+                      value={spinOffDirection}
+                      onValueChange={(value) => setSpinOffDirection(value as SpinOffDirection)}
+                    >
+                      <SelectTrigger className="h-9 border-white/10 bg-white/[0.06] text-white">
+                        <SelectValue placeholder="Sequel or prequel" />
+                      </SelectTrigger>
+                      <SelectContent className="border-white/10 bg-[#1a1a1a] text-white">
+                        <SelectItem value="sequel">Sequel</SelectItem>
+                        <SelectItem value="prequel">Prequel</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
                 {relationshipType === 'season' && (
                   <Input
                     type="number"
                     value={season ?? 1}
-                    onChange={(event) => setSeason(Math.max(1, parseInt(event.target.value) || 1))}
+                    onChange={(event) => {
+                      const nextSeason = Math.max(1, parseInt(event.target.value) || 1);
+                      setSeason(nextSeason);
+                      setRelationshipError('');
+                      if (nextSeason > 1 && selectedParentEntry) {
+                        const previousSeason = findPreviousSeason(state.entries, selectedParentEntry, nextSeason - 1, entry?.id);
+                        if (previousSeason) setParentEntryId(previousSeason.id);
+                      }
+                    }}
                     min={1}
                     max={999}
                     className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
@@ -622,12 +766,28 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   <Input
                     type="number"
                     value={specialNumber}
-                    onChange={(event) => setSpecialNumber(Math.max(1, parseInt(event.target.value) || 1))}
+                    onChange={(event) => {
+                      const nextNumber = Math.max(1, parseInt(event.target.value) || 1);
+                      setSpecialNumber(nextNumber);
+                      setRelationshipError('');
+                      if (nextNumber > 1 && selectedParentEntry) {
+                        const previousEpisode = findPreviousSpecialEpisode(
+                          state.entries,
+                          selectedParentEntry,
+                          nextNumber - 1,
+                          entry?.id,
+                        );
+                        if (previousEpisode) setParentEntryId(previousEpisode.id);
+                      }
+                    }}
                     min={1}
                     max={999}
                     className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
                     aria-label="Special episode number"
                   />
+                )}
+                {relationshipError && (
+                  <p className="text-[11px] text-red-400" role="alert">{relationshipError}</p>
                 )}
                 <p className="text-[11px] text-[#888]">Rating eligibility</p>
                 <div className="flex gap-2">
