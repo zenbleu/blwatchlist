@@ -25,7 +25,7 @@ import GenreChip from './GenreChip';
 import AirDaySelector from './AirDaySelector';
 import type { Entry, Status, AirDay, LinkedReleaseMode, EntryRelationshipType, SpinOffDirection } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
-import { isSameEntryIdentity } from '@/lib/entry';
+import { getEntryRelationshipLabel, isSameEntryIdentity } from '@/lib/entry';
 
 const COUNTRIES = [
   'Thailand', 'Japan', 'South Korea', 'Taiwan', 'China', 'Hong Kong', 'Philippines',
@@ -49,8 +49,16 @@ function getRelationshipRoot(entry: Entry, entries: Entry[]): Entry {
 
 function getSeasonNumber(entry: Entry): number | undefined {
   if (entry.relationshipType === 'season' || entry.season != null) return entry.season ?? 1;
-  if (!entry.parentEntryId && (entry.relationshipType == null || entry.relationshipType === 'original')) return 1;
+  if (
+    entry.type === 'Series'
+    && !entry.parentEntryId
+    && (entry.relationshipType == null || entry.relationshipType === 'original')
+  ) return 1;
   return undefined;
+}
+
+function getParentPickerRelationshipLabel(entry: Entry): string | null {
+  return getEntryRelationshipLabel(entry) || (getSeasonNumber(entry) === 1 ? 'Season 1' : null);
 }
 
 function findPreviousSeason(entries: Entry[], parent: Entry, seasonNumber: number, excludeId?: string): Entry | undefined {
@@ -134,7 +142,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const normalizedParentSearch = parentSearchTerm.trim().toLocaleLowerCase();
   const filteredParentEntries = availableParentEntries
     .filter((candidate) =>
-      `${candidate.title} ${candidate.year} ${candidate.country} ${candidate.type}`
+      `${candidate.title} ${candidate.year} ${candidate.country} ${candidate.type} ${getParentPickerRelationshipLabel(candidate) || ''}`
         .toLocaleLowerCase()
         .includes(normalizedParentSearch),
     )
@@ -163,16 +171,13 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setSeason(entry.season ?? null);
       setSpecialNumber(entry.specialNumber ?? 1);
       const existingParent = state.entries.find((candidate) => candidate.id === entry.parentEntryId);
-      const previousSeason = entry.relationshipType === 'season' && entry.season != null && entry.season > 1 && existingParent
-        ? findPreviousSeason(state.entries, existingParent, entry.season - 1, entry.id)
-        : undefined;
       const previousSpecialEpisode = entry.relationshipType === 'specialEpisode'
         && entry.specialNumber != null
         && entry.specialNumber > 1
         && existingParent
         ? findPreviousSpecialEpisode(state.entries, existingParent, entry.specialNumber - 1, entry.id)
         : undefined;
-      setParentEntryId(previousSeason?.id || previousSpecialEpisode?.id || entry.parentEntryId || '');
+      setParentEntryId(previousSpecialEpisode?.id || entry.parentEntryId || '');
       setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
       setYear(entry.year);
       setCountry(entry.country.replace(/\s*\p{Emoji}\s*/gu, '').trim());
@@ -276,7 +281,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       if (!previousSeason) {
         const priorSeason = selectedParent
           ? findPreviousSeason(state.entries, selectedParent, season - 1, entry?.id)
-          : undefined;
+          : state.entries.find((candidate) =>
+              candidate.id !== entry?.id && getSeasonNumber(candidate) === season - 1,
+            );
         setRelationshipError(priorSeason
           ? `Select Season ${season - 1} as the related entry first.`
           : `Add Season ${season - 1} first.`);
@@ -566,8 +573,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     className="h-10 w-full justify-between border-white/10 bg-white/[0.06] text-left font-normal text-white hover:bg-white/[0.1]"
                   >
                     <span className="truncate">
-                      {selectedParentEntry
-                        ? `${selectedParentEntry.title} · ${selectedParentEntry.year} · ${selectedParentEntry.country}`
+                       {selectedParentEntry
+                         ? `${selectedParentEntry.title} · ${selectedParentEntry.year} · ${selectedParentEntry.country}${getParentPickerRelationshipLabel(selectedParentEntry) ? ` · ${getParentPickerRelationshipLabel(selectedParentEntry)}` : ''}`
                         : 'Search by title, year, country, or type...'}
                     </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-[#888]" />
@@ -581,7 +588,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     <CommandInput
                       value={parentSearchTerm}
                       onValueChange={setParentSearchTerm}
-                      placeholder="Search title, year, country, or type..."
+                      placeholder="Search title, season, year, country, or type..."
                       className="text-white placeholder:text-[#777]"
                     />
                     <CommandList className="max-h-60">
@@ -597,8 +604,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                             value={candidate.id}
                             onSelect={() => {
                               setParentEntryId(candidate.id);
-                              if (candidate.relationshipType === 'season' && candidate.season != null) {
-                                setSeason(candidate.season + 1);
+                              const candidateSeason = getSeasonNumber(candidate);
+                              if (candidateSeason != null) {
+                                setSeason(candidateSeason + 1);
                                 setRelationshipType('season');
                               } else if (candidate.relationshipType === 'specialEpisode' && candidate.specialNumber != null) {
                                 setSpecialNumber(candidate.specialNumber + 1);
@@ -617,7 +625,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                             <span className="min-w-0 flex-1 truncate">
                               {candidate.title} · {candidate.year} · {candidate.country}
                             </span>
-                            <span className="text-[10px] text-[#999]">{candidate.type}</span>
+                            <span className="text-[10px] text-[#999]">
+                              {getParentPickerRelationshipLabel(candidate) || candidate.type}
+                            </span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -755,10 +765,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                       const nextSeason = Math.max(1, parseInt(event.target.value) || 1);
                       setSeason(nextSeason);
                       setRelationshipError('');
-                      if (nextSeason > 1 && selectedParentEntry) {
-                        const previousSeason = findPreviousSeason(state.entries, selectedParentEntry, nextSeason - 1, entry?.id);
-                        if (previousSeason) setParentEntryId(previousSeason.id);
-                      }
                     }}
                     min={1}
                     max={999}

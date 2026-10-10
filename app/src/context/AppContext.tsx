@@ -689,7 +689,11 @@ function canLinkToParent(entries: Entry[], childId: string, parentId: string): b
 
 function getEffectiveSeasonNumber(entry: Entry): number | undefined {
   if (entry.relationshipType === 'season' || entry.season != null) return entry.season ?? 1;
-  if (!entry.parentEntryId && (entry.relationshipType == null || entry.relationshipType === 'original')) return 1;
+  if (
+    entry.type === 'Series'
+    && !entry.parentEntryId
+    && (entry.relationshipType == null || entry.relationshipType === 'original')
+  ) return 1;
   return undefined;
 }
 
