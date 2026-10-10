@@ -93,6 +93,14 @@ function migrateEntry(e: Record<string, unknown>): Entry {
   const season = typeof e.season === 'number' && Number.isInteger(e.season) && e.season >= 1
     ? e.season
     : undefined;
+  const anthologyName = typeof e.anthologyName === 'string' && e.anthologyName.trim()
+    ? e.anthologyName.trim()
+    : undefined;
+  const anthologySeason = typeof e.anthologySeason === 'number'
+    && Number.isInteger(e.anthologySeason)
+    && e.anthologySeason >= 1
+    ? e.anthologySeason
+    : undefined;
   const parentEntryId = typeof e.parentEntryId === 'string' && e.parentEntryId
     ? e.parentEntryId
     : undefined;
@@ -100,6 +108,7 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     && (e.linkedReleaseMode === 'independent' || e.linkedReleaseMode === 'included')
     ? e.linkedReleaseMode as LinkedReleaseMode
     : undefined;
+  const isAnthology = !parentEntryId && !!anthologyName && anthologySeason != null;
   const relationshipTypeValues: EntryRelationshipType[] = [
     'original',
     'continuation',
@@ -108,14 +117,13 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     'spinOff',
     'adaptation',
     'sideStory',
-    'anthology',
   ];
   const relationshipType = parentEntryId
     ? relationshipTypeValues.includes(e.relationshipType as EntryRelationshipType)
       && e.relationshipType !== 'original'
       ? e.relationshipType as EntryRelationshipType
       : season == null ? 'continuation' : 'season'
-    : season == null ? 'original' : 'season';
+    : !isAnthology && season != null ? 'season' : 'original';
 
   const episodeRatings = e.episodeRatings && typeof e.episodeRatings === 'object'
     ? Object.entries(e.episodeRatings as Record<string, unknown>).reduce<Record<string, EpisodeRating>>((result, [episode, raw]) => {
@@ -155,8 +163,10 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     ...(e as unknown as Entry),
     status: status as Entry['status'],
     poster: (e.poster as string) ?? null,
-    type: (e.type as 'Movie' | 'Series') || 'Series',
-    season,
+    type: isAnthology ? 'Series' : (e.type as 'Movie' | 'Series') || 'Series',
+    season: isAnthology ? undefined : season,
+    anthologyName: isAnthology ? anthologyName : undefined,
+    anthologySeason: isAnthology ? anthologySeason : undefined,
     relationshipType,
     spinOffDirection: e.spinOffDirection === 'sequel' || e.spinOffDirection === 'prequel'
       ? e.spinOffDirection
@@ -621,6 +631,8 @@ function entryContentChanged(previous: Entry, next: Entry): boolean {
     || previous.status !== next.status
     || previous.poster !== next.poster
     || previous.season !== next.season
+    || previous.anthologyName !== next.anthologyName
+    || previous.anthologySeason !== next.anthologySeason
     || previous.relationshipType !== next.relationshipType
     || previous.spinOffDirection !== next.spinOffDirection
     || previous.specialNumber !== next.specialNumber
@@ -708,6 +720,18 @@ function hasValidSeasonParent(entries: Entry[], candidate: Entry): boolean {
   return parentSeason != null && parentSeason < season;
 }
 
+function hasValidAnthologyMetadata(candidate: Entry): boolean {
+  const hasAnthologyName = !!candidate.anthologyName?.trim();
+  const hasAnthologySeason = candidate.anthologySeason != null;
+  if (!hasAnthologyName && !hasAnthologySeason) return true;
+  return !candidate.parentEntryId
+    && candidate.type === 'Series'
+    && candidate.season == null
+    && hasAnthologyName
+    && Number.isInteger(candidate.anthologySeason)
+    && (candidate.anthologySeason ?? 0) >= 1;
+}
+
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_STATE':
@@ -744,6 +768,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'ADD_ENTRY': {
+      if (!hasValidAnthologyMetadata(action.payload)) return state;
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
       if (!hasValidSeasonParent(state.entries, action.payload)) return state;
       if (action.payload.parentEntryId
@@ -860,6 +885,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_ENTRY': {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
+      if (!hasValidAnthologyMetadata(action.payload)) return state;
       if (hasDuplicateEntry(state.entries, action.payload, action.payload.id)) return state;
       if (!hasValidSeasonParent(state.entries, action.payload)) return state;
       const parentEntryId = action.payload.parentEntryId;

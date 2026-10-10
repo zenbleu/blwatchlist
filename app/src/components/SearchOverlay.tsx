@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { Entry } from '@/types';
-import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
+import { formatEntryTitle, formatSeasonLabel, getEntryRelationshipLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -62,6 +62,7 @@ const SearchResultCard = memo(function SearchResultCard({
   onDelete: (id: string) => void;
 }) {
   const canRank = isEligibleForFavoriteOrTop10(entry);
+  const displayTitle = formatEntryTitle(entry);
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-[#141414] w-full min-w-0">
       {/* Clickable Poster → opens view card modal */}
@@ -69,7 +70,7 @@ const SearchResultCard = memo(function SearchResultCard({
         onClick={() => onView(entry)}
         className="flex-shrink-0 cursor-pointer tap-active"
       >
-        <Poster src={entry.poster} title={entry.title} size="md" />
+        <Poster src={entry.poster} title={displayTitle} size="md" />
       </button>
 
       {/* Clickable info area → opens view card modal */}
@@ -79,11 +80,15 @@ const SearchResultCard = memo(function SearchResultCard({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold truncate">{entry.title}</p>
+            <p className="text-base font-bold truncate">{displayTitle}</p>
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
-            {entry.season != null && (
+            {entry.anthologyName ? (
+              <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
+                {getEntryRelationshipLabel(entry)}
+              </span>
+            ) : entry.season != null && (
               <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
                 {formatSeasonLabel(entry.season)}
               </span>
@@ -220,7 +225,9 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     const q = debouncedQuery.toLowerCase();
     return state.entries.filter(
       (e) =>
-        e.title.toLowerCase().includes(q) ||
+        formatEntryTitle(e).toLowerCase().includes(q) ||
+        (e.anthologyName || '').toLowerCase().includes(q) ||
+        (e.anthologySeason?.toString() || '').includes(q) ||
         e.country.toLowerCase().includes(q) ||
         e.type.toLowerCase().includes(q) ||
         e.status.toLowerCase().includes(q) ||
@@ -295,7 +302,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search titles, countries, types..."
+                  placeholder="Search titles, anthology, countries, types..."
                   className="flex-1 bg-transparent text-white placeholder:text-[#666] outline-none text-base"
                 />
                 {query && (

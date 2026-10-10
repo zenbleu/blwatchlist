@@ -2,7 +2,17 @@ import type { Entry, EntryRelationshipType } from '@/types';
 
 type EntryIdentity = Pick<
   Entry,
-  'title' | 'type' | 'year' | 'country' | 'season' | 'parentEntryId' | 'relationshipType' | 'specialNumber' | 'spinOffDirection'
+  | 'title'
+  | 'type'
+  | 'year'
+  | 'country'
+  | 'season'
+  | 'anthologyName'
+  | 'anthologySeason'
+  | 'parentEntryId'
+  | 'relationshipType'
+  | 'specialNumber'
+  | 'spinOffDirection'
 >;
 
 function effectiveRelationshipType(entry: EntryIdentity): EntryRelationshipType {
@@ -15,12 +25,21 @@ export function formatSeasonLabel(season?: number | null): string {
   return season == null ? 'Standalone' : `Season ${season}`;
 }
 
+export function formatEntryTitle(
+  entry: Pick<Entry, 'title' | 'anthologyName' | 'anthologySeason'>,
+): string {
+  if (!entry.anthologyName) return entry.title;
+  return `${entry.anthologyName} (Season ${entry.anthologySeason ?? 1}): ${entry.title}`;
+}
+
 export function isSameEntryIdentity(a: EntryIdentity, b: EntryIdentity): boolean {
   return a.type === b.type
     && a.title.trim().toLocaleLowerCase() === b.title.trim().toLocaleLowerCase()
     && a.year === b.year
     && a.country.trim().toLocaleLowerCase() === b.country.trim().toLocaleLowerCase()
     && (a.season ?? null) === (b.season ?? null)
+    && (a.anthologyName ?? '').trim().toLocaleLowerCase() === (b.anthologyName ?? '').trim().toLocaleLowerCase()
+    && (a.anthologySeason ?? null) === (b.anthologySeason ?? null)
     && (a.specialNumber ?? null) === (b.specialNumber ?? null)
     && (a.parentEntryId ?? null) === (b.parentEntryId ?? null)
     && (a.spinOffDirection ?? null) === (b.spinOffDirection ?? null)
@@ -34,8 +53,9 @@ export function getRelationshipType(entry: Pick<Entry, 'relationshipType' | 'sea
 }
 
 export function getEntryRelationshipLabel(
-  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId' | 'spinOffDirection'>,
+  entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId' | 'spinOffDirection' | 'anthologyName'>,
 ): string | null {
+  if (entry.anthologyName) return 'Anthology';
   switch (getRelationshipType(entry)) {
     case 'specialEpisode':
       return `Special Episode${entry.specialNumber ? ` ${entry.specialNumber}` : ''}`;
@@ -51,8 +71,6 @@ export function getEntryRelationshipLabel(
       return 'Adaptation';
     case 'sideStory':
       return 'Side Story';
-    case 'anthology':
-      return 'Anthology';
     case 'continuation':
       return 'Related';
     default:

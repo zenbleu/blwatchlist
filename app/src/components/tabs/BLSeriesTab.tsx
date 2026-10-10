@@ -11,6 +11,7 @@ import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import GenreChip from "../GenreChip";
 import {
+  formatEntryTitle,
   getEntryRelationshipLabel,
   getRelationshipType,
   isEligibleForFavoriteOrTop10,
@@ -68,6 +69,7 @@ const EntryCard = memo(function EntryCard({
   genreTags: GenreTag[];
 }) {
   const canRank = isEligibleForFavoriteOrTop10(entry);
+  const displayTitle = formatEntryTitle(entry);
   const relationshipBadge = getRelationshipType(entry) === "specialEpisode"
     ? "Special Episode"
     : getEntryRelationshipLabel(entry);
@@ -85,7 +87,7 @@ const EntryCard = memo(function EntryCard({
         onClick={() => onView(entry)}
         className="flex-shrink-0 cursor-pointer tap-active"
       >
-        <Poster src={entry.poster} title={entry.title} size="md" />
+        <Poster src={entry.poster} title={displayTitle} size="md" />
       </button>
 
       {/* Clickable info area → opens view card modal */}
@@ -95,7 +97,7 @@ const EntryCard = memo(function EntryCard({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold truncate">{entry.title}</p>
+            <p className="text-base font-bold truncate">{displayTitle}</p>
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>

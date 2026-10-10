@@ -15,7 +15,7 @@ import EntryModal from "../EntryModal";
 import EpisodeRatingGrid from "../EpisodeRatingGrid";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
-import { formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
+import { formatEntryTitle, formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
 
 const OngoingCard = memo(function OngoingCard({
   entryId,
@@ -50,6 +50,7 @@ const OngoingCard = memo(function OngoingCard({
   const overallWatched = ongoingData.currentEpisode + watchedSpecialEpisodes;
   const overallTotal = progressTotal + specialEpisodes.length;
   const canPromptForCompletion = isOngoingTitleComplete(schedule, ongoingData);
+  const displayTitle = formatEntryTitle(entry);
   const hasRegularCountdown =
     schedule.isConfigured &&
     schedule.airedEpisode !== null &&
@@ -94,12 +95,12 @@ const OngoingCard = memo(function OngoingCard({
 
       <div className="flex items-start gap-3">
         <div onClick={() => onEntryClick(entry as Entry)} className="cursor-pointer flex-shrink-0">
-          <Poster src={entry.poster} title={entry.title} size="md" />
+          <Poster src={entry.poster} title={displayTitle} size="md" />
         </div>
         <div className="flex-1 min-w-0">
           <div className={`flex items-center gap-2 min-w-0 ${showCountdown ? "pr-2 sm:pr-[165px]" : "pr-2"}`}>
             <div className="flex min-w-0 items-center gap-2">
-              <p className="text-base font-bold truncate">{entry.title}</p>
+              <p className="text-base font-bold truncate">{displayTitle}</p>
             </div>
             {showBadge && (
               <span className={`shrink-0 whitespace-nowrap text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -148,7 +149,7 @@ const OngoingCard = memo(function OngoingCard({
               totalEpisodes={progressTotal}
               airedEpisode={schedule.airedEpisode}
               poster={entry.poster}
-              entryTitle={entry.title}
+              entryTitle={displayTitle}
               season={entry.season}
               editable
               compact

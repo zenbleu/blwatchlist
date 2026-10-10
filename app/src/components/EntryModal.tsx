@@ -7,6 +7,7 @@ import type { ActorRole, Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
 import { getEpisodeAverage } from '@/lib/rating';
 import {
+  formatEntryTitle,
   formatSeasonLabel,
   formatLinkedReleaseDescription,
   getEntryRelationshipLabel,
@@ -28,6 +29,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   const [activePage, setActivePage] = useState<'details' | 'episodes' | 'cast'>('details');
 
   const favorited = entry ? isFavorited(entry.id) : false;
+  const displayTitle = entry ? formatEntryTitle(entry) : '';
   const canToggleFavorite = !!entry && (favorited || isEligibleForFavoriteOrTop10(entry));
   const rating = entry ? (getRatingByEntryId(entry.id) ?? getFavoriteByEntryId(entry.id)) : null;
   const ongoing = entry ? getOngoingByEntryId(entry.id) : undefined;
@@ -138,13 +140,13 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
                   {entry.poster ? (
                     <img
                       src={entry.poster}
-                      alt={entry.title}
+                      alt={displayTitle}
                       className="w-full h-full object-cover"
                       onLoad={() => setImageLoaded(true)}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Poster src={null} title={entry.title} size="lg" />
+                      <Poster src={null} title={displayTitle} size="lg" />
                     </div>
                   )}
                 </div>
@@ -161,7 +163,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             <div className="px-6 pb-3 text-center">
               <div className="flex flex-col items-center justify-center">
                 <h2 className="text-center text-white font-bold text-[1.4rem] sm:text-[1.6rem]">
-                  {entry.title} <span className="text-[#666] font-normal">({entry.year})</span>
+                  {displayTitle} <span className="text-[#666] font-normal">({entry.year})</span>
                 </h2>
               </div>
               {entry.season != null && !linkedParent && (
@@ -179,6 +181,13 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
                 </span>
               )}
             </div>
+            {entry.anthologyName && (
+              <div className="flex justify-center pb-3">
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.07] px-3 py-1 text-xs text-[#B3B3B3]">
+                  Anthology
+                </span>
+              </div>
+            )}
             {entryGenres.length > 0 && (
               <div className="mx-5 flex flex-wrap justify-center gap-1.5 pb-3">
                 {entryGenres.map((tag) => <GenreChip key={tag.id} tag={tag} size="regular" />)}

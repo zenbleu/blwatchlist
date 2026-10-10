@@ -63,8 +63,11 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'Movie' | 'Series'>('Series');
   const [relationshipType, setRelationshipType] = useState<EntryRelationshipType>('original');
+  const [isAnthology, setIsAnthology] = useState(false);
   const [spinOffDirection, setSpinOffDirection] = useState<SpinOffDirection | undefined>();
   const [season, setSeason] = useState<number | null>(null);
+  const [anthologyName, setAnthologyName] = useState('');
+  const [anthologySeason, setAnthologySeason] = useState<number | null>(1);
   const [specialNumber, setSpecialNumber] = useState(1);
   const [parentEntryId, setParentEntryId] = useState('');
   const [linkedReleaseMode, setLinkedReleaseMode] = useState<LinkedReleaseMode>('independent');
@@ -107,7 +110,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const normalizedParentSearch = parentSearchTerm.trim().toLocaleLowerCase();
   const filteredParentEntries = availableParentEntries
     .filter((candidate) =>
-      `${candidate.title} ${candidate.year} ${candidate.country} ${candidate.type} ${getParentPickerRelationshipLabel(candidate) || ''}`
+      `${candidate.title} ${candidate.anthologyName || ''} ${candidate.year} ${candidate.country} ${candidate.type} ${getParentPickerRelationshipLabel(candidate) || ''}`
         .toLocaleLowerCase()
         .includes(normalizedParentSearch),
     )
@@ -127,13 +130,21 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     setGenrePickerOpen(false);
     setGenreSearchTerm('');
     if (entry) {
+      const entryIsAnthology = !!entry.anthologyName
+        && entry.anthologySeason != null
+        && !entry.parentEntryId;
       setTitle(entry.title);
       setType(entry.type);
-      setRelationshipType(entry.relationshipType
+      setRelationshipType(entryIsAnthology
+        ? 'original'
+        : entry.relationshipType
         || (entry.parentEntryId ? (entry.season == null ? 'spinOff' : 'season') : (entry.season == null ? 'original' : 'season')));
-      if (entry.relationshipType === 'continuation') setRelationshipType('spinOff');
+      setIsAnthology(entryIsAnthology);
+      if (!entryIsAnthology && entry.relationshipType === 'continuation') setRelationshipType('spinOff');
       setSpinOffDirection(entry.spinOffDirection);
-      setSeason(entry.season ?? null);
+      setSeason(entryIsAnthology ? null : entry.season ?? null);
+      setAnthologyName(entry.anthologyName || '');
+      setAnthologySeason(entry.anthologySeason ?? 1);
       setSpecialNumber(entry.specialNumber ?? 1);
       setParentEntryId(entry.parentEntryId || '');
       setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
@@ -161,8 +172,11 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setTitle('');
       setType('Series');
       setRelationshipType('original');
+      setIsAnthology(false);
       setSpinOffDirection(undefined);
       setSeason(null);
+      setAnthologyName('');
+      setAnthologySeason(1);
       setSpecialNumber(1);
       setParentEntryId('');
       setLinkedReleaseMode('independent');
@@ -214,6 +228,22 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setError('Choose an existing entry as the related entry.');
       return;
     }
+    if (isAnthology && selectedParent) {
+      setError('Anthology stories are grouped by anthology name and season, not by a related entry.');
+      return;
+    }
+    if (isAnthology && !anthologyName.trim()) {
+      setError('Anthology name is required.');
+      return;
+    }
+    if (isAnthology && type !== 'Series') {
+      setError('Anthology entries must be series.');
+      return;
+    }
+    if (isAnthology && (!Number.isInteger(anthologySeason) || (anthologySeason ?? 0) < 1)) {
+      setError('Enter a valid anthology season.');
+      return;
+    }
     if (
       selectedParent
       && relationshipType === 'spinOff'
@@ -257,6 +287,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         season: relationshipType === 'season' ? season ?? undefined : undefined,
         specialNumber: relationshipType === 'specialEpisode' ? specialNumber ?? undefined : undefined,
         parentEntryId: selectedParent?.id,
+        anthologyName: isAnthology ? anthologyName.trim() : undefined,
+        anthologySeason: isAnthology ? anthologySeason ?? undefined : undefined,
         relationshipType: selectedParent
           ? relationshipType
           : relationshipType === 'season' ? 'season' : 'original',
@@ -280,6 +312,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       relationshipType: savedRelationshipType,
       ...(savedRelationshipType === 'spinOff' && spinOffDirection ? { spinOffDirection } : {}),
       ...(savedSeason !== undefined ? { season: savedSeason } : {}),
+      ...(isAnthology
+        ? { anthologyName: anthologyName.trim(), anthologySeason: anthologySeason ?? 1 }
+        : {}),
       ...(savedRelationshipType === 'specialEpisode' ? { specialNumber: Math.max(1, specialNumber) } : {}),
       ...(selectedParent
         ? { parentEntryId: selectedParent.id, linkedReleaseMode }
@@ -389,8 +424,10 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 {(['Series', 'Movie'] as const).map((t) => (
                   <button
                     key={t}
+                    type="button"
+                    disabled={isAnthology && t === 'Movie'}
                     onClick={() => setType(t)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
                       type === t
                         ? "bg-[#E50914] text-white"
                         : "bg-white/[0.06] text-[#B3B3B3] hover:bg-white/[0.1]"
@@ -501,10 +538,12 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             )}
           </div>
 
-          {/* Parent and relationship */}
+          {/* Entry classification and relationships */}
           <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-            <Label className="text-[#B3B3B3]">Related entry</Label>
-            <div className="space-y-2">
+            {!isAnthology && (
+              <>
+                <Label className="text-[#B3B3B3]">Related entry</Label>
+                <div className="space-y-2">
               <Popover
                 open={parentPickerOpen}
                 onOpenChange={(open) => {
@@ -553,10 +592,14 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                             onSelect={() => {
                               setParentEntryId(candidate.id);
                               const candidateSeason = getSeasonNumber(candidate);
+                              setIsAnthology(false);
                               if (candidateSeason != null) {
                                 setSeason(candidateSeason + 1);
                                 setRelationshipType('season');
-                              } else if (relationshipType === 'original' || relationshipType === 'continuation') {
+                              } else if (
+                                relationshipType === 'original'
+                                || relationshipType === 'continuation'
+                              ) {
                                 setRelationshipType('spinOff');
                               }
                               setParentPickerOpen(false);
@@ -585,6 +628,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   type="button"
                   onClick={() => {
                     setParentEntryId('');
+                    setIsAnthology(false);
                     setRelationshipType(season === null ? 'original' : 'season');
                     setLinkedReleaseMode('independent');
                     setError('');
@@ -596,18 +640,22 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 </button>
               )}
             </div>
+              </>
+            )}
             {!parentEntryId ? (
               <div className="space-y-2 pt-1">
-                <p className="text-[11px] text-[#888]">Standalone (Original)</p>
-                <div className="flex gap-2">
+                <p className="text-[11px] text-[#888]">Entry classification</p>
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => {
+                      setIsAnthology(false);
                       setRelationshipType('original');
                       setSeason(null);
+                      setError('');
                     }}
                     className={`flex-1 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
-                      relationshipType === 'original'
+                      !isAnthology && relationshipType === 'original'
                         ? 'border-[#E50914]/50 bg-[#E50914]/10 text-white'
                         : 'border-white/10 bg-white/[0.03] text-[#999]'
                     }`}
@@ -617,16 +665,40 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   <button
                     type="button"
                     onClick={() => {
+                      setIsAnthology(false);
                       setRelationshipType('season');
                       setSeason(season ?? 1);
+                      setError('');
                     }}
                     className={`flex-1 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
-                      relationshipType === 'season'
+                      !isAnthology && relationshipType === 'season'
                         ? 'border-[#E50914]/50 bg-[#E50914]/10 text-white'
                         : 'border-white/10 bg-white/[0.03] text-[#999]'
                     }`}
                   >
                     Season
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAnthology(true);
+                      setType('Series');
+                      setRelationshipType('original');
+                      setSeason(null);
+                      setAnthologySeason(anthologySeason ?? 1);
+                      setParentEntryId('');
+                      setLinkedReleaseMode('independent');
+                      setSpinOffDirection(undefined);
+                      setError('');
+                      setRelationshipError('');
+                    }}
+                    className={`flex-1 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
+                      isAnthology
+                        ? 'border-[#E50914]/50 bg-[#E50914]/10 text-white'
+                        : 'border-white/10 bg-white/[0.03] text-[#999]'
+                    }`}
+                  >
+                    Anthology
                   </button>
                 </div>
                 {relationshipType === 'season' && (
@@ -639,6 +711,38 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
                     aria-label="Season number"
                   />
+                )}
+                {isAnthology && (
+                  <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-[#888]">Anthology series</Label>
+                      <Input
+                        value={anthologyName}
+                        onChange={(event) => {
+                          setAnthologyName(event.target.value);
+                          setError('');
+                        }}
+                        placeholder="HIStory or Our Skyy"
+                        maxLength={120}
+                        className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-[#888]">Season</Label>
+                      <Input
+                        type="number"
+                        value={anthologySeason ?? 1}
+                        onChange={(event) => {
+                          setAnthologySeason(Math.max(1, parseInt(event.target.value) || 1));
+                          setError('');
+                        }}
+                        min={1}
+                        max={999}
+                        className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                        aria-label="Anthology season number"
+                      />
+                    </div>
+                  </div>
                 )}
                 {relationshipError && (
                   <p className="text-[11px] text-red-400" role="alert">{relationshipError}</p>
@@ -685,7 +789,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                       <SelectItem value="spinOff">Spin-off</SelectItem>
                       <SelectItem value="adaptation">Adaptation</SelectItem>
                       <SelectItem value="sideStory">Side Story</SelectItem>
-                      <SelectItem value="anthology">Anthology</SelectItem>
                     </SelectContent>
                   </Select>
                   {relationshipType === 'spinOff' && (

@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
+import { formatEntryTitle, formatSeasonLabel, isEligibleForFavoriteOrTop10 } from "@/lib/entry";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -64,12 +64,13 @@ const Top10Card = memo(function Top10Card({
   onRemove,
   onClick,
 }: {
-  entry: { title: string; season?: number; poster: string | null; type: string; country: string };
+  entry: Pick<Entry, "title" | "season" | "poster" | "type" | "country" | "anthologyName" | "anthologySeason">;
   rank: number;
   isEditMode: boolean;
   onRemove: () => void;
   onClick?: () => void;
 }) {
+  const displayTitle = formatEntryTitle(entry);
   return (
     <div
       onClick={onClick}
@@ -82,7 +83,7 @@ const Top10Card = memo(function Top10Card({
         {entry.poster ? (
           <img
             src={entry.poster}
-            alt={entry.title}
+            alt={displayTitle}
             className="w-full h-full object-cover"
             loading="lazy"
           />
@@ -112,7 +113,7 @@ const Top10Card = memo(function Top10Card({
       {/* Info Below Poster */}
       <div className="p-2.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className="text-sm font-bold truncate">{entry.title}</p>
+          <p className="text-sm font-bold truncate">{displayTitle}</p>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#E50914]/15 text-[#E50914]">

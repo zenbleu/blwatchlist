@@ -9,8 +9,7 @@ export type EntryRelationshipType =
   | 'season'
   | 'spinOff'
   | 'adaptation'
-  | 'sideStory'
-  | 'anthology';
+  | 'sideStory';
 export type SpinOffDirection = 'sequel' | 'prequel';
 
 export interface GenreTag {
@@ -36,6 +35,10 @@ export interface Entry {
   type: 'Movie' | 'Series';
   /** Optional season metadata. Omitted means this is a standalone entry. */
   season?: number;
+  /** Anthology series that this standalone story belongs to; set with anthologySeason. */
+  anthologyName?: string;
+  /** Season of the anthology containing this story. */
+  anthologySeason?: number;
   /** Relationship to the parent entry; original entries are not shown as linked-release badges. */
   relationshipType?: EntryRelationshipType;
   /** Whether a spin-off is a sequel or prequel. */

@@ -6,7 +6,7 @@ import Poster from "../Poster";
 import RatingCircle from "../RatingCircle";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import { formatRating } from "@/lib/rating";
-import { formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
+import { formatEntryTitle, formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
 type SortOption = "ratingDesc" | "ratingAsc" | "yearDesc" | "yearAsc" | "titleAZ" | "titleZA";
 type FilterOption = "all" | "movies" | "series";
 
@@ -198,7 +198,7 @@ export default function FavoritesTab() {
             >
               <Poster src={entry.poster} title={entry.title} size="lg" />
               <div className="flex-1 min-w-0">
-                <h3 className="text-white text-sm font-semibold truncate">{entry.title}</h3>
+                <h3 className="text-white text-sm font-semibold truncate">{formatEntryTitle(entry)}</h3>
                 <p className="text-[#888] text-xs mt-0.5">{entry.year} &middot; {entry.country}</p>
                 {parentEntry && (
                   <p className="mt-1 text-[10px] text-[#999]">

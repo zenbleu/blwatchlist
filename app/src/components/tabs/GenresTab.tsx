@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Plus, Settings2, Tags, Trash2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { formatEntryTitle } from '@/lib/entry';
 import type { Entry, GenreTag } from '@/types';
 import { createCustomGenreTag, normalizeGenreName } from '@/lib/genres';
 import Poster from '@/components/Poster';
@@ -189,9 +190,9 @@ export default function GenresTab() {
                   onClick={() => setSelectedEntry(entry)}
                   className="flex min-w-0 items-center gap-3 rounded-xl border border-white/[0.07] bg-[#111] p-3 text-left transition-colors hover:border-white/20 hover:bg-[#171717]"
                 >
-                  <Poster src={entry.poster} title={entry.title} size="md" />
+                  <Poster src={entry.poster} title={formatEntryTitle(entry)} size="md" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-white">{entry.title}</span>
+                    <span className="block truncate text-sm font-semibold text-white">{formatEntryTitle(entry)}</span>
                     <span className="mt-1 block text-xs text-[#888]">
                       {entry.type} · {entry.year} · {entry.country}
                     </span>
