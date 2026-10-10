@@ -35,18 +35,6 @@ const COUNTRIES = [
   'Other'
 ];
 
-function getRelationshipRoot(entry: Entry, entries: Entry[]): Entry {
-  let current = entry;
-  const visited = new Set<string>();
-  while (current.parentEntryId && !visited.has(current.id)) {
-    visited.add(current.id);
-    const parent = entries.find((candidate) => candidate.id === current.parentEntryId);
-    if (!parent) break;
-    current = parent;
-  }
-  return current;
-}
-
 function getSeasonNumber(entry: Entry): number | undefined {
   if (entry.relationshipType === 'season' || entry.season != null) return entry.season ?? 1;
   if (
@@ -59,17 +47,6 @@ function getSeasonNumber(entry: Entry): number | undefined {
 
 function getParentPickerRelationshipLabel(entry: Entry): string | null {
   return getEntryRelationshipLabel(entry) || (getSeasonNumber(entry) === 1 ? 'Season 1' : null);
-}
-
-function findPreviousSeason(entries: Entry[], parent: Entry, seasonNumber: number, excludeId?: string): Entry | undefined {
-  const rootId = getRelationshipRoot(parent, entries).id;
-  return entries
-    .filter((candidate) =>
-      candidate.id !== excludeId
-      && getSeasonNumber(candidate) === seasonNumber
-      && getRelationshipRoot(candidate, entries).id === rootId,
-    )
-    .sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt)[0];
 }
 
 interface EditEntryModalProps {
@@ -247,16 +224,17 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       return;
     }
     if (relationshipType === 'season' && season != null && season > 1) {
-      const previousSeason = !!selectedParent && getSeasonNumber(selectedParent) === season - 1;
-      if (!previousSeason) {
-        const priorSeason = selectedParent
-          ? findPreviousSeason(state.entries, selectedParent, season - 1, entry?.id)
-          : state.entries.find((candidate) =>
-              candidate.id !== entry?.id && getSeasonNumber(candidate) === season - 1,
-            );
-        setRelationshipError(priorSeason
-          ? `Select Season ${season - 1} as the related entry first.`
-          : `Add Season ${season - 1} first.`);
+      const parentSeason = selectedParent ? getSeasonNumber(selectedParent) : undefined;
+      const validEarlierParent = parentSeason != null && parentSeason < season;
+      if (!validEarlierParent) {
+        const previousSeasonExists = state.entries.some((candidate) =>
+          candidate.id !== entry?.id && getSeasonNumber(candidate) === season - 1,
+        );
+        setRelationshipError(selectedParent
+          ? `Choose a related entry from an earlier season than Season ${season}.`
+          : previousSeasonExists
+            ? `Select an earlier season as the related entry.`
+            : `Add an earlier season first.`);
         return;
       }
     }
