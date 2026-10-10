@@ -685,6 +685,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                       <SelectItem value="spinOff">Spin-off</SelectItem>
                       <SelectItem value="adaptation">Adaptation</SelectItem>
                       <SelectItem value="sideStory">Side Story</SelectItem>
+                      <SelectItem value="anthology">Anthology</SelectItem>
                     </SelectContent>
                   </Select>
                   {relationshipType === 'spinOff' && (

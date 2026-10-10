@@ -9,7 +9,8 @@ export type EntryRelationshipType =
   | 'season'
   | 'spinOff'
   | 'adaptation'
-  | 'sideStory';
+  | 'sideStory'
+  | 'anthology';
 export type SpinOffDirection = 'sequel' | 'prequel';
 
 export interface GenreTag {

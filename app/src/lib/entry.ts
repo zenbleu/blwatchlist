@@ -51,6 +51,8 @@ export function getEntryRelationshipLabel(
       return 'Adaptation';
     case 'sideStory':
       return 'Side Story';
+    case 'anthology':
+      return 'Anthology';
     case 'continuation':
       return 'Related';
     default:

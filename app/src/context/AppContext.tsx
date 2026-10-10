@@ -108,6 +108,7 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     'spinOff',
     'adaptation',
     'sideStory',
+    'anthology',
   ];
   const relationshipType = parentEntryId
     ? relationshipTypeValues.includes(e.relationshipType as EntryRelationshipType)
