@@ -372,6 +372,17 @@ function validateData(data: unknown): AppState {
       if (parent) {
         convertedSpecialParentIds.add(parent.id);
         for (const special of ongoingEntry.specialEpisodes) {
+          const specialYear = Number(special.releaseDate.slice(0, 4));
+          if (migratedEntries.some((entry) => isSameEntryIdentity(entry, {
+            title: special.title,
+            type: parent.type,
+            year: specialYear,
+            country: parent.country,
+            season: null,
+            specialNumber: special.specialNumber,
+            parentEntryId: parent.id,
+            relationshipType: 'specialEpisode',
+          }))) continue;
           let id = `linked_special_${parent.id}_${special.id}`;
           let suffix = 1;
           while (migratedEntries.some((entry) => entry.id === id)
@@ -391,7 +402,7 @@ function validateData(data: unknown): AppState {
             parentEntryId: parent.id,
             linkedReleaseMode: 'included',
             poster: parent.poster,
-            year: Number(special.releaseDate.slice(0, 4)),
+            year: specialYear,
             country: parent.country,
             status,
             createdAt: timestamp,
@@ -695,8 +706,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_ENTRY': {
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
-      if (action.payload.parentEntryId && !state.entries.some(
-        (entry) => entry.id === action.payload.parentEntryId && !entry.parentEntryId,
+      if (action.payload.parentEntryId && (
+        action.payload.parentEntryId === action.payload.id
+        || !state.entries.some(
+          (entry) => entry.id === action.payload.parentEntryId && !entry.parentEntryId,
+        )
       )) return state;
       const entry = {
         ...action.payload,

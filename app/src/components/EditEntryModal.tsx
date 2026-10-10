@@ -580,6 +580,13 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   value={relationshipType === 'original' ? 'continuation' : relationshipType}
                   onValueChange={(value) => {
                     const nextType = value as EntryRelationshipType;
+                    if (nextType === 'original') {
+                      setParentEntryId('');
+                      setLinkedReleaseMode('independent');
+                      setSeason(null);
+                      setRelationshipType('original');
+                      return;
+                    }
                     setRelationshipType(nextType);
                     if (nextType === 'specialEpisode') {
                       setLinkedReleaseMode('included');
@@ -592,6 +599,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="border-white/10 bg-[#1a1a1a] text-white">
+                    <SelectItem value="original">Standalone (Original)</SelectItem>
                     <SelectItem value="continuation">Continuation</SelectItem>
                     <SelectItem value="specialEpisode">Special Episode</SelectItem>
                     <SelectItem value="season">Season</SelectItem>
