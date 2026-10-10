@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { CalendarDays, Camera, Check, ChevronsUpDown, X } from 'lucide-react';
+import { CalendarDays, Camera, Check, ChevronsUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -198,8 +198,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         type,
         year,
         country,
-        season: relationshipType === 'season' ? season : null,
-        specialNumber: relationshipType === 'specialEpisode' ? specialNumber : null,
+        season: relationshipType === 'season' ? season ?? undefined : undefined,
+        specialNumber: relationshipType === 'specialEpisode' ? specialNumber ?? undefined : undefined,
         parentEntryId: selectedParent?.id,
         relationshipType: selectedParent
           ? relationshipType === 'original' ? 'continuation' : relationshipType

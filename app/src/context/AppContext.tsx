@@ -344,7 +344,7 @@ function validateData(data: unknown): AppState {
   const entriesById = new Map<string, Entry>(
     migratedEntriesRaw.map((entry) => [entry.id, entry] as const),
   );
-  const migratedEntries = migratedEntriesRaw.map((entry) =>
+  const migratedEntries: Entry[] = migratedEntriesRaw.map((entry): Entry =>
     entry.parentEntryId
       && entry.parentEntryId !== entry.id
       && entriesById.has(entry.parentEntryId)
