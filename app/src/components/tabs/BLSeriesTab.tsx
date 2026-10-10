@@ -12,6 +12,7 @@ import FavoriteEvaluation from "../FavoriteEvaluation";
 import GenreChip from "../GenreChip";
 import {
   getEntryRelationshipLabel,
+  getRelationshipType,
   isEligibleForFavoriteOrTop10,
 } from "@/lib/entry";
 import {
@@ -67,7 +68,9 @@ const EntryCard = memo(function EntryCard({
   genreTags: GenreTag[];
 }) {
   const canRank = isEligibleForFavoriteOrTop10(entry);
-  const relationshipBadge = getEntryRelationshipLabel(entry);
+  const relationshipBadge = getRelationshipType(entry) === "specialEpisode"
+    ? "Special Episode"
+    : getEntryRelationshipLabel(entry);
   return (
     <motion.div
       layout

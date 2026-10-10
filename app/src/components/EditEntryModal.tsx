@@ -72,18 +72,6 @@ function findPreviousSeason(entries: Entry[], parent: Entry, seasonNumber: numbe
     .sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt)[0];
 }
 
-function findPreviousSpecialEpisode(entries: Entry[], parent: Entry, number: number, excludeId?: string): Entry | undefined {
-  const rootId = getRelationshipRoot(parent, entries).id;
-  return entries
-    .filter((candidate) =>
-      candidate.id !== excludeId
-      && candidate.relationshipType === 'specialEpisode'
-      && candidate.specialNumber === number
-      && getRelationshipRoot(candidate, entries).id === rootId,
-    )
-    .sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt)[0];
-}
-
 interface EditEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -170,14 +158,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setSpinOffDirection(entry.spinOffDirection);
       setSeason(entry.season ?? null);
       setSpecialNumber(entry.specialNumber ?? 1);
-      const existingParent = state.entries.find((candidate) => candidate.id === entry.parentEntryId);
-      const previousSpecialEpisode = entry.relationshipType === 'specialEpisode'
-        && entry.specialNumber != null
-        && entry.specialNumber > 1
-        && existingParent
-        ? findPreviousSpecialEpisode(state.entries, existingParent, entry.specialNumber - 1, entry.id)
-        : undefined;
-      setParentEntryId(previousSpecialEpisode?.id || entry.parentEntryId || '');
+      setParentEntryId(entry.parentEntryId || '');
       setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
       setYear(entry.year);
       setCountry(entry.country.replace(/\s*\p{Emoji}\s*/gu, '').trim());
@@ -264,17 +245,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     ) {
       setRelationshipError('Choose whether this spin-off is a sequel or prequel.');
       return;
-    }
-    if (relationshipType === 'specialEpisode' && specialNumber > 1) {
-      const previousEpisode = selectedParent
-        ? findPreviousSpecialEpisode(state.entries, selectedParent, specialNumber - 1, entry?.id)
-        : undefined;
-      if (!previousEpisode || previousEpisode.id !== selectedParent?.id) {
-        setRelationshipError(previousEpisode
-          ? `Select Special Episode ${specialNumber - 1} as the related entry first.`
-          : `Add Special Episode ${specialNumber - 1} first.`);
-        return;
-      }
     }
     if (relationshipType === 'season' && season != null && season > 1) {
       const previousSeason = !!selectedParent && getSeasonNumber(selectedParent) === season - 1;
@@ -608,9 +578,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                               if (candidateSeason != null) {
                                 setSeason(candidateSeason + 1);
                                 setRelationshipType('season');
-                              } else if (candidate.relationshipType === 'specialEpisode' && candidate.specialNumber != null) {
-                                setSpecialNumber(candidate.specialNumber + 1);
-                                setRelationshipType('specialEpisode');
                               } else if (relationshipType === 'original' || relationshipType === 'continuation') {
                                 setRelationshipType('spinOff');
                               }
@@ -773,28 +740,21 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                   />
                 )}
                 {relationshipType === 'specialEpisode' && (
-                  <Input
-                    type="number"
-                    value={specialNumber}
-                    onChange={(event) => {
-                      const nextNumber = Math.max(1, parseInt(event.target.value) || 1);
-                      setSpecialNumber(nextNumber);
-                      setRelationshipError('');
-                      if (nextNumber > 1 && selectedParentEntry) {
-                        const previousEpisode = findPreviousSpecialEpisode(
-                          state.entries,
-                          selectedParentEntry,
-                          nextNumber - 1,
-                          entry?.id,
-                        );
-                        if (previousEpisode) setParentEntryId(previousEpisode.id);
-                      }
-                    }}
-                    min={1}
-                    max={999}
-                    className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
-                    aria-label="Special episode number"
-                  />
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-[#888]">Number of episodes</Label>
+                    <Input
+                      type="number"
+                      value={specialNumber}
+                      onChange={(event) => {
+                        setSpecialNumber(Math.max(1, parseInt(event.target.value) || 1));
+                        setRelationshipError('');
+                      }}
+                      min={1}
+                      max={999}
+                      className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
+                      aria-label="Number of episodes"
+                    />
+                  </div>
                 )}
                 {relationshipError && (
                   <p className="text-[11px] text-red-400" role="alert">{relationshipError}</p>

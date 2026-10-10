@@ -697,20 +697,13 @@ function getEffectiveSeasonNumber(entry: Entry): number | undefined {
   return undefined;
 }
 
-function hasPreviousNumberedRelease(entries: Entry[], candidate: Entry): boolean {
+function hasPreviousSeason(entries: Entry[], candidate: Entry): boolean {
   if (candidate.relationshipType === 'season' && (candidate.season ?? 1) > 1) {
     const season = candidate.season ?? 1;
     const parent = candidate.parentEntryId
       ? entries.find((entry) => entry.id === candidate.parentEntryId)
       : undefined;
     return !!parent && getEffectiveSeasonNumber(parent) === season - 1;
-  }
-  if (candidate.relationshipType === 'specialEpisode' && (candidate.specialNumber ?? 1) > 1) {
-    const specialNumber = candidate.specialNumber ?? 1;
-    const parent = candidate.parentEntryId
-      ? entries.find((entry) => entry.id === candidate.parentEntryId)
-      : undefined;
-    return parent?.relationshipType === 'specialEpisode' && parent.specialNumber === specialNumber - 1;
   }
   return true;
 }
@@ -752,7 +745,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_ENTRY': {
       if (hasDuplicateEntry(state.entries, action.payload)) return state;
-      if (!hasPreviousNumberedRelease(state.entries, action.payload)) return state;
+      if (!hasPreviousSeason(state.entries, action.payload)) return state;
       if (action.payload.parentEntryId
         && !canLinkToParent(state.entries, action.payload.id, action.payload.parentEntryId)) return state;
       const entry = {
@@ -868,7 +861,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const oldEntry = state.entries.find(e => e.id === action.payload.id);
       if (!oldEntry) return state;
       if (hasDuplicateEntry(state.entries, action.payload, action.payload.id)) return state;
-      if (!hasPreviousNumberedRelease(state.entries, action.payload)) return state;
+      if (!hasPreviousSeason(state.entries, action.payload)) return state;
       const parentEntryId = action.payload.parentEntryId;
       if (parentEntryId
         && !canLinkToParent(state.entries, action.payload.id, parentEntryId)) return state;

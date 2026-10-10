@@ -39,7 +39,7 @@ export interface Entry {
   relationshipType?: EntryRelationshipType;
   /** Whether a spin-off is a sequel or prequel. */
   spinOffDirection?: SpinOffDirection;
-  /** Number used to distinguish special episodes within a linked release. */
+  /** Episode count for this linked special release. */
   specialNumber?: number;
   /** Related entry that anchors this separately tracked release. */
   parentEntryId?: string;
