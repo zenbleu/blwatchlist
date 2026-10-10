@@ -378,7 +378,7 @@ function validateData(data: unknown): AppState {
             type: parent.type,
             year: specialYear,
             country: parent.country,
-            season: null,
+            season: undefined,
             specialNumber: special.specialNumber,
             parentEntryId: parent.id,
             relationshipType: 'specialEpisode',
