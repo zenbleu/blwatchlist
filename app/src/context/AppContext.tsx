@@ -687,13 +687,19 @@ function canLinkToParent(entries: Entry[], childId: string, parentId: string): b
   return entriesById.has(parentId);
 }
 
+function getEffectiveSeasonNumber(entry: Entry): number | undefined {
+  if (entry.relationshipType === 'season' || entry.season != null) return entry.season ?? 1;
+  if (!entry.parentEntryId && (entry.relationshipType == null || entry.relationshipType === 'original')) return 1;
+  return undefined;
+}
+
 function hasPreviousNumberedRelease(entries: Entry[], candidate: Entry): boolean {
   if (candidate.relationshipType === 'season' && (candidate.season ?? 1) > 1) {
     const season = candidate.season ?? 1;
     const parent = candidate.parentEntryId
       ? entries.find((entry) => entry.id === candidate.parentEntryId)
       : undefined;
-    return parent?.relationshipType === 'season' && parent.season === season - 1;
+    return !!parent && getEffectiveSeasonNumber(parent) === season - 1;
   }
   if (candidate.relationshipType === 'specialEpisode' && (candidate.specialNumber ?? 1) > 1) {
     const specialNumber = candidate.specialNumber ?? 1;

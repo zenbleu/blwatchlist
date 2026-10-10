@@ -47,13 +47,18 @@ function getRelationshipRoot(entry: Entry, entries: Entry[]): Entry {
   return current;
 }
 
+function getSeasonNumber(entry: Entry): number | undefined {
+  if (entry.relationshipType === 'season' || entry.season != null) return entry.season ?? 1;
+  if (!entry.parentEntryId && (entry.relationshipType == null || entry.relationshipType === 'original')) return 1;
+  return undefined;
+}
+
 function findPreviousSeason(entries: Entry[], parent: Entry, seasonNumber: number, excludeId?: string): Entry | undefined {
   const rootId = getRelationshipRoot(parent, entries).id;
   return entries
     .filter((candidate) =>
       candidate.id !== excludeId
-      && candidate.relationshipType === 'season'
-      && candidate.season === seasonNumber
+      && getSeasonNumber(candidate) === seasonNumber
       && getRelationshipRoot(candidate, entries).id === rootId,
     )
     .sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt)[0];
@@ -267,8 +272,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       }
     }
     if (relationshipType === 'season' && season != null && season > 1) {
-      const previousSeason = selectedParent?.season === season - 1
-        && selectedParent.relationshipType === 'season';
+      const previousSeason = !!selectedParent && getSeasonNumber(selectedParent) === season - 1;
       if (!previousSeason) {
         const priorSeason = selectedParent
           ? findPreviousSeason(state.entries, selectedParent, season - 1, entry?.id)
@@ -707,8 +711,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                         setLinkedReleaseMode('included');
                       }
                       if (nextType === 'season') {
-                        setSeason(selectedParentEntry?.season != null
-                          ? selectedParentEntry.season + 1
+                        setSeason(selectedParentEntry
+                          ? (getSeasonNumber(selectedParentEntry) ?? 1) + 1
                           : season ?? 1);
                       }
                       else setSeason(null);
