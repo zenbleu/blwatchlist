@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Heart, Star, Pencil, Trash2 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import Poster from './Poster';
+import AnthologyBadges from './AnthologyBadges';
 import StatusBadge from './StatusBadge';
 import EntryModal from './EntryModal';
 import EditEntryModal from './EditEntryModal';
@@ -18,7 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { Entry } from '@/types';
-import { formatEntryTitle, formatSeasonLabel, getEntryRelationshipLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
+import { formatEntryTitle, formatSeasonLabel, isEligibleForFavoriteOrTop10 } from '@/lib/entry';
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -85,9 +86,7 @@ const SearchResultCard = memo(function SearchResultCard({
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
             {entry.anthologyName ? (
-              <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
-                {getEntryRelationshipLabel(entry)}
-              </span>
+              <AnthologyBadges entry={entry} className="mt-1" />
             ) : entry.season != null && (
               <span className="mt-1 inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
                 {formatSeasonLabel(entry.season)}

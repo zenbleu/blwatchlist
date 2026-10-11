@@ -98,7 +98,7 @@ function migrateEntry(e: Record<string, unknown>): Entry {
     : undefined;
   const anthologySeason = typeof e.anthologySeason === 'number'
     && Number.isInteger(e.anthologySeason)
-    && e.anthologySeason >= 1
+    && e.anthologySeason >= 0
     ? e.anthologySeason
     : undefined;
   const parentEntryId = typeof e.parentEntryId === 'string' && e.parentEntryId
@@ -729,7 +729,7 @@ function hasValidAnthologyMetadata(candidate: Entry): boolean {
     && candidate.season == null
     && hasAnthologyName
     && Number.isInteger(candidate.anthologySeason)
-    && (candidate.anthologySeason ?? 0) >= 1;
+    && (candidate.anthologySeason ?? -1) >= 0;
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {

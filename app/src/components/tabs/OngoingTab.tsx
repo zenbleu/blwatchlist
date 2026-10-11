@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { PlayCircle, ArrowUpDown, Filter, Pencil, Check, X, Calendar } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
+import AnthologyBadges from "../AnthologyBadges";
 import type { AirDay, Entry, OngoingEntry, EpisodeRating } from "@/types";
 import AirDaySelector from "../AirDaySelector";
 import {
@@ -125,6 +126,9 @@ const OngoingCard = memo(function OngoingCard({
           <p className="text-xs text-[#B3B3B3]">
             {entry.season != null && !linkedParentTitle ? `${formatSeasonLabel(entry.season)} · ` : ''}{entry.country}
           </p>
+          {entry.anthologyName && (
+            <AnthologyBadges entry={entry} className="mt-1" />
+          )}
           {linkedParentTitle && (
             <p className="mt-1 text-[11px] text-[#999]">
               {formatLinkedReleaseDescription(entry, linkedParentTitle)}

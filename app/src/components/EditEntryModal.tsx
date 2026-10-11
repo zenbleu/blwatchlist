@@ -240,7 +240,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setError('Anthology entries must be series.');
       return;
     }
-    if (isAnthology && (!Number.isInteger(anthologySeason) || (anthologySeason ?? 0) < 1)) {
+    if (isAnthology && (!Number.isInteger(anthologySeason) || (anthologySeason ?? -1) < 0)) {
       setError('Enter a valid anthology season.');
       return;
     }
@@ -731,12 +731,16 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                       <Label className="text-[11px] text-[#888]">Season</Label>
                       <Input
                         type="number"
-                        value={anthologySeason ?? 1}
+                        value={anthologySeason ?? ''}
                         onChange={(event) => {
-                          setAnthologySeason(Math.max(1, parseInt(event.target.value) || 1));
+                          const value = event.target.value;
+                          const parsedSeason = value === '' ? null : parseInt(value, 10);
+                          setAnthologySeason(parsedSeason === null || Number.isNaN(parsedSeason)
+                            ? null
+                            : Math.max(0, parsedSeason));
                           setError('');
                         }}
-                        min={1}
+                        min={0}
                         max={999}
                         className="bg-white/[0.06] border-white/10 text-white focus:border-[#E50914]"
                         aria-label="Anthology season number"

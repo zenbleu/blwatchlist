@@ -10,6 +10,7 @@ import EntryModal from "../EntryModal";
 import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import GenreChip from "../GenreChip";
+import AnthologyBadges from "../AnthologyBadges";
 import {
   formatEntryTitle,
   getEntryRelationshipLabel,
@@ -101,7 +102,9 @@ const EntryCard = memo(function EntryCard({
             <p className="text-xs text-[#B3B3B3] mt-0.5">
               {entry.type} &middot; {entry.year} &middot; {entry.country}
             </p>
-            {relationshipBadge && (
+            {entry.anthologyName ? (
+              <AnthologyBadges entry={entry} className="mt-1" />
+            ) : relationshipBadge && (
               <div className="mt-1 flex flex-wrap gap-1">
                 <span className="inline-flex rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#B3B3B3]">
                   {relationshipBadge}

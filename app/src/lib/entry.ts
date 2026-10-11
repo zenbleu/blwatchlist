@@ -28,8 +28,7 @@ export function formatSeasonLabel(season?: number | null): string {
 export function formatEntryTitle(
   entry: Pick<Entry, 'title' | 'anthologyName' | 'anthologySeason'>,
 ): string {
-  if (!entry.anthologyName) return entry.title;
-  return `${entry.anthologyName} (Season ${entry.anthologySeason ?? 1}): ${entry.title}`;
+  return entry.title;
 }
 
 export function isSameEntryIdentity(a: EntryIdentity, b: EntryIdentity): boolean {
@@ -55,7 +54,7 @@ export function getRelationshipType(entry: Pick<Entry, 'relationshipType' | 'sea
 export function getEntryRelationshipLabel(
   entry: Pick<Entry, 'relationshipType' | 'season' | 'specialNumber' | 'parentEntryId' | 'spinOffDirection' | 'anthologyName'>,
 ): string | null {
-  if (entry.anthologyName) return 'Anthology';
+  if (entry.anthologyName) return `Anthology: ${entry.anthologyName}`;
   switch (getRelationshipType(entry)) {
     case 'specialEpisode':
       return `Special Episode${entry.specialNumber ? ` ${entry.specialNumber}` : ''}`;

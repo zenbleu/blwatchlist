@@ -16,6 +16,7 @@ import {
 import { getOngoingSchedule } from '@/lib/episodeSchedule';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
 import GenreChip from './GenreChip';
+import AnthologyBadges from './AnthologyBadges';
 
 interface EntryModalProps {
   isOpen: boolean;
@@ -182,11 +183,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               )}
             </div>
             {entry.anthologyName && (
-              <div className="flex justify-center pb-3">
-                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.07] px-3 py-1 text-xs text-[#B3B3B3]">
-                  Anthology
-                </span>
-              </div>
+              <AnthologyBadges entry={entry} className="justify-center pb-3" />
             )}
             {entryGenres.length > 0 && (
               <div className="mx-5 flex flex-wrap justify-center gap-1.5 pb-3">

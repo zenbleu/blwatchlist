@@ -5,6 +5,7 @@ import { formatEntryTitle } from '@/lib/entry';
 import type { Entry, GenreTag } from '@/types';
 import { createCustomGenreTag, normalizeGenreName } from '@/lib/genres';
 import Poster from '@/components/Poster';
+import AnthologyBadges from '@/components/AnthologyBadges';
 import GenreChip from '@/components/GenreChip';
 import EntryModal from '@/components/EntryModal';
 import { Button } from '@/components/ui/button';
@@ -196,6 +197,9 @@ export default function GenresTab() {
                     <span className="mt-1 block text-xs text-[#888]">
                       {entry.type} · {entry.year} · {entry.country}
                     </span>
+                    {entry.anthologyName && (
+                      <AnthologyBadges entry={entry} className="mt-1" />
+                    )}
                     <span className="mt-1 block text-[10px] uppercase tracking-wide text-[#666]">
                       {entry.status === 'COMPLETE'
                         ? 'Completed'

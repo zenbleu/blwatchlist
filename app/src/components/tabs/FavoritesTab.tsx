@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Heart, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
+import AnthologyBadges from "../AnthologyBadges";
 import RatingCircle from "../RatingCircle";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import { formatRating } from "@/lib/rating";
@@ -200,12 +201,15 @@ export default function FavoritesTab() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-white text-sm font-semibold truncate">{formatEntryTitle(entry)}</h3>
                 <p className="text-[#888] text-xs mt-0.5">{entry.year} &middot; {entry.country}</p>
+                {entry.anthologyName && (
+                  <AnthologyBadges entry={entry} className="mt-1" />
+                )}
                 {parentEntry && (
                   <p className="mt-1 text-[10px] text-[#999]">
                     {formatLinkedReleaseDescription(entry, parentEntry.title)}
                   </p>
                 )}
-                {entry.season != null && !parentEntry && (
+                {entry.season != null && !entry.anthologyName && !parentEntry && (
                   <p className="text-[#B3B3B3] text-[10px] mt-1">{formatSeasonLabel(entry.season)}</p>
                 )}
                 <div className="flex items-center gap-2 mt-1.5">

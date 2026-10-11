@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Star, ChevronDown, ChevronRight, Trash2, Plus, X, AlertTriangle, Edit3, Lock } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
+import AnthologyBadges from "../AnthologyBadges";
 import type { Entry } from "@/types";
 import EntryModal from "../EntryModal";
 import ShareButton from "../ShareCard";
@@ -121,7 +122,9 @@ const Top10Card = memo(function Top10Card({
           </span>
           <span className="text-[11px] text-[#B3B3B3]">{entry.country}</span>
         </div>
-        {entry.season != null && (
+        {entry.anthologyName ? (
+          <AnthologyBadges entry={entry} className="mt-1" />
+        ) : entry.season != null && (
           <p className="mt-1 truncate text-[10px] text-[#777]">{formatSeasonLabel(entry.season)}</p>
         )}
       </div>
