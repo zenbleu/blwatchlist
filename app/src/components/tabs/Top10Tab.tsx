@@ -134,7 +134,7 @@ const SortableTop10Card = memo(function SortableTop10Card({
   rank,
   onRemove,
 }: {
-  entry: { id: string; title: string; poster: string | null; type: string; country: string };
+  entry: Entry;
   rank: number;
   onRemove: () => void;
 }) {
