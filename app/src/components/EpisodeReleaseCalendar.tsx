@@ -16,6 +16,8 @@ interface EpisodeReleaseCalendarProps {
   allowSpecialEpisodes?: boolean;
 }
 
+const EMPTY_SPECIAL_EPISODES: SpecialEpisode[] = [];
+
 function dateToKey(date: Date): string {
   return [
     date.getFullYear(),
@@ -41,7 +43,7 @@ export default function EpisodeReleaseCalendar({
   parentTitle,
   releaseDates,
   onSave,
-  specialEpisodes = [],
+  specialEpisodes = EMPTY_SPECIAL_EPISODES,
   onSpecialEpisodesSave,
   allowSpecialEpisodes = false,
 }: EpisodeReleaseCalendarProps) {

@@ -26,6 +26,7 @@ import AirDaySelector from './AirDaySelector';
 import type { Entry, Status, AirDay, LinkedReleaseMode, EntryRelationshipType, SpinOffDirection } from '@/types';
 import EpisodeReleaseCalendar from './EpisodeReleaseCalendar';
 import { getEntryRelationshipLabel, isSameEntryIdentity } from '@/lib/entry';
+import { isDateTimeOnOrBefore } from '@/lib/episodeSchedule';
 
 const COUNTRIES = [
   'Thailand', 'Japan', 'South Korea', 'Taiwan', 'China', 'Hong Kong', 'Philippines',
@@ -74,6 +75,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [year, setYear] = useState(new Date().getFullYear());
   const [country, setCountry] = useState('Thailand');
   const [status, setStatus] = useState<Status>('COMPLETE');
+  const [autoPromotedFromPlanned, setAutoPromotedFromPlanned] = useState(false);
   const [posterData, setPosterData] = useState<string | null>(null);
   const [airDays, setAirDays] = useState<AirDay[]>([]);
   const [airTime, setAirTime] = useState('00:00');
@@ -125,6 +127,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
 
   // Reset form whenever entry changes or modal opens/closes
   const resetForm = useCallback(() => {
+    setAutoPromotedFromPlanned(false);
     setParentPickerOpen(false);
     setParentSearchTerm('');
     setGenrePickerOpen(false);
@@ -202,6 +205,23 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       resetForm();
     }
   }, [isOpen, resetForm]);
+
+  useEffect(() => {
+    if (!isOpen || status !== 'PLANNED' || !plannedDate || !plannedTime) return;
+
+    const promoteIfReleased = () => {
+      if (!isDateTimeOnOrBefore(plannedDate, plannedTime)) return;
+      setAutoPromotedFromPlanned(true);
+      setStatus('ONGOING');
+      setReleaseDates((current) => current.length > 0 ? current : [plannedDate]);
+      setTotalEp((current) => Math.max(current, 1));
+      setAirTime(plannedTime);
+    };
+
+    promoteIfReleased();
+    const timer = window.setInterval(promoteIfReleased, 60_000);
+    return () => window.clearInterval(timer);
+  }, [isOpen, plannedDate, plannedTime, status]);
 
   const handlePosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -327,7 +347,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       createdAt: entry?.createdAt || Date.now(),
       lastUpdatedAt: entry?.lastUpdatedAt || entry?.createdAt || Date.now(),
       ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
-      ...(plannedDate && (status === 'PLANNED' || savedRelationshipType === 'specialEpisode') ? { plannedDate } : {}),
+      ...(plannedDate && (status === 'PLANNED' || status === 'ONGOING' || savedRelationshipType === 'specialEpisode') ? { plannedDate } : {}),
       ...(plannedTime ? { plannedTime } : {}),
     };
 
@@ -348,6 +368,14 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
           entryId: newEntry.id,
           currentEpisode: savedRelationshipType === 'specialEpisode' ? Math.min(currentEp, 1) : currentEp,
           totalEpisodes: savedRelationshipType === 'specialEpisode' ? 1 : totalEp,
+            ...(autoPromotedFromPlanned && plannedDate
+              ? { firstAirDate: plannedDate, premiereEpisodeCount: 1 }
+              : ongoing?.firstAirDate
+                ? { firstAirDate: ongoing.firstAirDate }
+                : {}),
+            ...(!autoPromotedFromPlanned && ongoing?.premiereEpisodeCount !== undefined
+              ? { premiereEpisodeCount: ongoing.premiereEpisodeCount }
+              : {}),
             airDays: airDays.length > 0 ? airDays : ['Monday'] as AirDay[],
             airTime: savedRelationshipType === 'specialEpisode' && plannedTime ? plannedTime : airTime,
             trackingMode: (savedRelationshipType === 'specialEpisode' && (plannedDate || releaseDates.length > 0))
@@ -898,7 +926,10 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
               {(['COMPLETE', 'ONGOING', 'DROPPED', 'PLANNED'] as Status[]).map(s => (
                 <button
                   key={s}
-                  onClick={() => setStatus(s)}
+                  onClick={() => {
+                    setStatus(s);
+                    if (s !== 'ONGOING') setAutoPromotedFromPlanned(false);
+                  }}
                   className={`py-2 rounded-lg text-xs font-medium transition-colors ${
                     status === s ? 'bg-[#E50914] text-white' : 'bg-white/[0.06] text-[#888] hover:bg-white/[0.1]'
                   }`}

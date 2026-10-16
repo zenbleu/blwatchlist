@@ -104,6 +104,20 @@ function parseReleaseTime(value: string): { hours: number; minutes: number } | n
   return { hours, minutes };
 }
 
+export function isDateTimeOnOrBefore(
+  dateValue?: string,
+  timeValue?: string,
+  now = new Date(),
+): boolean {
+  if (!dateValue || !timeValue) return false;
+  const date = parseDateOnly(dateValue);
+  const time = parseReleaseTime(timeValue);
+  if (!date || !time) return false;
+
+  date.setHours(time.hours, time.minutes, 0, 0);
+  return date.getTime() <= now.getTime();
+}
+
 /**
  * Returns a timed special release as a local Date.
  *
