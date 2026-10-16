@@ -573,7 +573,7 @@ export default function FavoriteEvaluation({
   // Load existing favorite data when opening
   useEffect(() => {
     if (isOpen && existingFavorite) {
-      setStoryline(existingFavorite.storyline);
+      setStoryline(entry?.storylineRating ?? existingFavorite.storyline);
       setActing(existingFavorite.acting);
       setMusic(existingFavorite.music);
       setChemistry(existingFavorite.chemistry);
@@ -591,7 +591,7 @@ export default function FavoriteEvaluation({
       setComfortAura(existingFavorite.comfortAura);
       setRewatchValue(existingFavorite.rewatchValue);
     } else if (isOpen && !existingFavorite) {
-      setStoryline(5);
+      setStoryline(entry?.storylineRating ?? 5);
       setActing(5);
       setMusic(5);
       setChemistry(5);
@@ -609,7 +609,7 @@ export default function FavoriteEvaluation({
       setComfortAura(false);
       setRewatchValue(false);
     }
-  }, [isOpen, existingFavorite]);
+  }, [isOpen, existingFavorite, entry?.storylineRating]);
 
   const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const calculatedStoryline = episodeAverage ?? storyline;
@@ -700,7 +700,8 @@ export default function FavoriteEvaluation({
   const isEditable = mode === 'edit';
 
   // Use existing favorite values for view mode display
-  const displayStoryline = episodeAverage ?? (isEditable ? storyline : (existingFavorite?.storyline ?? 5));
+  const displayStoryline = episodeAverage
+    ?? (isEditable ? storyline : (entry.storylineRating ?? existingFavorite?.storyline ?? 5));
   const displayActing = isEditable ? acting : (existingFavorite?.acting ?? 5);
   const displayMusic = isEditable ? music : (existingFavorite?.music ?? 5);
   const displayChemistry = isEditable ? chemistry : (existingFavorite?.chemistry ?? 5);
@@ -800,7 +801,7 @@ export default function FavoriteEvaluation({
                 />
               </div>
               <p className="text-[10px] text-[#666]">
-                Storyline is calculated from the average of your episode ratings.
+                  Storyline uses your episode average when available, otherwise your storyline rating.
               </p>
             </div>
 
@@ -817,7 +818,7 @@ export default function FavoriteEvaluation({
               </div>
               <EpisodeRatingGrid
                 ratings={entry.episodeRatings}
-                totalEpisodes={Math.max(1, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))}
+                totalEpisodes={Math.max(entry.totalEpisodes || 1, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))}
                 poster={entry.poster}
                 entryTitle={entry.title}
                 season={entry.season}

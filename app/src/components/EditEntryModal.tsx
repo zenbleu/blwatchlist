@@ -162,13 +162,13 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         setAirDays(ongoing.airDays as AirDay[]);
         setAirTime(ongoing.airTime || '00:00');
         setCurrentEp(ongoing.currentEpisode);
-        setTotalEp(ongoing.releaseDates?.length || 1);
+        setTotalEp(Math.max(1, ongoing.totalEpisodes));
         setReleaseDates(ongoing.releaseDates || []);
       } else {
         setAirDays([]);
         setAirTime('00:00');
         setCurrentEp(0);
-        setTotalEp(1);
+        setTotalEp(Math.max(1, entry.totalEpisodes || 1));
         setReleaseDates([]);
       }
     } else {
@@ -349,6 +349,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
       ...(plannedDate && (status === 'PLANNED' || status === 'ONGOING' || savedRelationshipType === 'specialEpisode') ? { plannedDate } : {}),
       ...(plannedTime ? { plannedTime } : {}),
+      ...((ongoing || entry?.totalEpisodes != null || status === 'ONGOING')
+        ? { totalEpisodes: Math.max(1, Math.floor(totalEp)) }
+        : {}),
     };
 
     if (onSave) {
@@ -1016,12 +1019,13 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 </div>
                 <div>
                   <Label className="text-[10px] text-[#666]">Total Episodes</Label>
-                    <Input
+                  <Input
                     type="number"
                     value={totalEp}
-                      readOnly
-                      disabled
-                      className="bg-white/[0.04] border-white/10 text-[#888] cursor-not-allowed"
+                    min={1}
+                    step={1}
+                    onChange={(event) => setTotalEp(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
+                    className="bg-white/[0.06] border-white/10 text-white"
                   />
                 </div>
               </div>

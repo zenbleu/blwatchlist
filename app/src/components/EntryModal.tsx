@@ -46,7 +46,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   const entryGenres = state.genreTags.filter((tag) => entry?.genres?.includes(tag.id));
   const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const episodeCount = entry
-    ? Math.max(1, ongoing?.totalEpisodes || 0, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))
+    ? Math.max(1, ongoing?.totalEpisodes || entry.totalEpisodes || 0, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))
     : 1;
   const episodeSchedule = ongoing ? getOngoingSchedule(ongoing, new Date()) : null;
 
@@ -252,12 +252,19 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               <div>
                 <p className="text-xs font-semibold text-white">Episode Summary</p>
                 <p className="text-[10px] text-[#777]">
-                  {episodeAverage === null ? 'Rate each episode to calculate Storyline.' : `Average Your Rating: ${formatRating(episodeAverage)}`}
+                  {episodeAverage !== null
+                    ? `Average Your Rating: ${formatRating(episodeAverage)}`
+                    : entry.storylineRating !== undefined
+                      ? `Storyline Rating: ${formatRating(entry.storylineRating)}`
+                      : entry.status === 'COMPLETE'
+                        ? 'Rate episodes or use the final slide to rate Storyline.'
+                        : 'Rate each episode to calculate Storyline.'}
                 </p>
               </div>
               <span className="text-[10px] text-[#666]">{episodeCount} episodes</span>
             </div>
             <EpisodeRatingGrid
+              key={entry.id}
               ratings={entry.episodeRatings}
               totalEpisodes={episodeCount}
               airedEpisode={episodeSchedule?.airedEpisode ?? null}
@@ -265,6 +272,12 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
               entryTitle={entry.title}
               season={entry.season}
               editable
+              showStorylineSlide={entry.status === 'COMPLETE'}
+              storylineRating={entry.storylineRating}
+              onStorylineRatingChange={(rating) => dispatch({
+                type: 'UPDATE_STORYLINE_RATING',
+                payload: { entryId: entry.id, rating },
+              })}
               onChange={(episodeNumber, value) => {
                 dispatch({
                   type: 'UPDATE_EPISODE_RATING',

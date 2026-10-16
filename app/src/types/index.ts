@@ -61,6 +61,10 @@ export interface Entry {
   plannedDate?: string; // ISO date string (YYYY-MM-DD)
   /** Local release time for a planned title. */
   plannedTime?: string;
+  /** Total regular episodes, retained after an ongoing entry is completed. */
+  totalEpisodes?: number;
+  /** Storyline-only rating used when episode-level ratings are not available. */
+  storylineRating?: number;
   /** Episode ratings keyed by episode number. */
   episodeRatings?: Record<string, EpisodeRating>;
 }
@@ -262,6 +266,7 @@ export type AppAction =
   | { type: 'UPDATE_RATING'; payload: FavoriteEntry }
   | { type: 'REMOVE_RATING'; payload: string }
   | { type: 'UPDATE_ONGOING'; payload: OngoingEntry }
+  | { type: 'UPDATE_STORYLINE_RATING'; payload: { entryId: string; rating?: number } }
   | { type: 'UPDATE_EPISODE_RATING'; payload: { entryId: string; episodeNumber: number; rating?: EpisodeRating } }
   | { type: 'ADD_TO_TOP10'; payload: { year: number; entryId: string } }
   | { type: 'REMOVE_FROM_TOP10'; payload: { year: number; entryId: string } }

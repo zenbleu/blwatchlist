@@ -188,6 +188,12 @@ function migrateEntry(e: Record<string, unknown>): Entry {
       ? [...new Set(e.genres.filter((genre): genre is string => typeof genre === 'string'))]
       : undefined,
     ...(episodeRatings && Object.keys(episodeRatings).length > 0 ? { episodeRatings } : {}),
+    ...(typeof e.totalEpisodes === 'number' && Number.isInteger(e.totalEpisodes) && e.totalEpisodes > 0
+      ? { totalEpisodes: e.totalEpisodes }
+      : {}),
+    ...(typeof e.storylineRating === 'number' && Number.isFinite(e.storylineRating)
+      ? { storylineRating: Math.min(10, Math.max(1, e.storylineRating)) }
+      : {}),
     ...(typeof e.plannedTime === 'string' && /^\d{2}:\d{2}$/.test(e.plannedTime)
       ? { plannedTime: e.plannedTime }
       : {}),
@@ -487,7 +493,9 @@ function validateData(data: unknown): AppState {
   const recalculatedFavorites = validFavorites.map((favorite) => {
     const next = {
       ...favorite,
-       storyline: getEpisodeAverage(allMigratedEntries.find((entry) => entry.id === favorite.entryId)?.episodeRatings) ?? favorite.storyline,
+        storyline: getEpisodeAverage(allMigratedEntries.find((entry) => entry.id === favorite.entryId)?.episodeRatings)
+          ?? allMigratedEntries.find((entry) => entry.id === favorite.entryId)?.storylineRating
+          ?? favorite.storyline,
       gapPenalty: 0,
       overallRating: 0,
     };
@@ -527,7 +535,9 @@ function validateData(data: unknown): AppState {
   const recalculatedRatings = validRatings.map((rating) => {
     const next = {
       ...rating,
-       storyline: getEpisodeAverage(allMigratedEntries.find((entry) => entry.id === rating.entryId)?.episodeRatings) ?? rating.storyline,
+        storyline: getEpisodeAverage(allMigratedEntries.find((entry) => entry.id === rating.entryId)?.episodeRatings)
+          ?? allMigratedEntries.find((entry) => entry.id === rating.entryId)?.storylineRating
+          ?? rating.storyline,
       gapPenalty: 0,
       overallRating: 0,
     };
@@ -640,7 +650,20 @@ function entryContentChanged(previous: Entry, next: Entry): boolean {
     || previous.linkedReleaseMode !== next.linkedReleaseMode
     || previous.plannedDate !== next.plannedDate
     || previous.plannedTime !== next.plannedTime
+    || previous.totalEpisodes !== next.totalEpisodes
+    || previous.storylineRating !== next.storylineRating
     || JSON.stringify(previous.genres || []) !== JSON.stringify(next.genres || []);
+}
+
+function recalculateEvaluationWithStoryline(evaluation: FavoriteEntry, storyline: number): FavoriteEntry {
+  const updated: FavoriteEntry = {
+    ...evaluation,
+    storyline,
+    gapPenalty: calculateEvaluationDeduction(evaluation),
+    overallRating: 0,
+  };
+  updated.overallRating = calculateOverallRating(updated);
+  return updated;
 }
 
 function evaluationChanged(previous: FavoriteEntry | undefined, next: FavoriteEntry): boolean {
@@ -891,9 +914,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const parentEntryId = action.payload.parentEntryId;
       if (parentEntryId
         && !canLinkToParent(state.entries, action.payload.id, parentEntryId)) return state;
+      const previousOngoing = state.ongoing.find((ongoing) => ongoing.entryId === oldEntry.id);
       // Episode ratings have their own UPDATE_EPISODE_RATING action. Generic
       // entry edits must not overwrite them with stale or incomplete form data.
-      const nextPayload = { ...action.payload, episodeRatings: oldEntry.episodeRatings };
+      const nextPayload: Entry = {
+        ...action.payload,
+        ...(action.payload.totalEpisodes == null
+          ? oldEntry.totalEpisodes != null
+            ? { totalEpisodes: oldEntry.totalEpisodes }
+            : oldEntry.status === 'ONGOING'
+              && action.payload.status === 'COMPLETE'
+              && previousOngoing
+              ? { totalEpisodes: previousOngoing.totalEpisodes }
+              : {}
+          : {}),
+        ...(action.payload.storylineRating == null && oldEntry.storylineRating != null
+          ? { storylineRating: oldEntry.storylineRating }
+          : {}),
+        episodeRatings: oldEntry.episodeRatings,
+      };
       const changed = entryContentChanged(oldEntry, nextPayload);
       const entry = changed
         ? { ...nextPayload, lastUpdatedAt: nextEntryTimestamp(state.entries) }
@@ -910,7 +949,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           const o: OngoingEntry = {
             entryId: entry.id,
             currentEpisode: 0,
-            totalEpisodes: 1,
+            totalEpisodes: entry.totalEpisodes ?? 1,
             airDays: [getCurrentDay() as AirDay]
           };
           ongoing = [...state.ongoing, o];
@@ -974,9 +1013,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         };
       }
       if (!entry || !isEligibleForFavoriteOrTop10(entry)) return state;
+      const storyline = getEpisodeAverage(entry.episodeRatings) ?? entry.storylineRating ?? 5;
       const newFav: FavoriteEntry = {
         entryId,
-        storyline: 5,
+        storyline,
         acting: 5,
         music: 5,
         chemistry: 5,
@@ -997,7 +1037,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         flowAndPacing: false,
         gapPenalty: 0.7,
         overallRating: calculateOverallRating({
-          storyline: 5,
+          storyline,
           acting: 5,
           music: 5,
           chemistry: 5,
@@ -1027,8 +1067,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_FAVORITE': {
       const favoriteEntry = state.entries.find((entry) => entry.id === action.payload.entryId);
       if (!favoriteEntry || !isEligibleForFavoriteOrTop10(favoriteEntry)) return state;
+      const storyline = getEpisodeAverage(favoriteEntry.episodeRatings)
+        ?? favoriteEntry.storylineRating
+        ?? action.payload.storyline;
       const updated = {
         ...action.payload,
+        storyline,
         gapPenalty: calculateEvaluationDeduction(action.payload),
         overallRating: 0
       };
@@ -1049,8 +1093,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'UPDATE_RATING': {
       const ratedEntry = state.entries.find((entry) => entry.id === action.payload.entryId);
       if (!ratedEntry || !isEligibleForFavoriteOrTop10(ratedEntry)) return state;
+      const storyline = getEpisodeAverage(ratedEntry.episodeRatings)
+        ?? ratedEntry.storylineRating
+        ?? action.payload.storyline;
       const updated = {
         ...action.payload,
+        storyline,
         gapPenalty: calculateEvaluationDeduction(action.payload),
         overallRating: 0
       };
@@ -1069,6 +1117,34 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'REMOVE_RATING':
       return { ...state, ratings: state.ratings.filter(r => r.entryId !== action.payload) };
+
+    case 'UPDATE_STORYLINE_RATING': {
+      const { entryId, rating } = action.payload;
+      if (rating !== undefined && (!Number.isFinite(rating) || rating < 1 || rating > 10)) return state;
+      const existingEntry = state.entries.find((entry) => entry.id === entryId);
+      if (!existingEntry) return state;
+
+      const nextEntry = {
+        ...existingEntry,
+        ...(rating === undefined ? { storylineRating: undefined } : { storylineRating: rating }),
+        lastUpdatedAt: nextEntryTimestamp(state.entries),
+      };
+      const effectiveStoryline = getEpisodeAverage(nextEntry.episodeRatings) ?? rating ?? 5;
+      return {
+        ...state,
+        entries: state.entries.map((entry) => entry.id === entryId ? nextEntry : entry),
+        favorites: state.favorites.map((favorite) =>
+          favorite.entryId === entryId
+            ? recalculateEvaluationWithStoryline(favorite, effectiveStoryline)
+            : favorite,
+        ),
+        ratings: state.ratings.map((entryRating) =>
+          entryRating.entryId === entryId
+            ? recalculateEvaluationWithStoryline(entryRating, effectiveStoryline)
+            : entryRating,
+        ),
+      };
+    }
 
     case 'UPDATE_EPISODE_RATING': {
       const { entryId, episodeNumber, rating } = action.payload;
@@ -1093,9 +1169,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         lastUpdatedAt: nextEntryTimestamp(state.entries),
       };
       const nextProgress = getEpisodeProgress(episodeRatings);
+      const episodeAverage = getEpisodeAverage(episodeRatings);
+      const effectiveStoryline = episodeAverage ?? nextEntry.storylineRating;
       return {
         ...state,
         entries: state.entries.map((entry) => entry.id === entryId ? nextEntry : entry),
+        ...(effectiveStoryline !== undefined
+          ? {
+              favorites: state.favorites.map((favorite) =>
+                favorite.entryId === entryId
+                  ? recalculateEvaluationWithStoryline(favorite, effectiveStoryline)
+                  : favorite,
+              ),
+              ratings: state.ratings.map((entryRating) =>
+                entryRating.entryId === entryId
+                  ? recalculateEvaluationWithStoryline(entryRating, effectiveStoryline)
+                  : entryRating,
+              ),
+            }
+          : {}),
         ongoing: state.ongoing.map((ongoing) =>
           ongoing.entryId === entryId
             ? { ...ongoing, currentEpisode: hadEpisodeRatings || nextProgress > 0 ? nextProgress : ongoing.currentEpisode }

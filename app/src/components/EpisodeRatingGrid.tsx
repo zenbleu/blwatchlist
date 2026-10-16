@@ -17,6 +17,9 @@ interface EpisodeRatingGridProps {
   entryTitle?: string;
   season?: number | null;
   compactGrid?: boolean;
+  showStorylineSlide?: boolean;
+  storylineRating?: number;
+  onStorylineRatingChange?: (rating?: number) => void;
 }
 
 const DEFAULT_EPISODE_RATING: EpisodeRating = {
@@ -93,6 +96,7 @@ function InteractiveRatingStars({
   scale,
   label,
   compact = false,
+  minimumValue = 0.5,
 }: {
   value: number;
   onChange?: (value: number) => void;
@@ -100,6 +104,7 @@ function InteractiveRatingStars({
   scale: StarScale;
   label: string;
   compact?: boolean;
+  minimumValue?: number;
 }) {
   const [hoverValue, setHoverValue] = useState<number | null>(null);
   const gradientPrefix = useId().replace(/:/g, '');
@@ -114,7 +119,8 @@ function InteractiveRatingStars({
       {Array.from({ length: starCount }, (_, index) => {
         const starIndex = index + 1;
         const fullValue = scale === 'whole' ? starIndex * 2 : starIndex;
-        const leftValue = scale === 'whole' ? fullValue - 1 : fullValue - 0.5;
+        const leftValue = Math.max(minimumValue, scale === 'whole' ? fullValue - 1 : fullValue - 0.5);
+        const selectableFullValue = Math.max(minimumValue, fullValue);
         const fill = getStarFill(displayValue, starIndex, scale);
 
         return (
@@ -139,11 +145,11 @@ function InteractiveRatingStars({
                 />
                 <button
                   type="button"
-                  onMouseEnter={() => setHoverValue(fullValue)}
-                  onClick={() => onChange(fullValue)}
+                  onMouseEnter={() => setHoverValue(selectableFullValue)}
+                  onClick={() => onChange(selectableFullValue)}
                   className="absolute right-0 top-0 h-full w-1/2 cursor-pointer"
                   style={{ background: 'transparent', border: 'none', padding: 0, zIndex: 2 }}
-                  aria-label={`${label}: rate ${formatRating(fullValue)}`}
+                  aria-label={`${label}: rate ${formatRating(selectableFullValue)}`}
                 />
               </>
             )}
@@ -164,6 +170,7 @@ function EpisodeRatingRow({
   scale = 'whole',
   starCount = 5,
   compact = false,
+  minimumValue = 0.5,
 }: {
   label: string;
   description?: string;
@@ -174,6 +181,7 @@ function EpisodeRatingRow({
   scale?: StarScale;
   starCount?: number;
   compact?: boolean;
+  minimumValue?: number;
 }) {
   return (
     <div className="space-y-1">
@@ -199,6 +207,7 @@ function EpisodeRatingRow({
           scale={scale}
           label={label}
           compact={compact}
+          minimumValue={minimumValue}
         />
         <span className="shrink-0 text-[10px] font-bold tabular-nums text-yellow-400">
           {valueLabel ?? formatRating(value)}
@@ -458,7 +467,9 @@ function EpisodeRatingFlow({
 
 function EpisodeSummaryPanel({
   episodeNumber,
-  episodeCount,
+  slidePosition,
+  slideCount,
+  storylineSlide,
   value,
   savedRating,
   topRated,
@@ -476,7 +487,9 @@ function EpisodeSummaryPanel({
   onNavigate,
 }: {
   episodeNumber: number;
-  episodeCount: number;
+  slidePosition: number;
+  slideCount: number;
+  storylineSlide: boolean;
   value: EpisodeRating;
   savedRating: number | null;
   topRated: boolean;
@@ -494,19 +507,19 @@ function EpisodeSummaryPanel({
   onNavigate: (episodeNumber: number) => void;
 }) {
   const touchStartX = useRef<number | null>(null);
-  const seasonLabel = season == null ? null : formatSeasonLabel(season);
+  const seasonLabel = !storylineSlide && season != null ? formatSeasonLabel(season) : null;
   const displayRating = isEditing ? value.yourRating : savedRating ?? 0;
 
   const navigate = (direction: -1 | 1) => {
-    onNavigate(Math.min(episodeCount, Math.max(1, episodeNumber + direction)));
+    onNavigate(Math.min(slideCount, Math.max(1, slidePosition + direction)));
   };
 
   return (
     <section
       tabIndex={0}
       onKeyDown={(event) => {
-        if (event.key === 'ArrowLeft' && episodeNumber > 1) navigate(-1);
-        if (event.key === 'ArrowRight' && episodeNumber < episodeCount) navigate(1);
+        if (event.key === 'ArrowLeft' && slidePosition > 1) navigate(-1);
+        if (event.key === 'ArrowRight' && slidePosition < slideCount) navigate(1);
       }}
       onTouchStart={(event) => {
         touchStartX.current = event.changedTouches[0]?.clientX ?? null;
@@ -517,27 +530,27 @@ function EpisodeSummaryPanel({
         touchStartX.current = null;
         if (startX === null || endX === undefined) return;
         const movement = endX - startX;
-        if (movement > 45 && episodeNumber > 1) navigate(-1);
-        if (movement < -45 && episodeNumber < episodeCount) navigate(1);
+        if (movement > 45 && slidePosition > 1) navigate(-1);
+        if (movement < -45 && slidePosition < slideCount) navigate(1);
       }}
       className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#1d1d1d] to-[#101010] outline-none focus-visible:ring-2 focus-visible:ring-yellow-400/70"
-      aria-label={`Episode ${episodeNumber} rating details`}
+      aria-label={storylineSlide ? 'Storyline rating details' : `Episode ${episodeNumber} rating details`}
     >
       <div className="flex min-h-11 items-center justify-between gap-2 border-b border-white/[0.08] bg-black/20 px-2.5 py-1.5">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          disabled={episodeNumber <= 1}
+          disabled={slidePosition <= 1}
           className="rounded-lg p-1.5 text-white/80 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label="Previous episode"
+          aria-label="Previous slide"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="flex min-w-0 items-center justify-center gap-2">
           <span className="rounded-md bg-white/10 px-2 py-1 text-xs font-bold tracking-wide text-white">
-            EP{episodeNumber}
+            {storylineSlide ? 'STORYLINE' : `EP${episodeNumber}`}
           </span>
-          <span className="text-[10px] tabular-nums text-[#888]">{episodeNumber} / {episodeCount}</span>
+          <span className="text-[10px] tabular-nums text-[#888]">{slidePosition} / {slideCount}</span>
           {seasonLabel && <span className="hidden text-[10px] text-[#9a9a9a] sm:inline">{seasonLabel}</span>}
           {topRated && (
             <span className="inline-flex items-center gap-1 rounded-full border border-yellow-400/35 bg-yellow-400/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-yellow-300">
@@ -548,9 +561,9 @@ function EpisodeSummaryPanel({
         <button
           type="button"
           onClick={() => navigate(1)}
-          disabled={episodeNumber >= episodeCount}
+          disabled={slidePosition >= slideCount}
           className="rounded-lg p-1.5 text-white/80 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label="Next episode"
+          aria-label="Next slide"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -562,7 +575,7 @@ function EpisodeSummaryPanel({
             <div className="h-[124px] w-[88px] overflow-hidden rounded-xl border border-white/10 bg-black/30 sm:h-[148px] sm:w-[112px]">
               <Poster
                 src={poster}
-                title={`${entryTitle} episode ${episodeNumber}`}
+                title={storylineSlide ? `${entryTitle} storyline` : `${entryTitle} episode ${episodeNumber}`}
                 size="lg"
                 className="!h-full !w-full !rounded-none"
               />
@@ -575,10 +588,12 @@ function EpisodeSummaryPanel({
             <div className="flex min-w-0 items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="truncate text-sm font-semibold text-white sm:text-base">
-                  {entryTitle} · Episode {episodeNumber}
+                  {storylineSlide ? `${entryTitle} · Storyline` : `${entryTitle} · Episode ${episodeNumber}`}
                 </h3>
                 <p className="mt-0.5 text-[10px] text-[#888]">
-                  {isAvailable ? 'Your episode rating' : 'This episode has not aired yet'}
+                  {storylineSlide
+                    ? 'Overall story rating'
+                    : isAvailable ? 'Your episode rating' : 'This episode has not aired yet'}
                   {seasonLabel ? ` · ${seasonLabel}` : ''}
                 </p>
               </div>
@@ -595,6 +610,7 @@ function EpisodeSummaryPanel({
               scale="half"
               starCount={10}
               compact
+              minimumValue={storylineSlide ? 1 : 0.5}
             />
             {editable && !isAvailable && (
               <p className="mt-1 text-[10px] text-[#777]">Rating becomes available after the episode airs.</p>
@@ -651,32 +667,50 @@ function FlowEpisodeRatingGrid({
   poster = null,
   entryTitle = 'Entry',
   season = null,
+  showStorylineSlide = false,
+  storylineRating,
+  onStorylineRatingChange,
 }: EpisodeRatingGridProps) {
   const episodeCount = Math.max(1, totalEpisodes, ...Object.keys(ratings).map(Number).filter(Number.isFinite));
-  const [selectedEpisode, setSelectedEpisode] = useState(1);
+  const episodes = useMemo(
+    () => Array.from({ length: episodeCount }, (_, index) => index + 1),
+    [episodeCount],
+  );
+  const allEpisodesRated = episodes.every((episodeNumber) => {
+    const rating = ratings[String(episodeNumber)]?.yourRating;
+    return typeof rating === 'number' && Number.isFinite(rating) && rating >= 1 && rating <= 10;
+  });
+  const storylineSlideVisible = showStorylineSlide && !allEpisodesRated;
+  const slideCount = episodeCount + (storylineSlideVisible ? 1 : 0);
+  const [selectedSlide, setSelectedSlide] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
   const [draftRating, setDraftRating] = useState<EpisodeRating>(DEFAULT_EPISODE_RATING);
   const flowContainerRef = useRef<HTMLDivElement>(null);
 
-  const selectedRating = ratings[String(selectedEpisode)]?.yourRating ?? null;
+  const slidePosition = Math.min(selectedSlide, slideCount);
+  const selectedEpisode = Math.min(slidePosition, episodeCount);
+  const storylineSlide = storylineSlideVisible && slidePosition > episodeCount;
+  const selectedRating = storylineSlide
+    ? storylineRating ?? null
+    : ratings[String(selectedEpisode)]?.yourRating ?? null;
   const maxRating = Math.max(
     0,
     ...Object.values(ratings)
       .map((rating) => rating.yourRating)
       .filter(Number.isFinite),
   );
-  const isTopRated = selectedRating !== null && selectedRating === maxRating;
-  const isAvailable = airedEpisode === null || selectedEpisode <= airedEpisode;
+  const isTopRated = !storylineSlide && selectedRating !== null && selectedRating === maxRating;
+  const isAvailable = storylineSlide || airedEpisode === null || selectedEpisode <= airedEpisode;
 
   useEffect(() => {
-    setSelectedEpisode((current) => Math.min(current, episodeCount));
-  }, [episodeCount]);
+    setSelectedSlide((current) => Math.min(current, slideCount));
+  }, [slideCount]);
 
   useEffect(() => {
     if (!isEditing) {
       setDraftRating({ yourRating: selectedRating ?? DEFAULT_EPISODE_RATING.yourRating });
     }
-  }, [selectedEpisode, selectedRating, isEditing]);
+  }, [selectedEpisode, storylineSlide, selectedRating, isEditing]);
 
   useEffect(() => {
     flowContainerRef.current
@@ -684,13 +718,8 @@ function FlowEpisodeRatingGrid({
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [selectedEpisode]);
 
-  const episodes = useMemo(
-    () => Array.from({ length: episodeCount }, (_, index) => index + 1),
-    [episodeCount],
-  );
-
-  const selectEpisode = (episodeNumber: number) => {
-    setSelectedEpisode(Math.max(1, Math.min(episodeCount, episodeNumber)));
+  const selectSlide = (slideNumber: number) => {
+    setSelectedSlide(Math.max(1, Math.min(slideCount, slideNumber)));
     setIsEditing(false);
   };
 
@@ -701,14 +730,26 @@ function FlowEpisodeRatingGrid({
   };
 
   const saveRating = () => {
-    if (!editable || !isAvailable || !onChange) return;
-    onChange(selectedEpisode, { yourRating: draftRating.yourRating });
+    if (!editable || !isAvailable) return;
+    if (storylineSlide) {
+      if (!onStorylineRatingChange) return;
+      onStorylineRatingChange(draftRating.yourRating);
+    } else {
+      if (!onChange) return;
+      onChange(selectedEpisode, { yourRating: draftRating.yourRating });
+    }
     setIsEditing(false);
   };
 
   const clearRating = () => {
-    if (!editable || !onChange) return;
-    onChange(selectedEpisode);
+    if (!editable) return;
+    if (storylineSlide) {
+      if (!onStorylineRatingChange) return;
+      onStorylineRatingChange(undefined);
+    } else {
+      if (!onChange) return;
+      onChange(selectedEpisode);
+    }
     setIsEditing(false);
   };
 
@@ -719,12 +760,14 @@ function FlowEpisodeRatingGrid({
           episodes={episodes}
           ratings={ratings}
           selectedEpisode={selectedEpisode}
-          onSelectEpisode={selectEpisode}
+          onSelectEpisode={selectSlide}
         />
       </div>
       <EpisodeSummaryPanel
         episodeNumber={selectedEpisode}
-        episodeCount={episodeCount}
+        slidePosition={slidePosition}
+        slideCount={slideCount}
+        storylineSlide={storylineSlide}
         value={draftRating}
         savedRating={selectedRating}
         topRated={isTopRated}
@@ -739,7 +782,7 @@ function FlowEpisodeRatingGrid({
         onSave={saveRating}
         onClear={clearRating}
         onEdit={startEditing}
-        onNavigate={selectEpisode}
+        onNavigate={selectSlide}
       />
     </div>
   );
