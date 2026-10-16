@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Heart, Star, UserRound, UsersRound } from 'lucide-react';
+import { Heart, Pencil, Star, UserRound, UsersRound } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useApp } from '@/context/AppContext';
 import Poster from './Poster';
+import EditEntryModal from './EditEntryModal';
+import FavoriteEvaluation from './FavoriteEvaluation';
 import type { ActorRole, Entry } from '@/types';
 import { formatRating } from '@/lib/rating';
 import { getEpisodeAverage } from '@/lib/rating';
@@ -28,6 +30,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   const { state, dispatch, isFavorited, getFavoriteByEntryId, getRatingByEntryId, getOngoingByEntryId } = useApp();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [activePage, setActivePage] = useState<'details' | 'episodes' | 'cast'>('details');
+  const [activeAction, setActiveAction] = useState<'rating' | 'edit' | null>(null);
 
   const favorited = entry ? isFavorited(entry.id) : false;
   const displayTitle = entry ? formatEntryTitle(entry) : '';
@@ -51,7 +54,12 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   useEffect(() => {
     setImageLoaded(false);
     setActivePage('details');
+    setActiveAction(null);
   }, [entry?.id]);
+
+  useEffect(() => {
+    if (!isOpen) setActiveAction(null);
+  }, [isOpen]);
 
   const handleToggleFavorite = () => {
     if (!entry) return;
@@ -71,31 +79,53 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   if (!entry) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        showCloseButton={true}
-        closeButtonClassName="top-4 right-4 z-20"
-        className={`bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] max-h-[90vh] p-0 overflow-x-hidden shadow-2xl ${
-          activePage === 'episodes' ? 'overflow-y-hidden' : 'overflow-y-auto'
-        }`}
-      >
+    <>
+      <Dialog open={isOpen && activeAction === null} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent
+          showCloseButton={true}
+          closeButtonClassName="top-4 right-4 z-20"
+          className={`bg-[#0a0a0a] border-white/[0.08] text-white max-w-[360px] sm:max-w-[440px] max-h-[90vh] p-0 overflow-x-hidden shadow-2xl ${
+            activePage === 'episodes' ? 'overflow-y-hidden' : 'overflow-y-auto'
+          }`}
+        >
         {/* Top Bar: Heart (top-left) + Rating (top-right, before X button) */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-4">
-          {/* Heart - top left */}
-          <button
-            onClick={handleToggleFavorite}
-            disabled={!canToggleFavorite}
-            title={!canToggleFavorite ? 'Only completed, independently tracked entries can be favorited' : ''}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-              favorited
-                ? 'bg-[#E50914]/20 text-[#E50914]'
-                : canToggleFavorite
-                  ? 'bg-white/[0.06] text-[#666] hover:text-[#E50914] hover:bg-white/[0.1]'
-                  : 'bg-white/[0.04] text-[#444] cursor-not-allowed'
-            }`}
-          >
-            <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
-          </button>
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={handleToggleFavorite}
+              disabled={!canToggleFavorite}
+              title={!canToggleFavorite ? 'Only completed, independently tracked entries can be favorited' : 'Favorite'}
+              aria-label="Favorite"
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                favorited
+                  ? 'bg-[#E50914]/20 text-[#E50914]'
+                  : canToggleFavorite
+                    ? 'bg-white/[0.06] text-[#666] hover:text-[#E50914] hover:bg-white/[0.1]'
+                    : 'bg-white/[0.04] text-[#444] cursor-not-allowed'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveAction('rating')}
+              title="Rate entry"
+              aria-label="Rate entry"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-yellow-400/15 hover:text-yellow-400"
+            >
+              <Star className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveAction('edit')}
+              title="Edit entry"
+              aria-label="Edit entry"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-white/[0.12] hover:text-white"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
 
           {/* Rating - top right (leaving space for X button at right: 16px) */}
           {rating && rating.overallRating > 0 && (
@@ -248,8 +278,21 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
             <CastPanel entry={entry} actors={state.actors} />
           </section>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      <FavoriteEvaluation
+        isOpen={isOpen && activeAction === 'rating'}
+        onClose={() => setActiveAction(null)}
+        entryId={entry.id}
+        initialMode="edit"
+        evaluationType="rating"
+      />
+      <EditEntryModal
+        isOpen={isOpen && activeAction === 'edit'}
+        onClose={() => setActiveAction(null)}
+        entry={entry}
+      />
+    </>
   );
 }
 
