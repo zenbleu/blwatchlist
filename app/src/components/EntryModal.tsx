@@ -90,42 +90,44 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
         >
         {/* Top Bar: Heart (top-left) + Rating (top-right, before X button) */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-4 pt-4">
-          <div className="flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToggleFavorite}
-              disabled={!canToggleFavorite}
-              title={!canToggleFavorite ? 'Only completed, independently tracked entries can be favorited' : 'Favorite'}
-              aria-label="Favorite"
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                favorited
-                  ? 'bg-[#E50914]/20 text-[#E50914]'
-                  : canToggleFavorite
-                    ? 'bg-white/[0.06] text-[#666] hover:text-[#E50914] hover:bg-white/[0.1]'
-                    : 'bg-white/[0.04] text-[#444] cursor-not-allowed'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveAction('rating')}
-              title="Rate entry"
-              aria-label="Rate entry"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-yellow-400/15 hover:text-yellow-400"
-            >
-              <Star className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveAction('edit')}
-              title="Edit entry"
-              aria-label="Edit entry"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-white/[0.12] hover:text-white"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
-          </div>
+          {activePage === 'details' && (
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                disabled={!canToggleFavorite}
+                title={!canToggleFavorite ? 'Only completed, independently tracked entries can be favorited' : 'Favorite'}
+                aria-label="Favorite"
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                  favorited
+                    ? 'bg-[#E50914]/20 text-[#E50914]'
+                    : canToggleFavorite
+                      ? 'bg-white/[0.06] text-[#666] hover:text-[#E50914] hover:bg-white/[0.1]'
+                      : 'bg-white/[0.04] text-[#444] cursor-not-allowed'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${favorited ? 'fill-current' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveAction('rating')}
+                title="Rate entry"
+                aria-label="Rate entry"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-yellow-400/15 hover:text-yellow-400"
+              >
+                <Star className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveAction('edit')}
+                title="Edit entry"
+                aria-label="Edit entry"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-white/[0.12] hover:text-white"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* Rating - top right (leaving space for X button at right: 16px) */}
           {rating && rating.overallRating > 0 && (
