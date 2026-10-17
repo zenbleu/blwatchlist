@@ -1,4 +1,4 @@
-import type { EpisodeRating, FavoriteEntry } from '@/types';
+import type { Entry, EpisodeRating, FavoriteEntry } from '@/types';
 
 const MAIN_RATING_DEFAULT = 5;
 const MIN_RATING = 1;
@@ -92,6 +92,47 @@ export function getEpisodeProgress(episodeRatings?: Record<string, unknown>): nu
     .map(Number)
     .filter((episode) => Number.isInteger(episode) && episode > 0)
     .reduce((max, episode) => Math.max(max, episode), 0);
+}
+
+export function getEpisodeCount(
+  totalEpisodes: number,
+  episodeRatings?: Record<string, unknown>,
+): number {
+  const configuredCount = Number.isFinite(totalEpisodes)
+    ? Math.max(0, Math.floor(totalEpisodes))
+    : 0;
+  return Math.max(1, configuredCount, getEpisodeProgress(episodeRatings));
+}
+
+export function areAllEpisodesRated(
+  episodeRatings: Record<string, EpisodeRating> | undefined,
+  totalEpisodes: number,
+): boolean {
+  const episodeCount = getEpisodeCount(totalEpisodes, episodeRatings);
+  return Array.from({ length: episodeCount }, (_, index) => {
+    const rating = episodeRatings?.[String(index + 1)]?.yourRating;
+    return typeof rating === 'number'
+      && Number.isFinite(rating)
+      && rating >= MIN_RATING
+      && rating <= MAX_RATING;
+  }).every(Boolean);
+}
+
+export function getEffectiveStorylineRating(
+  entry: Pick<Entry, 'status' | 'totalEpisodes' | 'episodeRatings' | 'storylineRating'> | null | undefined,
+): number | null {
+  if (!entry) return null;
+
+  const episodeAverage = getEpisodeAverage(entry.episodeRatings);
+  if (
+    entry.status === 'COMPLETE'
+    && entry.storylineRating !== undefined
+    && !areAllEpisodesRated(entry.episodeRatings, entry.totalEpisodes ?? 1)
+  ) {
+    return entry.storylineRating;
+  }
+
+  return episodeAverage ?? entry.storylineRating ?? null;
 }
 
 export function calculateEvaluationDeductionLegacy(rating: Pick<FavoriteEntry, 'originality' | 'flowAndPacing' | 'characterDepth' | 'relationshipDynamics' | 'emotionalImpact' | 'ending' | 'rewatchValue'>): number {

@@ -10,7 +10,8 @@ import {
   calculateOverallRating,
   formatRating,
   getBonusCount,
-  getEpisodeAverage,
+  getEffectiveStorylineRating,
+  getEpisodeCount,
 } from '@/lib/rating';
 import EpisodeRatingGrid from './EpisodeRatingGrid';
 
@@ -611,10 +612,10 @@ export default function FavoriteEvaluation({
     }
   }, [isOpen, existingFavorite, entry?.storylineRating]);
 
-  const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
-  const calculatedStoryline = episodeAverage ?? storyline;
+  const effectiveStoryline = getEffectiveStorylineRating(entry);
+  const calculatedStoryline = effectiveStoryline ?? storyline;
 
-  // Storyline is episode-driven; the remaining four core categories stay subjective.
+  // Use the final storyline score until every episode is rated, then use the episode average.
   const overallRating = useMemo(() => calculateOverallRating({
     storyline: calculatedStoryline,
     acting,
@@ -700,8 +701,8 @@ export default function FavoriteEvaluation({
   const isEditable = mode === 'edit';
 
   // Use existing favorite values for view mode display
-  const displayStoryline = episodeAverage
-    ?? (isEditable ? storyline : (entry.storylineRating ?? existingFavorite?.storyline ?? 5));
+  const displayStoryline = effectiveStoryline
+    ?? (isEditable ? storyline : (existingFavorite?.storyline ?? 5));
   const displayActing = isEditable ? acting : (existingFavorite?.acting ?? 5);
   const displayMusic = isEditable ? music : (existingFavorite?.music ?? 5);
   const displayChemistry = isEditable ? chemistry : (existingFavorite?.chemistry ?? 5);
@@ -801,7 +802,7 @@ export default function FavoriteEvaluation({
                 />
               </div>
               <p className="text-[10px] text-[#666]">
-                  Storyline uses your episode average when available, otherwise your storyline rating.
+                  Uses your final Storyline rating until every episode is rated, then uses the episode average.
               </p>
             </div>
 
@@ -818,7 +819,7 @@ export default function FavoriteEvaluation({
               </div>
               <EpisodeRatingGrid
                 ratings={entry.episodeRatings}
-                totalEpisodes={Math.max(entry.totalEpisodes || 1, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))}
+                totalEpisodes={getEpisodeCount(entry.totalEpisodes || 1, entry.episodeRatings)}
                 poster={entry.poster}
                 entryTitle={entry.title}
                 season={entry.season}

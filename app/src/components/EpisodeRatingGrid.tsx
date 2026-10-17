@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, MessageSquareText, Pencil, Star, X } from 'lucide-react';
 import type { EpisodeRating } from '@/types';
-import { formatRating } from '@/lib/rating';
+import { areAllEpisodesRated, formatRating, getEpisodeCount } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
 import Poster from './Poster';
 
@@ -300,7 +300,7 @@ function CompactEpisodeRatingGrid({
   editable: boolean;
   onChange?: (episodeNumber: number, value?: EpisodeRating) => void;
 }) {
-  const episodeCount = Math.max(1, totalEpisodes, ...Object.keys(ratings).map(Number).filter(Number.isFinite));
+  const episodeCount = getEpisodeCount(totalEpisodes, ratings);
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(null);
   const [draftRating, setDraftRating] = useState<EpisodeRating>(DEFAULT_EPISODE_RATING);
   const selectedRating = selectedEpisode === null ? undefined : ratings[String(selectedEpisode)];
@@ -671,15 +671,12 @@ function FlowEpisodeRatingGrid({
   storylineRating,
   onStorylineRatingChange,
 }: EpisodeRatingGridProps) {
-  const episodeCount = Math.max(1, totalEpisodes, ...Object.keys(ratings).map(Number).filter(Number.isFinite));
+  const episodeCount = getEpisodeCount(totalEpisodes, ratings);
   const episodes = useMemo(
     () => Array.from({ length: episodeCount }, (_, index) => index + 1),
     [episodeCount],
   );
-  const allEpisodesRated = episodes.every((episodeNumber) => {
-    const rating = ratings[String(episodeNumber)]?.yourRating;
-    return typeof rating === 'number' && Number.isFinite(rating) && rating >= 1 && rating <= 10;
-  });
+  const allEpisodesRated = areAllEpisodesRated(ratings, episodeCount);
   const storylineSlideVisible = showStorylineSlide && !allEpisodesRated;
   const slideCount = episodeCount + (storylineSlideVisible ? 1 : 0);
   const [selectedSlide, setSelectedSlide] = useState(1);

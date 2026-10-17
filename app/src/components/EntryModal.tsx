@@ -6,8 +6,7 @@ import Poster from './Poster';
 import EditEntryModal from './EditEntryModal';
 import FavoriteEvaluation from './FavoriteEvaluation';
 import type { ActorRole, Entry } from '@/types';
-import { formatRating } from '@/lib/rating';
-import { getEpisodeAverage } from '@/lib/rating';
+import { formatRating, getEpisodeAverage, getEpisodeCount } from '@/lib/rating';
 import {
   formatEntryTitle,
   formatSeasonLabel,
@@ -46,7 +45,7 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
   const entryGenres = state.genreTags.filter((tag) => entry?.genres?.includes(tag.id));
   const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const episodeCount = entry
-    ? Math.max(1, ongoing?.totalEpisodes || entry.totalEpisodes || 0, ...Object.keys(entry.episodeRatings || {}).map(Number).filter(Number.isFinite))
+    ? getEpisodeCount(ongoing?.totalEpisodes || entry.totalEpisodes || 0, entry.episodeRatings)
     : 1;
   const episodeSchedule = ongoing ? getOngoingSchedule(ongoing, new Date()) : null;
 
