@@ -10,6 +10,7 @@ import {
   calculateOverallRating,
   formatRating,
   getBonusCount,
+  getEpisodeAverage,
   getEffectiveStorylineRating,
   getEpisodeCount,
 } from '@/lib/rating';
@@ -612,6 +613,7 @@ export default function FavoriteEvaluation({
     }
   }, [isOpen, existingFavorite, entry?.storylineRating]);
 
+  const episodeAverage = getEpisodeAverage(entry?.episodeRatings);
   const effectiveStoryline = getEffectiveStorylineRating(entry);
   const calculatedStoryline = effectiveStoryline ?? storyline;
 
