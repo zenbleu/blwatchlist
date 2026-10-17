@@ -421,7 +421,13 @@ export default function OngoingTab() {
     if (verificationPassed && entry) {
       dispatch({
         type: "UPDATE_ENTRY",
-        payload: { ...entry, status: "COMPLETE" },
+        payload: {
+          ...entry,
+          status: "COMPLETE",
+          // Ongoing episode counts are edited in the separate ongoing record;
+          // carry the latest count across before UPDATE_ENTRY removes it.
+          totalEpisodes: ongoingData.totalEpisodes,
+        },
       });
       return true;
     } else {
