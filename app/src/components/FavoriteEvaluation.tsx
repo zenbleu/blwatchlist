@@ -826,6 +826,12 @@ export default function FavoriteEvaluation({
                 entryTitle={entry.title}
                 season={entry.season}
                 editable={isEditable}
+                showStorylineSlide={evaluationType === 'rating' && entry.status === 'COMPLETE'}
+                storylineRating={entry.storylineRating}
+                onStorylineRatingChange={(rating) => dispatch({
+                  type: 'UPDATE_STORYLINE_RATING',
+                  payload: { entryId: entry.id, rating },
+                })}
                 onChange={(episodeNumber, value) => {
                   dispatch({
                     type: 'UPDATE_EPISODE_RATING',
