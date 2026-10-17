@@ -118,6 +118,10 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     )
     .slice(0, 50);
   const selectedGenreTags = state.genreTags.filter((tag) => selectedGenreIds.includes(tag.id));
+  const releaseCalendarCountMismatch = status === 'ONGOING'
+    && relationshipType !== 'specialEpisode'
+    && releaseDates.length > 0
+    && Math.floor(totalEp) !== releaseDates.length;
   const normalizedGenreSearch = genreSearchTerm.trim().toLocaleLowerCase();
   const filteredGenreTags = state.genreTags
     .filter((tag) =>
@@ -241,6 +245,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setError('Title is required');
       return;
     }
+    if (releaseCalendarCountMismatch) return;
     const selectedParent = parentEntryId
       ? state.entries.find((existing) => existing.id === parentEntryId && canSelectParent(existing))
       : undefined;
@@ -349,7 +354,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
       ...(plannedDate && (status === 'PLANNED' || status === 'ONGOING' || savedRelationshipType === 'specialEpisode') ? { plannedDate } : {}),
       ...(plannedTime ? { plannedTime } : {}),
-      ...((ongoing || entry?.totalEpisodes != null || status === 'ONGOING')
+      ...((ongoing || entry?.totalEpisodes != null || status === 'ONGOING' || status === 'COMPLETE')
         ? { totalEpisodes: Math.max(1, Math.floor(totalEp)) }
         : {}),
     };
@@ -943,6 +948,23 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             </div>
           </div>
 
+          {status === 'COMPLETE' && (
+            <div className="space-y-2 rounded-xl bg-white/[0.04] p-4">
+              <Label className="text-[#B3B3B3]">Total Episodes</Label>
+              <Input
+                type="number"
+                value={totalEp}
+                min={1}
+                step={1}
+                onChange={(event) => setTotalEp(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
+                className="bg-white/[0.06] border-white/10 text-white"
+              />
+              <p className="text-[10px] text-[#666]">
+                Used to determine episode-rating progress and the final Storyline slide.
+              </p>
+            </div>
+          )}
+
           {/* Planned Date */}
           {(status === 'PLANNED' || relationshipType === 'specialEpisode') && (
             <div className="space-y-3 bg-white/[0.04] rounded-xl p-4">
@@ -1027,6 +1049,11 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                     onChange={(event) => setTotalEp(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
                     className="bg-white/[0.06] border-white/10 text-white"
                   />
+                  {releaseCalendarCountMismatch && (
+                    <p role="alert" className="mt-1 text-[10px] leading-4 text-amber-400">
+                      Release Calendar has {releaseDates.length} episodes. Match this count before saving.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1051,7 +1078,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!title.trim()}
+              disabled={!title.trim() || releaseCalendarCountMismatch}
               className="flex-1 bg-[#E50914] hover:bg-[#E50914]/90 text-white font-semibold"
             >
               Save
