@@ -233,11 +233,11 @@ function AiringTodayCarousel({
                         src={item.entry.poster}
                         alt={item.entry.title}
                         className="w-full h-full object-cover"
-                        // These cards are visible in the initial 3D carousel,
-                        // but their transforms can confuse browser lazy-load
-                        // visibility checks until the user interacts.
-                        loading="eager"
+                        // Prioritize the active poster and defer the surrounding
+                        // transformed cards to avoid fetching every image at once.
+                        loading={isActive ? 'eager' : 'lazy'}
                         decoding="async"
+                        fetchPriority={isActive ? 'high' : 'auto'}
                         draggable={false}
                       />
                     ) : (
@@ -908,6 +908,17 @@ export default function OverviewTab() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const entryById = useMemo(
+    () => new Map<string, Entry>(state.entries.map((entry): [string, Entry] => [entry.id, entry])),
+    [state.entries],
+  );
+  const ongoingByEntryId = useMemo(
+    () => new Map<string, OngoingEntry>(
+      state.ongoing.map((ongoing): [string, OngoingEntry] => [ongoing.entryId, ongoing]),
+    ),
+    [state.ongoing],
+  );
+
   const airingToday = useMemo(() => {
     return state.ongoing
       .map(o => ({ ongoing: o, schedule: getOngoingSchedule(o, now) }))
@@ -917,17 +928,17 @@ export default function OverviewTab() {
          schedule.isFinalEpisodeScheduledToday,
        )
       .map(o => {
-        const entry = state.entries.find(e => e.id === o.ongoing.entryId);
-          return entry
-            ? { entry, ongoing: o.ongoing, schedule: o.schedule }
-            : null;
+        const entry = entryById.get(o.ongoing.entryId);
+        return entry
+          ? { entry, ongoing: o.ongoing, schedule: o.schedule }
+          : null;
       })
        .filter(Boolean) as {
          entry: Entry;
          ongoing: typeof state.ongoing[number];
          schedule: ReturnType<typeof getOngoingSchedule>;
        }[];
-  }, [state, now]);
+  }, [state.ongoing, now, entryById]);
 
   // Entries for Recently Added (General List only)
   const generalListEntries = useMemo(() => {
@@ -937,9 +948,9 @@ export default function OverviewTab() {
   // Entries for Rewatch Picks
   const favoritedEntries = useMemo(() => {
     return state.favorites
-      .map(f => state.entries.find(e => e.id === f.entryId))
+      .map(f => entryById.get(f.entryId))
       .filter(Boolean) as Entry[];
-  }, [state.favorites, state.entries]);
+  }, [state.favorites, entryById]);
 
   const ratingByEntryId = useMemo(() => {
     const ratings = new Map<string, number>();
@@ -952,7 +963,7 @@ export default function OverviewTab() {
     return state.entries
       .filter((entry) => entry.status === 'ONGOING')
       .map((entry) => {
-        const ongoingData = state.ongoing.find((ongoing) => ongoing.entryId === entry.id);
+        const ongoingData = ongoingByEntryId.get(entry.id);
         return ongoingData
           ? { entry, ongoingData, schedule: getOngoingSchedule(ongoingData, now) }
           : null;
@@ -962,7 +973,7 @@ export default function OverviewTab() {
         ongoingData: OngoingEntry;
         schedule: ReturnType<typeof getOngoingSchedule>;
       }[];
-  }, [state.entries, state.ongoing, now]);
+  }, [state.entries, ongoingByEntryId, now]);
 
   const continueWatching = useMemo(() => {
     return [...ongoingItems].sort((a, b) => {
@@ -1054,6 +1065,7 @@ export default function OverviewTab() {
         <BLReleasesPanel
           entries={state.entries}
           year={now.getFullYear()}
+          ratingByEntryId={ratingByEntryId}
           onEntryClick={setSelectedEntry}
         />
       </div>

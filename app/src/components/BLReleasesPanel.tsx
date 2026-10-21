@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import type { Entry } from '@/types';
 import { formatSeasonLabel } from '@/lib/entry';
+import { formatRating } from '@/lib/rating';
 import Poster from './Poster';
 
 const RELEASE_COUNTRIES = [
@@ -47,13 +48,36 @@ function normalizeReleaseCountry(country: string): string {
   )?.country ?? cleaned;
 }
 
+function ReleaseRatingBadge({ rating }: { rating: number }) {
+  const hasRating = Number.isFinite(rating) && rating > 0;
+  if (!hasRating) {
+    return (
+      <span className="absolute right-3 top-3 rounded-lg bg-black/25 px-2 py-1.5 text-xl font-bold leading-none text-white/60 backdrop-blur-[2px]">
+        —
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-label={`Rating ${formatRating(rating)} out of 10`}
+      className="absolute right-3 top-3 z-10 inline-flex max-w-[calc(100%-1.5rem)] items-center gap-1 whitespace-nowrap rounded-lg bg-black/25 px-2 py-1.5 text-xl font-extrabold leading-none text-white shadow-[0_1px_8px_rgba(0,0,0,0.8)] backdrop-blur-[2px]"
+    >
+      <span aria-hidden="true">⭐</span>
+      <span>{formatRating(rating)}</span>
+    </span>
+  );
+}
+
 function BLReleaseCarousel({
   entries,
   year,
+  ratingByEntryId,
   onEntryClick,
 }: {
   entries: Entry[];
   year: number;
+  ratingByEntryId: ReadonlyMap<string, number>;
   onEntryClick: (entry: Entry) => void;
 }) {
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -79,26 +103,32 @@ function BLReleaseCarousel({
             type="button"
             onClick={() => onEntryClick(entry)}
             aria-label={`View details for ${entry.title}`}
-            className="group w-[112px] shrink-0 snap-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] sm:w-[126px]"
+            className="group relative block w-[min(74vw,220px)] shrink-0 snap-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#080808] sm:w-[210px] lg:w-[clamp(210px,17.5vw,250px)]"
           >
-            <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/[0.1] bg-[#171717] shadow-lg transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-white/[0.24]">
+            <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#151515] shadow-xl transition-all duration-300 group-hover:-translate-y-1 group-hover:border-white/[0.25]">
               <Poster
                 src={entry.poster}
                 title={entry.title}
                 size="lg"
-                className="!h-full !w-full !rounded-xl transition-transform duration-500 group-hover:scale-[1.03]"
+                className="!h-full !w-full !rounded-2xl transition-transform duration-500 group-hover:scale-[1.03]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
-              <span className="absolute left-2 top-2 rounded-full border border-white/15 bg-black/45 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-white/90 backdrop-blur-sm">
-                BL release
-              </span>
-              <div className="absolute inset-x-2 bottom-2.5">
-                <p className="line-clamp-2 text-xs font-bold leading-snug text-white transition-colors group-hover:text-[#ff6670]">
+              <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-transparent to-black/95" />
+              <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+              <ReleaseRatingBadge rating={ratingByEntryId.get(entry.id) ?? 0} />
+              <div className="absolute inset-x-4 bottom-4">
+                <p className="line-clamp-2 text-base font-bold leading-tight text-white transition-colors group-hover:text-[#ff6670] sm:text-lg">
                   {entry.title}
                 </p>
-                <p className="mt-1 truncate text-[9px] text-white/70">
-                  {entry.year} · {entry.type}
-                  {entry.season != null && ` · ${formatSeasonLabel(entry.season)}`}
+                <p className="mt-1.5 text-[11px] text-white/75">
+                  {entry.year}
+                  <span className="mx-1.5 text-white/35">•</span>
+                  {entry.type}
+                  {entry.season != null && (
+                    <>
+                      <span className="mx-1.5 text-white/35">•</span>
+                      {formatSeasonLabel(entry.season)}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -132,21 +162,24 @@ function BLReleaseCarousel({
 export default function BLReleasesPanel({
   entries,
   year,
+  ratingByEntryId,
   onEntryClick,
 }: {
   entries: Entry[];
   year: number;
+  ratingByEntryId: ReadonlyMap<string, number>;
   onEntryClick: (entry: Entry) => void;
 }) {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const groups = useMemo(() => {
     const entriesByCountry = new Map<string, Entry[]>();
-    entries
-      .filter((entry) => entry.status === 'COMPLETE' && entry.year === year)
-      .forEach((entry) => {
-        const country = normalizeReleaseCountry(entry.country);
-        entriesByCountry.set(country, [...(entriesByCountry.get(country) ?? []), entry]);
-      });
+    for (const entry of entries) {
+      if (entry.status !== 'COMPLETE' || entry.year !== year) continue;
+      const country = normalizeReleaseCountry(entry.country);
+      const countryEntries = entriesByCountry.get(country);
+      if (countryEntries) countryEntries.push(entry);
+      else entriesByCountry.set(country, [entry]);
+    }
 
     return Array.from(entriesByCountry, ([country, countryEntries]) => {
       const countryIndex = RELEASE_COUNTRIES.findIndex((option) => option.country === country);
@@ -160,11 +193,6 @@ export default function BLReleasesPanel({
   }, [entries, year]);
   const previewEntries = groups.flatMap((group) => group.entries).slice(0, 3);
   const releaseCount = groups.reduce((count, group) => count + group.entries.length, 0);
-
-  const openEntry = (entry: Entry) => {
-    setLibraryOpen(false);
-    onEntryClick(entry);
-  };
 
   return (
     <>
@@ -227,7 +255,7 @@ export default function BLReleasesPanel({
       <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
         <DialogContent
           showCloseButton={false}
-          className="!fixed !inset-0 !left-0 !top-0 !z-[90] !h-screen !max-h-none !w-screen !max-w-none !translate-x-0 !translate-y-0 !rounded-none !border-0 overflow-hidden bg-[#0a0a0a] p-0 text-white shadow-2xl"
+          className="!fixed !inset-0 !left-0 !top-0 !z-[50] !h-screen !max-h-none !w-screen !max-w-none !translate-x-0 !translate-y-0 !rounded-none !border-0 overflow-hidden bg-[#0a0a0a] p-0 text-white shadow-2xl"
         >
           <DialogTitle className="sr-only">BL Releases {year}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -267,14 +295,23 @@ export default function BLReleasesPanel({
                 ) : (
                   <div className="space-y-8">
                     {groups.map((group) => (
-                      <section key={group.country} className="min-w-0">
+                      <section
+                        key={group.country}
+                        className="min-w-0"
+                        style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 390px' }}
+                      >
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff737a]">
                             {group.label} BL {year}
                           </h3>
                           <span className="shrink-0 text-[10px] tabular-nums text-[#666]">{group.entries.length}</span>
                         </div>
-                        <BLReleaseCarousel entries={group.entries} year={year} onEntryClick={openEntry} />
+                        <BLReleaseCarousel
+                          entries={group.entries}
+                          year={year}
+                          ratingByEntryId={ratingByEntryId}
+                          onEntryClick={onEntryClick}
+                        />
                       </section>
                     ))}
                   </div>
