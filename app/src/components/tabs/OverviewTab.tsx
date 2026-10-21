@@ -26,6 +26,7 @@ import {
 } from '@/lib/episodeSchedule';
 import { formatRating } from '@/lib/rating';
 import BLGamesPanel from '../BLGamesPanel';
+import BLReleasesPanel from '../BLReleasesPanel';
 
 const RECENTLY_ADDED_WINDOW = 24 * 60 * 60 * 1000;
 
@@ -510,7 +511,7 @@ function UpcomingReleasesSection({
           <p className="text-sm text-[#777]">No upcoming releases on your current watchlist.</p>
         </div>
       ) : (
-        <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {releases.slice(0, 6).map(({ entry, release }) => {
             const releaseTitle = release.type === 'special'
               ? `Special ${release.specialEpisode?.specialNumber ?? ''} · ${release.specialEpisode?.title ?? 'Special Episode'}`
@@ -549,185 +550,6 @@ function UpcomingReleasesSection({
           })}
         </div>
       )}
-    </section>
-  );
-}
-
-const RELEASE_COUNTRIES = [
-  { country: 'Thailand', label: 'THAILAND' },
-  { country: 'Japan', label: 'JAPANESE' },
-  { country: 'South Korea', label: 'KOREAN' },
-  { country: 'Taiwan', label: 'TAIWANESE' },
-  { country: 'China', label: 'CHINESE' },
-  { country: 'Hong Kong', label: 'HONG KONG' },
-  { country: 'Philippines', label: 'FILIPINO' },
-  { country: 'Vietnam', label: 'VIETNAMESE' },
-  { country: 'Singapore', label: 'SINGAPOREAN' },
-  { country: 'Malaysia', label: 'MALAYSIAN' },
-  { country: 'Indonesia', label: 'INDONESIAN' },
-  { country: 'India', label: 'INDIAN' },
-  { country: 'US', label: 'AMERICAN' },
-  { country: 'UK', label: 'BRITISH' },
-  { country: 'Canada', label: 'CANADIAN' },
-  { country: 'Australia', label: 'AUSTRALIAN' },
-  { country: 'Italy', label: 'ITALIAN' },
-  { country: 'Spain', label: 'SPANISH' },
-  { country: 'France', label: 'FRENCH' },
-  { country: 'Germany', label: 'GERMAN' },
-  { country: 'Netherlands', label: 'DUTCH' },
-  { country: 'Belgium', label: 'BELGIAN' },
-  { country: 'Argentina', label: 'ARGENTINIAN' },
-  { country: 'Brazil', label: 'BRAZILIAN' },
-  { country: 'Mexico', label: 'MEXICAN' },
-  { country: 'Other', label: 'OTHER' },
-] as const;
-
-function normalizeReleaseCountry(country: string): string {
-  const cleaned = country.replace(/\s*\p{Emoji}\s*/gu, '').trim();
-  if (!cleaned) return 'Other';
-  return RELEASE_COUNTRIES.find(
-    (option) => option.country.toLocaleLowerCase() === cleaned.toLocaleLowerCase(),
-  )?.country ?? cleaned;
-}
-
-function BLReleaseCarousel({
-  entries,
-  year,
-  onEntryClick,
-}: {
-  entries: Entry[];
-  year: number;
-  onEntryClick: (entry: Entry) => void;
-}) {
-  const carouselRef = useRef<HTMLDivElement>(null);
-  const scroll = (direction: -1 | 1) => {
-    const carousel = carouselRef.current;
-    if (!carousel) return;
-    carousel.scrollBy({
-      left: direction * Math.max(190, carousel.clientWidth * 0.78),
-      behavior: 'smooth',
-    });
-  };
-
-  return (
-    <div className="relative">
-      <div
-        ref={carouselRef}
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-3 pt-1 scrollbar-hide"
-        aria-label={`Completed ${year} releases`}
-      >
-        {entries.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            onClick={() => onEntryClick(entry)}
-            aria-label={`View details for ${entry.title}`}
-            className="group w-[112px] shrink-0 snap-start text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101010] sm:w-[126px]"
-          >
-            <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/[0.1] bg-[#171717] shadow-lg transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-white/[0.24]">
-              <Poster
-                src={entry.poster}
-                title={entry.title}
-                size="lg"
-                className="!h-full !w-full !rounded-xl transition-transform duration-500 group-hover:scale-[1.03]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
-              <span className="absolute left-2 top-2 rounded-full border border-white/15 bg-black/45 px-2 py-1 text-[8px] font-bold uppercase tracking-[0.12em] text-white/90 backdrop-blur-sm">
-                BL release
-              </span>
-              <div className="absolute inset-x-2 bottom-2.5">
-                <p className="line-clamp-2 text-xs font-bold leading-snug text-white transition-colors group-hover:text-[#ff6670]">
-                  {entry.title}
-                </p>
-                <p className="mt-1 truncate text-[9px] text-white/70">
-                  {entry.year} · {entry.type}
-                  {entry.season != null && ` · ${formatSeasonLabel(entry.season)}`}
-                </p>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-      {entries.length > 1 && (
-        <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-0.5">
-          <button
-            type="button"
-            onClick={() => scroll(-1)}
-            aria-label="Scroll releases left"
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.12] bg-[#171717]/90 text-white shadow-lg transition-colors hover:border-[#E50914]/50 hover:bg-[#292020]"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scroll(1)}
-            aria-label="Scroll releases right"
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.12] bg-[#171717]/90 text-white shadow-lg transition-colors hover:border-[#E50914]/50 hover:bg-[#292020]"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BLReleasesSection({
-  entries,
-  year,
-  onEntryClick,
-}: {
-  entries: Entry[];
-  year: number;
-  onEntryClick: (entry: Entry) => void;
-}) {
-  const entriesByCountry = new Map<string, Entry[]>();
-  entries
-    .filter((entry) => entry.status === 'COMPLETE' && entry.year === year)
-    .forEach((entry) => {
-      const country = normalizeReleaseCountry(entry.country);
-      entriesByCountry.set(country, [...(entriesByCountry.get(country) ?? []), entry]);
-    });
-  const groups = Array.from(entriesByCountry, ([country, countryEntries]) => {
-    const countryIndex = RELEASE_COUNTRIES.findIndex((option) => option.country === country);
-    return {
-      country,
-      label: RELEASE_COUNTRIES.find((option) => option.country === country)?.label ?? country.toLocaleUpperCase(),
-      order: countryIndex < 0 ? RELEASE_COUNTRIES.length : countryIndex,
-      entries: countryEntries.sort((a, b) => a.title.localeCompare(b.title)),
-    };
-  }).sort((a, b) => a.order - b.order || a.country.localeCompare(b.country));
-
-  return (
-    <section className="min-w-0">
-      <div className="mb-3 flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-[#E50914]" />
-        <h2 className="text-base font-bold text-white">BL Releases {year}</h2>
-        <span className="text-xs text-[#666]">{groups.reduce((count, group) => count + group.entries.length, 0)} completed</span>
-      </div>
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#191016] via-[#121212] to-[#111] px-3 py-4 sm:px-4">
-        <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-[#E50914]/10 blur-3xl" />
-        {groups.length === 0 ? (
-          <div className="relative flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.08] px-4 py-6 text-center">
-            <p className="text-sm font-semibold text-[#aaa]">No completed releases for {year} yet.</p>
-            <p className="mt-1 text-xs text-[#666]">Completed entries from this year will appear by country.</p>
-          </div>
-        ) : (
-          <div className="relative space-y-5">
-            {groups.map((group) => (
-              <div key={group.country} className="min-w-0">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff737a]">
-                    {group.label} BL {year}
-                  </h3>
-                  <span className="shrink-0 text-[10px] tabular-nums text-[#666]">{group.entries.length}</span>
-                </div>
-                <BLReleaseCarousel entries={group.entries} year={year} onEntryClick={onEntryClick} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </section>
   );
 }
@@ -1229,7 +1051,7 @@ export default function OverviewTab() {
           now={now}
           onEntryClick={setSelectedEntry}
         />
-        <BLReleasesSection
+        <BLReleasesPanel
           entries={state.entries}
           year={now.getFullYear()}
           onEntryClick={setSelectedEntry}
