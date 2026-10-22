@@ -40,9 +40,38 @@ const RELEASE_COUNTRIES = [
   { country: 'Other', label: 'OTHER' },
 ] as const;
 
+const COUNTRY_FLAGS: Record<string, string> = {
+  Thailand: '🇹🇭',
+  Japan: '🇯🇵',
+  'South Korea': '🇰🇷',
+  Taiwan: '🇹🇼',
+  China: '🇨🇳',
+  'Hong Kong': '🇭🇰',
+  Philippines: '🇵🇭',
+  Vietnam: '🇻🇳',
+  Singapore: '🇸🇬',
+  Malaysia: '🇲🇾',
+  Indonesia: '🇮🇩',
+  India: '🇮🇳',
+  US: '🇺🇸',
+  UK: '🇬🇧',
+  Canada: '🇨🇦',
+  Australia: '🇦🇺',
+  Italy: '🇮🇹',
+  Spain: '🇪🇸',
+  France: '🇫🇷',
+  Germany: '🇩🇪',
+  Netherlands: '🇳🇱',
+  Belgium: '🇧🇪',
+  Argentina: '🇦🇷',
+  Brazil: '🇧🇷',
+  Mexico: '🇲🇽',
+};
+
 function normalizeReleaseCountry(country: string): string {
   const cleaned = country.replace(/\s*\p{Emoji}\s*/gu, '').trim();
   if (!cleaned) return 'Other';
+  if (cleaned.toLocaleLowerCase() === 'korea') return 'South Korea';
   return RELEASE_COUNTRIES.find(
     (option) => option.country.toLocaleLowerCase() === cleaned.toLocaleLowerCase(),
   )?.country ?? cleaned;
@@ -193,6 +222,36 @@ export default function BLReleasesPanel({
   }, [entries, year]);
   const previewEntries = groups.flatMap((group) => group.entries).slice(0, 3);
   const releaseCount = groups.reduce((count, group) => count + group.entries.length, 0);
+  const topRatedCountry = useMemo(() => {
+    return groups
+      .map((group) => {
+        const ratedEntries = group.entries
+          .map((entry) => ratingByEntryId.get(entry.id) ?? 0)
+          .filter((rating) => Number.isFinite(rating) && rating > 0);
+        return {
+          country: group.country,
+          average: ratedEntries.length
+            ? ratedEntries.reduce((sum, rating) => sum + rating, 0) / ratedEntries.length
+            : 0,
+          ratedCount: ratedEntries.length,
+        };
+      })
+      .filter((group) => group.ratedCount > 0)
+      .sort((a, b) => b.average - a.average || b.ratedCount - a.ratedCount || a.country.localeCompare(b.country))[0] ?? null;
+  }, [groups, ratingByEntryId]);
+  const topRatedEntries = useMemo(
+    () => groups
+      .flatMap((group) => group.entries)
+      .filter((entry) => {
+        const rating = ratingByEntryId.get(entry.id) ?? 0;
+        return rating >= 9.5 && rating <= 10;
+      })
+      .sort((a, b) =>
+        (ratingByEntryId.get(b.id) ?? 0) - (ratingByEntryId.get(a.id) ?? 0)
+        || a.title.localeCompare(b.title),
+      ),
+    [groups, ratingByEntryId],
+  );
 
   return (
     <>
@@ -279,7 +338,7 @@ export default function BLReleasesPanel({
                       BL Releases {year}
                     </p>
                     <h2 className="mt-2 text-2xl font-extrabold text-white sm:text-3xl">
-                      Completed Releases by Country
+                      BL Releases {year} (COMPLETED)
                     </h2>
                   </div>
                   <span className="rounded-full border border-white/10 px-3 py-1 text-[10px] font-semibold text-[#777]">
@@ -316,6 +375,65 @@ export default function BLReleasesPanel({
                     ))}
                   </div>
                 )}
+
+                <div className="mt-10 grid gap-4 md:grid-cols-2">
+                  <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#191016] to-[#111] p-5">
+                    <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[#ff737a]">
+                      Top Rated Country This Year
+                    </h3>
+                    {topRatedCountry ? (
+                      <div className="mt-5 flex min-h-24 items-center gap-4">
+                        <span className="text-5xl leading-none" role="img" aria-label={`${topRatedCountry.country} flag`}>
+                          {COUNTRY_FLAGS[topRatedCountry.country] ?? '🏳️'}
+                        </span>
+                        <div>
+                          <p className="text-2xl font-extrabold text-white">{topRatedCountry.country}</p>
+                          <p className="mt-1 text-sm text-[#999]">
+                            {topRatedCountry.average.toFixed(2)} average · {topRatedCountry.ratedCount} rated
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-5 text-sm text-[#777]">Rate a completed release to see the top country.</p>
+                    )}
+                  </section>
+
+                  <section className="min-w-0 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#191016] to-[#111] p-5">
+                    <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[#ff737a]">
+                      Top Rated BL This Year
+                    </h3>
+                    {topRatedEntries.length > 0 ? (
+                      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {topRatedEntries.map((entry) => (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            onClick={() => onEntryClick(entry)}
+                            aria-label={`View ${entry.title}, rated ${formatRating(ratingByEntryId.get(entry.id) ?? 0)}`}
+                            className="group min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914] focus-visible:ring-offset-2 focus-visible:ring-offset-[#111]"
+                          >
+                            <div className="relative aspect-[2/3] overflow-hidden rounded-xl">
+                              <Poster
+                                src={entry.poster}
+                                title={entry.title}
+                                size="md"
+                                className="!h-full !w-full !rounded-xl border border-white/10 transition-transform group-hover:-translate-y-1"
+                              />
+                              <span className="absolute right-1.5 top-1.5 rounded-md bg-black/75 px-1.5 py-1 text-xs font-bold text-white">
+                                ★ {formatRating(ratingByEntryId.get(entry.id) ?? 0)}
+                              </span>
+                            </div>
+                            <p className="mt-2 line-clamp-2 text-xs font-semibold text-white group-hover:text-[#ff737a]">
+                              {entry.title}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-5 text-sm text-[#777]">No completed releases rated 9.5 or higher yet.</p>
+                    )}
+                  </section>
+                </div>
               </div>
             </div>
           </div>
