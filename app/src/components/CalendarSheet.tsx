@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import type { Entry, OngoingEntry, AirDay, SpecialEpisode } from "@/types";
+import { useApp } from "@/context/AppContext";
 import Poster from "./Poster";
 
 const WEEK_DAYS: AirDay[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -40,6 +41,7 @@ export default function CalendarSheet({
   plannedEntries,
   onEntryClick,
 }: CalendarSheetProps) {
+  const { getOngoingByEntryId } = useApp();
   const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" }) as AirDay;
   const [selectedDay, setSelectedDay] = useState<AirDay>(todayName);
 
@@ -75,6 +77,7 @@ export default function CalendarSheet({
       type: "ongoing" | "planned" | "special";
       ongoingData?: OngoingEntry;
       specialEpisode?: SpecialEpisode;
+      episodeNumber?: number;
       eventKey: string;
     }[] = [];
 
@@ -145,14 +148,48 @@ export default function CalendarSheet({
       }
     }
 
-    // Add planned entries — use specific plannedDate if set, otherwise year placeholder
+    // Add planned entries — use specific episode release dates if set, otherwise plannedDate or year placeholder
     const currentYear = now.getFullYear();
     for (const entry of plannedEntries) {
       if (entry.year >= currentYear) {
-        const date = entry.plannedDate
-          ? new Date(entry.plannedDate + "T00:00:00")
-          : new Date(entry.year, 0, 1);
-        result.push({ date, entry, type: "planned", eventKey: `${entry.id}:planned:${date.toDateString()}` });
+        const ongoingData = getOngoingByEntryId(entry.id);
+        if (ongoingData?.trackingMode === 'calendar' && ongoingData.releaseDates && ongoingData.releaseDates.length > 0) {
+          for (const [releaseIndex, releaseDate] of ongoingData.releaseDates.entries()) {
+            const date = parseReleaseDate(releaseDate);
+            if (!date) continue;
+            const daysUntil = Math.floor(
+              (date.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+                (24 * 60 * 60 * 1000),
+            );
+            if (daysUntil >= 0 && daysUntil <= 14) {
+              result.push({
+                date,
+                entry,
+                type: "planned",
+                ongoingData,
+                episodeNumber: releaseIndex + 1,
+                eventKey: `${entry.id}:planned:${releaseDate}:${releaseIndex}`,
+              });
+            }
+          }
+        } else {
+          const date = entry.plannedDate
+            ? new Date(entry.plannedDate + "T00:00:00")
+            : new Date(entry.year, 0, 1);
+          const daysUntil = Math.floor(
+            (date.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+              (24 * 60 * 60 * 1000),
+          );
+          if (daysUntil >= 0 && daysUntil <= 14) {
+            result.push({
+              date,
+              entry,
+              type: "planned",
+              ...(ongoingData ? { ongoingData } : {}),
+              eventKey: `${entry.id}:planned:${date.toDateString()}`,
+            });
+          }
+        }
       }
     }
 
@@ -345,7 +382,7 @@ export default function CalendarSheet({
                           : item.type === "ongoing" && item.ongoingData
                           ? `Ep ${item.ongoingData.currentEpisode + 1}/${item.ongoingData.totalEpisodes}`
                           : item.type === "planned"
-                          ? "Premiere"
+                          ? (item.episodeNumber ? `Ep ${item.episodeNumber}/${item.ongoingData?.totalEpisodes || item.entry.totalEpisodes || '?'}` : "Premiere")
                           : "";
 
                       return (

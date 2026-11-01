@@ -50,6 +50,23 @@ function getParentPickerRelationshipLabel(entry: Entry): string | null {
   return getEntryRelationshipLabel(entry) || (getSeasonNumber(entry) === 1 ? 'Season 1' : null);
 }
 
+function getAirDayFromDateString(dateStr: string): AirDay {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!match) return 'Monday';
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const dayIndex = date.getDay();
+  const map: Record<number, AirDay> = {
+    0: 'Sunday',
+    1: 'Monday',
+    2: 'Tuesday',
+    3: 'Wednesday',
+    4: 'Thursday',
+    5: 'Friday',
+    6: 'Saturday',
+  };
+  return map[dayIndex] || 'Monday';
+}
+
 interface EditEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -118,7 +135,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     )
     .slice(0, 50);
   const selectedGenreTags = state.genreTags.filter((tag) => selectedGenreIds.includes(tag.id));
-  const releaseCalendarCountMismatch = status === 'ONGOING'
+  const releaseCalendarCountMismatch = (status === 'ONGOING' || status === 'PLANNED')
     && relationshipType !== 'specialEpisode'
     && releaseDates.length > 0
     && Math.floor(totalEp) !== releaseDates.length;
@@ -159,21 +176,23 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setCountry(entry.country.replace(/\s*\p{Emoji}\s*/gu, '').trim());
       setStatus(entry.status);
       setPosterData(entry.poster);
-      setPlannedDate(entry.plannedDate || '');
-      setPlannedTime(entry.plannedTime || '');
+      setPlannedDate(entry.plannedDate || (ongoing?.firstAirDate || ''));
+      setPlannedTime(entry.plannedTime || (ongoing?.airTime || ''));
       setSelectedGenreIds(entry.genres || []);
       if (ongoing) {
         setAirDays(ongoing.airDays as AirDay[]);
-        setAirTime(ongoing.airTime || '00:00');
+        setAirTime(ongoing.airTime || entry.plannedTime || '00:00');
         setCurrentEp(ongoing.currentEpisode);
-        setTotalEp(Math.max(1, ongoing.totalEpisodes));
-        setReleaseDates(ongoing.releaseDates || []);
+        setTotalEp(Math.max(1, ongoing.totalEpisodes || entry.totalEpisodes || 1));
+        setReleaseDates(ongoing.releaseDates || (entry.plannedDate ? [entry.plannedDate] : []));
       } else {
-        setAirDays([]);
-        setAirTime('00:00');
+        const initialDate = entry.plannedDate || '';
+        const initialTime = entry.plannedTime || '00:00';
+        setAirDays(initialDate ? [getAirDayFromDateString(initialDate)] : []);
+        setAirTime(initialTime);
         setCurrentEp(0);
         setTotalEp(Math.max(1, entry.totalEpisodes || 1));
-        setReleaseDates([]);
+        setReleaseDates(initialDate ? [initialDate] : []);
       }
     } else {
       setTitle('');
@@ -218,14 +237,14 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setAutoPromotedFromPlanned(true);
       setStatus('ONGOING');
       setReleaseDates((current) => current.length > 0 ? current : [plannedDate]);
-      setTotalEp((current) => Math.max(current, 1));
+      setTotalEp((current) => (releaseDates.length > 0 ? releaseDates.length : Math.max(current, 1)));
       setAirTime(plannedTime);
     };
 
     promoteIfReleased();
     const timer = window.setInterval(promoteIfReleased, 60_000);
     return () => window.clearInterval(timer);
-  }, [isOpen, plannedDate, plannedTime, status]);
+  }, [isOpen, plannedDate, plannedTime, status, releaseDates.length]);
 
   const handlePosterUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -235,9 +254,42 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     reader.readAsDataURL(file);
   };
 
+  const handlePlannedDateChange = (date: string) => {
+    setPlannedDate(date);
+    if (date) {
+      const dayName = getAirDayFromDateString(date);
+      if (airDays.length === 0) {
+        setAirDays([dayName]);
+      }
+      if (releaseDates.length === 0) {
+        setReleaseDates([date]);
+        setTotalEp(1);
+      } else if (releaseDates.length > 0 && releaseDates[0] !== date) {
+        setReleaseDates([date, ...releaseDates.slice(1)]);
+      }
+    }
+  };
+
+  const handlePlannedTimeChange = (time: string) => {
+    setPlannedTime(time);
+    setAirTime(time);
+  };
+
+  const handleAirTimeChange = (time: string) => {
+    setAirTime(time);
+    setPlannedTime(time);
+  };
+
   const handleReleaseDatesSave = (dates: string[]) => {
     setReleaseDates(dates);
     setTotalEp(Math.max(1, dates.length));
+    if (dates.length > 0) {
+      setPlannedDate(dates[0]);
+      const dayName = getAirDayFromDateString(dates[0]);
+      if (airDays.length === 0) {
+        setAirDays([dayName]);
+      }
+    }
   };
 
   const handleSave = () => {
@@ -330,6 +382,12 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       : relationshipType === 'season' ? 'season' : 'original';
     const savedSeason = savedRelationshipType === 'season' ? season ?? 1 : undefined;
 
+    const effectiveAirTime = plannedTime || airTime || '00:00';
+    const effectiveFirstAirDate = plannedDate || (releaseDates.length > 0 ? releaseDates[0] : ongoing?.firstAirDate);
+    const effectiveAirDays = airDays.length > 0
+      ? airDays
+      : (effectiveFirstAirDate ? [getAirDayFromDateString(effectiveFirstAirDate)] : ['Monday' as AirDay]);
+
     const newEntry: Entry = {
       id: entry?.id || `bl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       title: title.trim(),
@@ -352,9 +410,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       createdAt: entry?.createdAt || Date.now(),
       lastUpdatedAt: entry?.lastUpdatedAt || entry?.createdAt || Date.now(),
       ...(entry?.episodeRatings ? { episodeRatings: entry.episodeRatings } : {}),
-      ...(plannedDate && (status === 'PLANNED' || status === 'ONGOING' || savedRelationshipType === 'specialEpisode') ? { plannedDate } : {}),
-      ...(plannedTime ? { plannedTime } : {}),
-      ...((ongoing || entry?.totalEpisodes != null || status === 'ONGOING' || status === 'COMPLETE')
+      ...((effectiveFirstAirDate && (status === 'PLANNED' || status === 'ONGOING' || savedRelationshipType === 'specialEpisode')) ? { plannedDate: effectiveFirstAirDate } : {}),
+      ...(effectiveAirTime ? { plannedTime: effectiveAirTime } : {}),
+      ...((ongoing || entry?.totalEpisodes != null || status === 'ONGOING' || status === 'COMPLETE' || status === 'PLANNED' || releaseDates.length > 0)
         ? { totalEpisodes: Math.max(1, Math.floor(totalEp)) }
         : {}),
     };
@@ -369,31 +427,27 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       }
     }
 
-    if (status === 'ONGOING') {
+    if (status === 'ONGOING' || status === 'PLANNED') {
       dispatch({
         type: 'UPDATE_ONGOING',
         payload: {
           entryId: newEntry.id,
           currentEpisode: savedRelationshipType === 'specialEpisode' ? Math.min(currentEp, 1) : currentEp,
-          totalEpisodes: savedRelationshipType === 'specialEpisode' ? 1 : totalEp,
-            ...(autoPromotedFromPlanned && plannedDate
-              ? { firstAirDate: plannedDate, premiereEpisodeCount: 1 }
-              : ongoing?.firstAirDate
-                ? { firstAirDate: ongoing.firstAirDate }
-                : {}),
-            ...(!autoPromotedFromPlanned && ongoing?.premiereEpisodeCount !== undefined
-              ? { premiereEpisodeCount: ongoing.premiereEpisodeCount }
-              : {}),
-            airDays: airDays.length > 0 ? airDays : ['Monday'] as AirDay[],
-            airTime: savedRelationshipType === 'specialEpisode' && plannedTime ? plannedTime : airTime,
-            trackingMode: (savedRelationshipType === 'specialEpisode' && (plannedDate || releaseDates.length > 0))
-              || releaseDates.length > 0
-              ? 'calendar'
-              : (ongoing?.trackingMode || 'recurring'),
-            releaseDates: savedRelationshipType === 'specialEpisode'
-              ? plannedDate ? [plannedDate] : releaseDates.slice(0, 1)
-              : releaseDates,
-            specialEpisodes: [],
+          totalEpisodes: savedRelationshipType === 'specialEpisode' ? 1 : Math.max(1, Math.floor(totalEp)),
+          firstAirDate: effectiveFirstAirDate,
+          airTime: effectiveAirTime,
+          airDays: effectiveAirDays,
+          trackingMode: (savedRelationshipType === 'specialEpisode' && (effectiveFirstAirDate || releaseDates.length > 0))
+            || releaseDates.length > 0
+            ? 'calendar'
+            : (ongoing?.trackingMode || 'recurring'),
+          releaseDates: savedRelationshipType === 'specialEpisode'
+            ? (effectiveFirstAirDate ? [effectiveFirstAirDate] : releaseDates.slice(0, 1))
+            : releaseDates,
+          premiereEpisodeCount: (!autoPromotedFromPlanned && ongoing?.premiereEpisodeCount !== undefined)
+            ? ongoing.premiereEpisodeCount
+            : 1,
+          specialEpisodes: ongoing?.specialEpisodes || [],
         }
       });
     }
@@ -965,8 +1019,76 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             </div>
           )}
 
-          {/* Planned Date */}
-          {(status === 'PLANNED' || relationshipType === 'specialEpisode') && (
+          {/* Planned Date, Air Days, & Release Calendar */}
+          {status === 'PLANNED' && (
+            <div className="space-y-3 bg-white/[0.04] rounded-xl p-4">
+              <div>
+                <label className="text-sm font-medium text-[#B3B3B3]">
+                  Release Date &amp; Time <span className="text-[#666] text-xs">(optional)</span>
+                </label>
+              </div>
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <input
+                  type="date"
+                  value={plannedDate}
+                  onChange={(e) => handlePlannedDateChange(e.target.value)}
+                  className="h-9 min-w-0 bg-white/[0.06] border border-white/10 rounded-lg px-3 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
+                />
+                <input
+                  type="time"
+                  value={plannedTime}
+                  onChange={(e) => handlePlannedTimeChange(e.target.value)}
+                  className="h-9 w-28 bg-white/[0.06] border border-white/10 rounded-lg px-2 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
+                  aria-label="Release time"
+                />
+              </div>
+
+              {/* Release Calendar Reused for Planned Entries */}
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setReleaseCalendarOpen(true)}
+                  className="w-full flex items-center justify-between gap-3 rounded-lg bg-white/[0.06] border border-white/10 px-3 py-2.5 text-left hover:bg-white/[0.1] transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-[#E50914]" />
+                    <span className="text-sm text-white">Edit episode release dates</span>
+                  </span>
+                  <span className="text-xs text-[#B3B3B3]">
+                    {releaseDates.length} episode{releaseDates.length === 1 ? '' : 's'}
+                  </span>
+                </button>
+                <p className="text-[10px] text-[#666]">
+                  Select release days and set how many episodes air on each day.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[#B3B3B3]">Air Days <span className="text-[#666] text-xs">(optional)</span></Label>
+                <AirDaySelector value={airDays} onChange={setAirDays} />
+              </div>
+
+              <div>
+                <Label className="text-[10px] text-[#666]">Total Episodes</Label>
+                <Input
+                  type="number"
+                  value={totalEp}
+                  min={1}
+                  step={1}
+                  onChange={(event) => setTotalEp(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
+                  className="bg-white/[0.06] border-white/10 text-white"
+                />
+                {releaseCalendarCountMismatch && (
+                  <p role="alert" className="mt-1 text-[10px] leading-4 text-amber-400">
+                    Release Calendar has {releaseDates.length} episodes. Match this count before saving.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Linked Special Episode Date/Time (when not PLANNED) */}
+          {relationshipType === 'specialEpisode' && status !== 'PLANNED' && (
             <div className="space-y-3 bg-white/[0.04] rounded-xl p-4">
               <div>
                 <label className="text-sm font-medium text-[#B3B3B3]">
@@ -977,18 +1099,17 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 <input
                   type="date"
                   value={plannedDate}
-                  onChange={(e) => setPlannedDate(e.target.value)}
+                  onChange={(e) => handlePlannedDateChange(e.target.value)}
                   className="h-9 min-w-0 bg-white/[0.06] border border-white/10 rounded-lg px-3 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
                 />
                 <input
                   type="time"
                   value={plannedTime}
-                  onChange={(e) => setPlannedTime(e.target.value)}
+                  onChange={(e) => handlePlannedTimeChange(e.target.value)}
                   className="h-9 w-28 bg-white/[0.06] border border-white/10 rounded-lg px-2 text-sm text-white focus:border-[#E50914] outline-none [color-scheme:dark]"
                   aria-label="Release time"
                 />
               </div>
-              <p className="text-[10px] text-[#666]">Links to Release Calendar in Ongoing BL tab</p>
             </div>
           )}
 
@@ -1005,7 +1126,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                 <Input
                   type="time"
                   value={airTime}
-                  onChange={e => setAirTime(e.target.value)}
+                  onChange={e => handleAirTimeChange(e.target.value)}
                   className="bg-white/[0.06] border-white/10 text-white [color-scheme:dark]"
                 />
                 <p className="text-[10px] text-[#666]">Latest aired and Final EP use this local time.</p>

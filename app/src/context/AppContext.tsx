@@ -953,11 +953,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             entryId: entry.id,
             currentEpisode: 0,
             totalEpisodes: entry.totalEpisodes ?? 1,
-            airDays: [getCurrentDay() as AirDay]
+            airDays: [getCurrentDay() as AirDay],
+            firstAirDate: entry.plannedDate,
+            airTime: entry.plannedTime || '00:00',
+            trackingMode: entry.plannedDate ? 'calendar' : 'recurring',
+            releaseDates: entry.plannedDate ? [entry.plannedDate] : [],
           };
           ongoing = [...state.ongoing, o];
         }
-      } else if (hadOngoing) {
+      } else if (hadOngoing && entry.status !== 'PLANNED') {
         ongoing = state.ongoing.filter(o => o.entryId !== entry.id);
       }
 

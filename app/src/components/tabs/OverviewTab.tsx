@@ -929,7 +929,7 @@ export default function OverviewTab() {
        )
       .map(o => {
         const entry = entryById.get(o.ongoing.entryId);
-        return entry
+        return entry && entry.status === 'ONGOING'
           ? { entry, ongoing: o.ongoing, schedule: o.schedule }
           : null;
       })

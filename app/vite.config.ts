@@ -10,21 +10,9 @@ export default defineConfig(async ({ mode }) => {
   const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? 'blwatchlist';
   const appBase = isGitHubPagesBuild ? `/${repositoryName}/` : './';
 
-  // Only load the dev-inspect plugin in non-production builds
-  const devPlugins: Plugin[] = [];
-  if (!isProd) {
-    try {
-      const { inspectAttr } = await import('kimi-plugin-inspect-react');
-      devPlugins.push(inspectAttr() as Plugin);
-    } catch {
-      // plugin not available — continue without it
-    }
-  }
-
   return {
     base: appBase,
     plugins: [
-      ...devPlugins,
       react(),
       VitePWA({
         registerType: 'prompt',
@@ -100,6 +88,8 @@ export default defineConfig(async ({ mode }) => {
     ],
     server: {
       port: 3000,
+      host: '0.0.0.0',
+      allowedHosts: true,
     },
     resolve: {
       alias: {
