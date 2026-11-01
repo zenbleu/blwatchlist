@@ -136,7 +136,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
     .slice(0, 50);
   const selectedGenreTags = state.genreTags.filter((tag) => selectedGenreIds.includes(tag.id));
   const releaseCalendarCountMismatch = (status === 'ONGOING' || status === 'PLANNED')
-    && relationshipType !== 'specialEpisode'
     && releaseDates.length > 0
     && Math.floor(totalEp) !== releaseDates.length;
   const normalizedGenreSearch = genreSearchTerm.trim().toLocaleLowerCase();
@@ -169,7 +168,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       setSeason(entryIsAnthology ? null : entry.season ?? null);
       setAnthologyName(entry.anthologyName || '');
       setAnthologySeason(entry.anthologySeason ?? 1);
-      setSpecialNumber(entry.specialNumber ?? 1);
+      const initialEpisodes = Math.max(1, ongoing?.totalEpisodes || entry.totalEpisodes || entry.specialNumber || 1);
+      setSpecialNumber(entry.specialNumber ?? initialEpisodes);
       setParentEntryId(entry.parentEntryId || '');
       setLinkedReleaseMode(entry.linkedReleaseMode || 'independent');
       setYear(entry.year);
@@ -183,7 +183,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         setAirDays(ongoing.airDays as AirDay[]);
         setAirTime(ongoing.airTime || entry.plannedTime || '00:00');
         setCurrentEp(ongoing.currentEpisode);
-        setTotalEp(Math.max(1, ongoing.totalEpisodes || entry.totalEpisodes || 1));
+        setTotalEp(initialEpisodes);
         setReleaseDates(ongoing.releaseDates || (entry.plannedDate ? [entry.plannedDate] : []));
       } else {
         const initialDate = entry.plannedDate || '';
@@ -191,7 +191,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         setAirDays(initialDate ? [getAirDayFromDateString(initialDate)] : []);
         setAirTime(initialTime);
         setCurrentEp(0);
-        setTotalEp(Math.max(1, entry.totalEpisodes || 1));
+        setTotalEp(initialEpisodes);
         setReleaseDates(initialDate ? [initialDate] : []);
       }
     } else {
@@ -283,6 +283,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const handleReleaseDatesSave = (dates: string[]) => {
     setReleaseDates(dates);
     setTotalEp(Math.max(1, dates.length));
+    setSpecialNumber(Math.max(1, dates.length));
     if (dates.length > 0) {
       setPlannedDate(dates[0]);
       const dayName = getAirDayFromDateString(dates[0]);
@@ -398,7 +399,7 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
       ...(isAnthology
         ? { anthologyName: anthologyName.trim(), anthologySeason: anthologySeason ?? 1 }
         : {}),
-      ...(savedRelationshipType === 'specialEpisode' ? { specialNumber: Math.max(1, specialNumber) } : {}),
+      ...(savedRelationshipType === 'specialEpisode' ? { specialNumber: Math.max(1, Math.floor(totalEp)) } : {}),
       ...(selectedParent
         ? { parentEntryId: selectedParent.id, linkedReleaseMode }
         : {}),
@@ -432,18 +433,15 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
         type: 'UPDATE_ONGOING',
         payload: {
           entryId: newEntry.id,
-          currentEpisode: savedRelationshipType === 'specialEpisode' ? Math.min(currentEp, 1) : currentEp,
-          totalEpisodes: savedRelationshipType === 'specialEpisode' ? 1 : Math.max(1, Math.floor(totalEp)),
+          currentEpisode: Math.min(currentEp, Math.max(1, Math.floor(totalEp))),
+          totalEpisodes: Math.max(1, Math.floor(totalEp)),
           firstAirDate: effectiveFirstAirDate,
           airTime: effectiveAirTime,
           airDays: effectiveAirDays,
-          trackingMode: (savedRelationshipType === 'specialEpisode' && (effectiveFirstAirDate || releaseDates.length > 0))
-            || releaseDates.length > 0
+          trackingMode: (effectiveFirstAirDate || releaseDates.length > 0)
             ? 'calendar'
             : (ongoing?.trackingMode || 'recurring'),
-          releaseDates: savedRelationshipType === 'specialEpisode'
-            ? (effectiveFirstAirDate ? [effectiveFirstAirDate] : releaseDates.slice(0, 1))
-            : releaseDates,
+          releaseDates: releaseDates,
           premiereEpisodeCount: (!autoPromotedFromPlanned && ongoing?.premiereEpisodeCount !== undefined)
             ? ongoing.premiereEpisodeCount
             : 1,
@@ -922,7 +920,9 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
                       type="number"
                       value={specialNumber}
                       onChange={(event) => {
-                        setSpecialNumber(Math.max(1, parseInt(event.target.value) || 1));
+                        const count = Math.max(1, parseInt(event.target.value) || 1);
+                        setSpecialNumber(count);
+                        setTotalEp(count);
                         setRelationshipError('');
                       }}
                       min={1}
@@ -1087,8 +1087,8 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
             </div>
           )}
 
-          {/* Linked Special Episode Date/Time (when not PLANNED) */}
-          {relationshipType === 'specialEpisode' && status !== 'PLANNED' && (
+          {/* Linked Special Episode Date/Time (when COMPLETE or DROPPED) */}
+          {relationshipType === 'specialEpisode' && status !== 'PLANNED' && status !== 'ONGOING' && (
             <div className="space-y-3 bg-white/[0.04] rounded-xl p-4">
               <div>
                 <label className="text-sm font-medium text-[#B3B3B3]">
