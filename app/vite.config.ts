@@ -1,11 +1,10 @@
 import path from "path"
 import react from "@vitejs/plugin-react"
-import { defineConfig, type Plugin } from "vite"
+import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 // https://vite.dev/config/
-export default defineConfig(async ({ mode }) => {
-  const isProd = mode === 'production';
+export default defineConfig(() => {
   const isGitHubPagesBuild = process.env.VITE_DEPLOY_TARGET === 'github-pages';
   const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? 'blwatchlist';
   const appBase = isGitHubPagesBuild ? `/${repositoryName}/` : './';
@@ -89,7 +88,7 @@ export default defineConfig(async ({ mode }) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
-      allowedHosts: true,
+      allowedHosts: true as const,
     },
     resolve: {
       alias: {
