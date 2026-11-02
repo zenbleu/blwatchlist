@@ -35,6 +35,7 @@ jobs:
 
       - name: Install dependencies with pnpm
         run: |
+          pnpm install --no-frozen-lockfile
           cd app
           pnpm install --no-frozen-lockfile
 

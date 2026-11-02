@@ -6,6 +6,10 @@
     "module": "ESNext",
     "types": ["node"],
     "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@google/genai": ["./node_modules/@google/genai"]
+    },
 
     /* Bundler mode */
     "moduleResolution": "bundler",
