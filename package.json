@@ -9,6 +9,14 @@
     "dev": "cd app && npm run dev",
     "build": "cd app && npm run build",
     "preview": "cd app && npm run preview",
+    "start": "node --experimental-strip-types server.ts",
     "lint": "cd app && npm run lint"
+  },
+  "dependencies": {
+    "@google/genai": "^2.32.0",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
   }
 }

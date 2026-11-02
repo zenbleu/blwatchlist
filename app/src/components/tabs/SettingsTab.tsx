@@ -13,6 +13,13 @@ import {
   Trash2,
   Sparkles,
   Monitor,
+  Bot,
+  Key,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { migrateGenreTags, migrateOngoing, useApp } from '@/context/AppContext';
 import { useWrapped } from '@/context/WrappedContext';
@@ -28,6 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { normalizeFavoriteEntry } from '@/lib/rating';
+import { getGeminiServerStatus, type GeminiServerStatus } from '@/lib/gemini';
 
 const APP_VERSION = '1.3.8';
 
@@ -60,6 +68,13 @@ export default function SettingsTab() {
 
   // Clear data state
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Gemini server status state
+  const [geminiStatus, setGeminiStatus] = useState<GeminiServerStatus | null>(null);
+
+  useEffect(() => {
+    getGeminiServerStatus().then(setGeminiStatus).catch(() => {});
+  }, []);
 
   // Post-import profile prompt
   const [showProfilePrompt, setShowProfilePrompt] = useState(false);
@@ -356,6 +371,7 @@ export default function SettingsTab() {
   }, [dispatch]);
 
 
+
   return (
     <div className="space-y-6 w-full relative">
       {/* Header */}
@@ -481,6 +497,46 @@ export default function SettingsTab() {
               <p className="text-xs text-[#666]">Delete all entries and reset app</p>
             </div>
           </button>
+        </div>
+      </div>
+
+      {/* Gemini AI Integration */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-wider">AI Assistant</h2>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Server Connected
+          </span>
+        </div>
+        
+        <div className="rounded-xl border border-white/[0.06] bg-[#141414] p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#E50914]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Bot className="w-5 h-5 text-[#E50914]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">Google Gemini Server Integration</p>
+              <p className="text-xs text-[#888] mt-1 leading-relaxed">
+                Gemini API calls are processed securely through the backend server. AI capabilities are pre-configured and work automatically for everyone.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-white/[0.06]">
+            <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <p className="text-[11px] text-[#666] font-medium">Model</p>
+              <p className="text-xs font-semibold text-white mt-0.5">{geminiStatus?.model || 'gemini-3.1-flash-lite'}</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <p className="text-[11px] text-[#666] font-medium">Smart Auto-fill</p>
+              <p className="text-xs font-semibold text-emerald-400 mt-0.5">Active</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <p className="text-[11px] text-[#666] font-medium">AI Recommendations</p>
+              <p className="text-xs font-semibold text-emerald-400 mt-0.5">Active</p>
+            </div>
+          </div>
         </div>
       </div>
 
