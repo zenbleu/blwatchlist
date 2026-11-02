@@ -14,12 +14,6 @@ import {
   Sparkles,
   Monitor,
   Bot,
-  Key,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  Check,
-  Loader2,
 } from 'lucide-react';
 import { migrateGenreTags, migrateOngoing, useApp } from '@/context/AppContext';
 import { useWrapped } from '@/context/WrappedContext';

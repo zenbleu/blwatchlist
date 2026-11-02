@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Loader2, Plus, Check, RefreshCw, Key, AlertCircle } from 'lucide-react';
+import { Sparkles, Loader2, Plus, Check, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
