@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { CalendarDays, Camera, Check, ChevronsUpDown, Sparkles, Loader2 } from 'lucide-react';
+import { CalendarDays, Camera, Check, ChevronsUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { fetchSeriesMetadataWithAI } from '@/lib/gemini';
 import {
   Select,
   SelectContent,
@@ -111,73 +110,6 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
   const [error, setError] = useState('');
   const [relationshipError, setRelationshipError] = useState('');
 
-  // AI Autofill state
-  const [isAiAutofilling, setIsAiAutofilling] = useState(false);
-  const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
-
-  const handleAiAutofill = async () => {
-    if (!title.trim()) {
-      setAiMessage({ type: 'info', text: 'Enter a title first to auto-fill details.' });
-      return;
-    }
-    if (!navigator.onLine) {
-      setAiMessage({
-        type: 'error',
-        text: 'You are offline. Connect to the internet to use AI auto-fill.',
-      });
-      return;
-    }
-
-    setIsAiAutofilling(true);
-    setAiMessage(null);
-    try {
-      const data = await fetchSeriesMetadataWithAI(title.trim());
-      if (data.title && data.title.toLowerCase() !== title.trim().toLowerCase()) {
-        setTitle(data.title);
-      }
-      if (data.year) {
-        setYear(data.year);
-      }
-      if (data.country && COUNTRIES.includes(data.country)) {
-        setCountry(data.country);
-      }
-      if (data.type) {
-        setType(data.type);
-      }
-      if (data.totalEpisodes && data.totalEpisodes > 0) {
-        setTotalEp(data.totalEpisodes);
-      }
-      if (data.genres && data.genres.length > 0) {
-        const matchedTagIds: string[] = [];
-        data.genres.forEach((genreName) => {
-          const lower = genreName.toLowerCase();
-          const match = state.genreTags.find(
-            (tag) =>
-              tag.name.toLowerCase() === lower ||
-              tag.name.toLowerCase().includes(lower) ||
-              lower.includes(tag.name.toLowerCase()),
-          );
-          if (match && !matchedTagIds.includes(match.id)) {
-            matchedTagIds.push(match.id);
-          }
-        });
-        if (matchedTagIds.length > 0) {
-          setSelectedGenreIds((prev) => Array.from(new Set([...prev, ...matchedTagIds])));
-        }
-      }
-      setAiMessage({
-        type: 'success',
-        text: `✨ Auto-filled: ${data.year ?? ''} ${data.country ?? ''} (${data.type ?? 'Series'})`,
-      });
-    } catch (err: any) {
-      setAiMessage({
-        type: 'error',
-        text: err.message || 'Could not fetch metadata from Gemini.',
-      });
-    } finally {
-      setIsAiAutofilling(false);
-    }
-  };
 
   const ongoing = entry ? getOngoingByEntryId(entry.id) : null;
   const selectedParentEntry = state.entries.find((candidate) => candidate.id === parentEntryId);
@@ -563,48 +495,14 @@ export default function EditEntryModal({ isOpen, onClose, onSave, entry }: EditE
 
           {/* Title */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-[#B3B3B3]">Title</Label>
-              <button
-                type="button"
-                onClick={handleAiAutofill}
-                disabled={isAiAutofilling || !title.trim()}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#E50914]/10 text-[#E50914] hover:bg-[#E50914]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Auto-fill year, country, episodes & genres with AI"
-              >
-                {isAiAutofilling ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span>Auto-filling...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3 h-3" />
-                    <span>AI Auto-fill</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <Label className="text-[#B3B3B3]">Title</Label>
             <Input
               value={title}
-              onChange={e => { setTitle(e.target.value); setError(''); setAiMessage(null); }}
+              onChange={e => { setTitle(e.target.value); setError(''); }}
               placeholder="Enter title..."
               className={`bg-white/[0.06] border-white/10 text-white placeholder-[#666] focus:border-[#E50914] ${error ? 'border-red-500' : ''}`}
             />
             {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-            {aiMessage && (
-              <p
-                className={`text-xs mt-1 ${
-                  aiMessage.type === 'success'
-                    ? 'text-emerald-400'
-                    : aiMessage.type === 'error'
-                    ? 'text-red-400'
-                    : 'text-amber-400/90'
-                }`}
-              >
-                {aiMessage.text}
-              </p>
-            )}
           </div>
 
           {/* Type & Year */}

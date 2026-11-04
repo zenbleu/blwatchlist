@@ -1,8 +1,6 @@
 {
   "name": "BL Watchlist",
-  "description": "Track and manage your Boys Love watchlist — ratings, favorites, Top 10 rankings, AI series discovery, and stats.",
+  "description": "Track and manage your Boys Love watchlist — ratings, favorites, Top 10 rankings, and stats.",
   "permissions": [],
-  "capabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "capabilities": []
 }

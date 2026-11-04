@@ -1,14 +1,10 @@
 import path from "path"
 import react from "@vitejs/plugin-react"
-import { defineConfig, loadEnv } from "vite"
+import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  if (!process.env.GEMINI_API_KEY && env.GEMINI_API_KEY && env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') {
-    process.env.GEMINI_API_KEY = env.GEMINI_API_KEY;
-  }
+export default defineConfig(() => {
   const isGitHubPagesBuild = process.env.VITE_DEPLOY_TARGET === 'github-pages';
   const repositoryName = process.env.GITHUB_REPOSITORY?.split('/')[1] ?? 'blwatchlist';
   const appBase = isGitHubPagesBuild ? `/${repositoryName}/` : './';
@@ -88,115 +84,6 @@ export default defineConfig(({ mode }) => {
           enabled: false,
         },
       }),
-      {
-        name: 'gemini-api-plugin',
-        configureServer(server) {
-          server.middlewares.use(async (req, res, next) => {
-            if (!req.url?.startsWith('/api/gemini')) {
-              return next();
-            }
-
-            let body: Record<string, any> = {};
-            if (req.method === 'POST') {
-              try {
-                const chunks: Buffer[] = [];
-                for await (const chunk of req) {
-                  chunks.push(chunk);
-                }
-                const raw = Buffer.concat(chunks).toString('utf-8');
-                if (raw) body = JSON.parse(raw);
-              } catch {
-                body = {};
-              }
-            }
-
-            const url = req.url.split('?')[0];
-
-            try {
-              const {
-                getSeriesMetadata,
-                getRecommendations,
-                generateContent,
-                generateContentStream,
-                DEFAULT_MODEL,
-              } = await import('../server/geminiApi.ts');
-
-              if (url === '/api/gemini/status') {
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({
-                  status: 'ok',
-                  configured: Boolean(process.env.GEMINI_API_KEY),
-                  model: DEFAULT_MODEL,
-                }));
-                return;
-              }
-
-              if (url === '/api/gemini/metadata') {
-                const { query } = body;
-                if (!query) {
-                  res.statusCode = 400;
-                  res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify({ error: 'Missing title query parameter.' }));
-                  return;
-                }
-                const result = await getSeriesMetadata(query);
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify(result));
-                return;
-              }
-
-              if (url === '/api/gemini/recommendations') {
-                const { favoriteTitles, topGenres } = body;
-                const result = await getRecommendations(favoriteTitles || [], topGenres || []);
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify(result));
-                return;
-              }
-
-              if (url === '/api/gemini/generate') {
-                const { prompt, systemInstruction } = body;
-                if (!prompt) {
-                  res.statusCode = 400;
-                  res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify({ error: 'Missing prompt parameter.' }));
-                  return;
-                }
-                const text = await generateContent(prompt, systemInstruction);
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ text }));
-                return;
-              }
-
-              if (url === '/api/gemini/generate-stream') {
-                const { prompt, systemInstruction } = body;
-                if (!prompt) {
-                  res.statusCode = 400;
-                  res.setHeader('Content-Type', 'application/json');
-                  res.end(JSON.stringify({ error: 'Missing prompt parameter.' }));
-                  return;
-                }
-                res.setHeader('Content-Type', 'text/event-stream');
-                res.setHeader('Cache-Control', 'no-cache');
-                res.setHeader('Connection', 'keep-alive');
-                for await (const chunk of generateContentStream(prompt, systemInstruction)) {
-                  res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
-                }
-                res.write('data: [DONE]\n\n');
-                res.end();
-                return;
-              }
-
-              next();
-            } catch (err: unknown) {
-              const formatted = (await import('../server/geminiApi.ts')).formatGeminiError(err);
-              console.error('Gemini dev server error:', formatted.message);
-              res.statusCode = 500;
-              res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: formatted.message }));
-            }
-          });
-        },
-      },
     ],
     server: {
       port: 3000,

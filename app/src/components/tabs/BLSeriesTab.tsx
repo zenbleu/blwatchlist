@@ -1,6 +1,6 @@
 import { useState, useMemo, memo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Heart, Star, Pencil, Trash2, ArrowUpDown, Sparkles } from "lucide-react";
+import { Plus, Heart, Star, Pencil, Trash2, ArrowUpDown } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import type { Entry, GenreTag } from "@/types";
 import { getDateOnly, getOngoingSchedule } from "@/lib/episodeSchedule";
@@ -11,7 +11,6 @@ import EditEntryModal from "../EditEntryModal";
 import FavoriteEvaluation from "../FavoriteEvaluation";
 import GenreChip from "../GenreChip";
 import AnthologyBadges from "../AnthologyBadges";
-import AiDiscoverModal from "../AiDiscoverModal";
 import {
   formatEntryTitle,
   getEntryRelationshipLabel,
@@ -221,8 +220,6 @@ export default function BLSeriesTab() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
 
-  // AI Discover modal state
-  const [aiDiscoverOpen, setAiDiscoverOpen] = useState(false);
 
   // Favorite Evaluation modal state
   const [favEvalOpen, setFavEvalOpen] = useState(false);
@@ -351,14 +348,6 @@ export default function BLSeriesTab() {
           <p className="text-sm text-[#B3B3B3]">{filteredAndSortedEntries.length} entries</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setAiDiscoverOpen(true)}
-            className="flex items-center gap-1.5 bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-white px-3 py-2 rounded-lg text-sm font-semibold tap-active flex-shrink-0 transition-colors"
-            title="Get AI Recommendations based on your favorites"
-          >
-            <Sparkles className="w-4 h-4 text-[#E50914]" />
-            <span className="hidden sm:inline">AI Discover</span>
-          </button>
           <button
             onClick={handleAdd}
             className="flex items-center gap-1.5 bg-[#E50914] text-white px-4 py-2 rounded-lg text-sm font-semibold tap-active flex-shrink-0"
@@ -516,14 +505,7 @@ export default function BLSeriesTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {/* AI Discover Modal */}
-      <AiDiscoverModal
-        isOpen={aiDiscoverOpen}
-        onClose={() => setAiDiscoverOpen(false)}
-        onNavigateToSettings={() => {
-          window.dispatchEvent(new CustomEvent('bl-navigate-tab', { detail: 'settings' }));
-        }}
-      />
+
     </div>
   );
 }
