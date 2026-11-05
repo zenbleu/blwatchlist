@@ -13,6 +13,7 @@ import {
   Trash2,
   Sparkles,
   Monitor,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { migrateGenreTags, migrateOngoing, useApp } from '@/context/AppContext';
 import { useWrapped } from '@/context/WrappedContext';
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { normalizeFavoriteEntry } from '@/lib/rating';
+import CustomExportModal from '@/components/CustomExportModal';
 
 const APP_VERSION = '1.3.8';
 
@@ -60,6 +62,9 @@ export default function SettingsTab() {
 
   // Clear data state
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Custom export state
+  const [showCustomExport, setShowCustomExport] = useState(false);
 
 
   // Post-import profile prompt
@@ -437,8 +442,27 @@ export default function SettingsTab() {
               <Download className="w-5 h-5 text-[#E50914]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Export JSON</p>
-              <p className="text-xs text-[#666]">Save full backup with all data</p>
+              <p className="text-sm font-semibold">Export JSON (Full Backup)</p>
+              <p className="text-xs text-[#666]">Save complete app database with all settings & history</p>
+            </div>
+          </button>
+
+          {/* Custom Export (CSV / JSON) */}
+          <button
+            onClick={() => setShowCustomExport(true)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-[#141414] border border-white/[0.06] text-white hover:bg-white/[0.04] transition-colors tap-active text-left group"
+          >
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+              <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold">Custom Export (CSV / JSON)</p>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Selective
+                </span>
+              </div>
+              <p className="text-xs text-[#666]">Export watchlist, favorites, or Top 10 with custom field selection</p>
             </div>
           </button>
 
@@ -874,6 +898,12 @@ export default function SettingsTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Custom Export Modal */}
+      <CustomExportModal
+        isOpen={showCustomExport}
+        onClose={() => setShowCustomExport(false)}
+      />
     </div>
   );
 }
