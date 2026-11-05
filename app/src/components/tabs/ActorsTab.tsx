@@ -25,6 +25,8 @@ import { formatRating, getEpisodeAverage } from '@/lib/rating';
 import { formatSeasonLabel } from '@/lib/entry';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import EntryModal from '../EntryModal';
+import PairingsTracker from '../PairingsTracker';
 
 const NATIONALITIES = [
   'Thai',
@@ -598,6 +600,8 @@ function BulkCastDialog({
 
 export default function ActorsTab() {
   const { state, dispatch } = useApp();
+  const [actorViewMode, setActorViewMode] = useState<'cast' | 'pairings'>('cast');
+  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOption>('nameAsc');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
@@ -691,128 +695,308 @@ export default function ActorsTab() {
         <div>
           <div className="flex items-center gap-2">
             <UsersRound className="h-6 w-6 text-[#E50914]" />
-            <h1 className="text-2xl font-extrabold tracking-tight">Actors</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight">Actors &amp; Pairings</h1>
           </div>
-          <p className="mt-1 text-sm text-[#777]">Your cast library for main and supporting actors.</p>
+          <p className="mt-1 text-sm text-[#777]">
+            {actorViewMode === 'cast'
+              ? 'Your cast library for main and supporting actors.'
+              : 'Track recurring couple pairings (CPs), calculate on-screen chemistry, and log shared filmographies.'}
+          </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={toggleSelectionMode} className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold ${selectionMode ? 'bg-white/[0.1] text-white' : 'border border-white/10 bg-white/[0.04] text-[#B3B3B3]'}`}>
-            <ListPlus className="h-4 w-4" /> {selectionMode ? 'Done selecting' : 'Select multiple'}
-          </button>
-          <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E50914] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/30">
-            <Plus className="h-4 w-4" /> Add actor
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2 rounded-2xl border border-white/[0.08] bg-[#111] p-3 sm:flex-row">
-        <div className="relative min-w-0 flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-[#666]" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search actors" className="h-10 border-white/10 bg-white/[0.04] pl-9 text-sm" />
-        </div>
-        <button type="button" onClick={() => setShowFilters((open) => !open)} className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm ${showFilters ? 'bg-[#E50914]/15 text-[#ff6970]' : 'bg-white/[0.05] text-[#B3B3B3]'}`}>
-          <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} /> Filters
-        </button>
-        <label className="flex h-10 items-center gap-2 rounded-lg bg-white/[0.05] px-3 text-xs text-[#888]">
-          <ArrowUpDown className="h-4 w-4" />
-          <select value={sort} onChange={(event) => setSort(event.target.value as SortOption)} className="bg-transparent text-xs text-white outline-none">
-            <option value="nameAsc">Name (A → Z)</option>
-            <option value="nameDesc">Name (Z → A)</option>
-            <option value="filmography">Filmography</option>
-            <option value="older">Older</option>
-            <option value="younger">Younger</option>
-          </select>
-        </label>
-      </div>
-
-      {selectionMode && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#E50914]/25 bg-[#E50914]/[0.06] p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-bold text-white">{selectedActorIds.length} actors selected</p>
-            <p className="mt-1 text-[11px] text-[#999]">Select at least 2 actors to add them as a cast together.</p>
+          {/* View switcher */}
+          <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1">
+            <button
+              type="button"
+              onClick={() => setActorViewMode('cast')}
+              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all tap-active ${
+                actorViewMode === 'cast'
+                  ? 'bg-[#E50914] text-white shadow-sm'
+                  : 'text-[#888] hover:bg-white/[0.04] hover:text-white'
+              }`}
+            >
+              <UsersRound className="h-3.5 w-3.5" />
+              <span>Cast Library</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActorViewMode('pairings')}
+              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all tap-active ${
+                actorViewMode === 'pairings'
+                  ? 'bg-[#E50914] text-white shadow-sm'
+                  : 'text-[#888] hover:bg-white/[0.04] hover:text-white'
+              }`}
+            >
+              <Heart className="h-3.5 w-3.5" />
+              <span>Pairings &amp; CPs</span>
+            </button>
           </div>
-          <button type="button" onClick={openBulkDialog} disabled={selectedActorIds.length < 2} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#E50914] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">
-            <ListPlus className="h-4 w-4" /> Add to entries
-          </button>
-        </div>
-      )}
 
-      <AnimatePresence initial={false}>
-        {showFilters && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.08] bg-[#111] p-3">
-              {(['ALL', 'MAIN', 'SUPPORTING'] as RoleFilter[]).map((role) => (
-                <button key={role} type="button" onClick={() => setRoleFilter(role)} className={`rounded-full px-3 py-1.5 text-xs ${roleFilter === role ? 'bg-[#E50914] text-white' : 'bg-white/[0.06] text-[#999]'}`}>
-                  {role === 'ALL' ? 'All roles' : role === 'MAIN' ? 'Main Role' : 'Supporting Role'}
-                </button>
-              ))}
-              <select value={nationalityFilter} onChange={(event) => setNationalityFilter(event.target.value)} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white outline-none">
-                <option value="ALL">All nationalities</option>
-                {nationalities.map((nationality) => <option key={nationality} value={nationality}>{nationality}</option>)}
-              </select>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {visibleActors.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-white/10 bg-[#111] py-20 text-center">
-          <UsersRound className="mx-auto h-10 w-10 text-[#444]" />
-          <h2 className="mt-4 text-lg font-bold">{state.actors.length === 0 ? 'Build your cast library' : 'No actors match these filters'}</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-[#666]">{state.actors.length === 0 ? 'Add the main and supporting actors from your favorite BL series and movies.' : 'Try a different search or filter.'}</p>
-          {state.actors.length === 0 && <button type="button" onClick={openCreate} className="mt-5 rounded-xl bg-[#E50914] px-4 py-2 text-sm font-bold">Add your first actor</button>}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 lg:grid-cols-5">
-          {visibleActors.map((actor) => (
-            <motion.div key={actor.id} layout initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`group relative min-w-0 text-center ${selectionMode && selectedActorIds.includes(actor.id) ? 'rounded-2xl bg-[#E50914]/10 ring-1 ring-[#E50914]/50' : ''}`}>
-              {selectionMode && (
-                <span className={`absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border ${selectedActorIds.includes(actor.id) ? 'border-[#E50914] bg-[#E50914] text-white' : 'border-white/20 bg-[#161616] text-transparent'}`}>
-                  <Check className="h-3.5 w-3.5" />
-                </span>
-              )}
-              <button type="button" onClick={() => selectionMode ? toggleActorSelection(actor.id) : setSelectedActorId(actor.id)} aria-pressed={selectionMode ? selectedActorIds.includes(actor.id) : undefined} className="flex w-full flex-col items-center rounded-2xl p-2 text-center transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]">
-                <ActorAvatar actor={actor} size="md" />
-                <p className="mt-3 w-full truncate text-sm font-bold text-white">{actor.name}</p>
-                <p className="mt-1 w-full truncate text-xs text-[#777]">{actor.nationality}</p>
-                <span className="mt-2 text-[10px] text-[#555]">{actor.filmography.length} {actor.filmography.length === 1 ? 'title' : 'titles'}</span>
+          {actorViewMode === 'cast' && (
+            <>
+              <button
+                type="button"
+                onClick={toggleSelectionMode}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold ${
+                  selectionMode ? 'bg-white/[0.1] text-white' : 'border border-white/10 bg-white/[0.04] text-[#B3B3B3]'
+                }`}
+              >
+                <ListPlus className="h-4 w-4" /> {selectionMode ? 'Done selecting' : 'Select multiple'}
               </button>
-              {!selectionMode && <div className="absolute right-0 top-0 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                <button type="button" onClick={() => openEdit(actor)} className="rounded-full bg-[#222] p-2 text-[#aaa] hover:text-white" aria-label={`Edit ${actor.name}`}><Pencil className="h-3 w-3" /></button>
-                <button type="button" onClick={() => setDeleteId(actor.id)} className="rounded-full bg-[#222] p-2 text-[#aaa] hover:text-[#E50914]" aria-label={`Delete ${actor.name}`}><Trash2 className="h-3 w-3" /></button>
-              </div>}
-            </motion.div>
-          ))}
+              <button
+                type="button"
+                onClick={openCreate}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E50914] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-950/30"
+              >
+                <Plus className="h-4 w-4" /> Add actor
+              </button>
+            </>
+          )}
         </div>
+      </div>
+
+      {actorViewMode === 'pairings' ? (
+        <PairingsTracker
+          onSelectEntry={(entry) => setSelectedEntry(entry)}
+          onSelectActor={(id) => {
+            setActorViewMode('cast');
+            setSelectedActorId(id);
+          }}
+        />
+      ) : (
+        <>
+          <div className="flex flex-col gap-2 rounded-2xl border border-white/[0.08] bg-[#111] p-3 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-[#666]" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search actors"
+                className="h-10 border-white/10 bg-white/[0.04] pl-9 text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((open) => !open)}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm ${
+                showFilters ? 'bg-[#E50914]/15 text-[#ff6970]' : 'bg-white/[0.05] text-[#B3B3B3]'
+              }`}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} /> Filters
+            </button>
+            <label className="flex h-10 items-center gap-2 rounded-lg bg-white/[0.05] px-3 text-xs text-[#888]">
+              <ArrowUpDown className="h-4 w-4" />
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as SortOption)}
+                className="bg-transparent text-xs text-white outline-none"
+              >
+                <option value="nameAsc">Name (A → Z)</option>
+                <option value="nameDesc">Name (Z → A)</option>
+                <option value="filmography">Filmography</option>
+                <option value="older">Older</option>
+                <option value="younger">Younger</option>
+              </select>
+            </label>
+          </div>
+
+          {selectionMode && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-[#E50914]/25 bg-[#E50914]/[0.06] p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-white">{selectedActorIds.length} actors selected</p>
+                <p className="mt-1 text-[11px] text-[#999]">Select at least 2 actors to add them as a cast together.</p>
+              </div>
+              <button
+                type="button"
+                onClick={openBulkDialog}
+                disabled={selectedActorIds.length < 2}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#E50914] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ListPlus className="h-4 w-4" /> Add to entries
+              </button>
+            </div>
+          )}
+
+          <AnimatePresence initial={false}>
+            {showFilters && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.08] bg-[#111] p-3">
+                  {(['ALL', 'MAIN', 'SUPPORTING'] as RoleFilter[]).map((role) => (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => setRoleFilter(role)}
+                      className={`rounded-full px-3 py-1.5 text-xs ${
+                        roleFilter === role ? 'bg-[#E50914] text-white' : 'bg-white/[0.06] text-[#999]'
+                      }`}
+                    >
+                      {role === 'ALL' ? 'All roles' : role === 'MAIN' ? 'Main Role' : 'Supporting Role'}
+                    </button>
+                  ))}
+                  <select
+                    value={nationalityFilter}
+                    onChange={(event) => setNationalityFilter(event.target.value)}
+                    className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs text-white outline-none"
+                  >
+                    <option value="ALL">All nationalities</option>
+                    {nationalities.map((nationality) => (
+                      <option key={nationality} value={nationality}>
+                        {nationality}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {visibleActors.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-white/10 bg-[#111] py-20 text-center">
+              <UsersRound className="mx-auto h-10 w-10 text-[#444]" />
+              <h2 className="mt-4 text-lg font-bold">
+                {state.actors.length === 0 ? 'Build your cast library' : 'No actors match these filters'}
+              </h2>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-[#666]">
+                {state.actors.length === 0
+                  ? 'Add the main and supporting actors from your favorite BL series and movies.'
+                  : 'Try a different search or filter.'}
+              </p>
+              {state.actors.length === 0 && (
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="mt-5 rounded-xl bg-[#E50914] px-4 py-2 text-sm font-bold"
+                >
+                  Add your first actor
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 md:grid-cols-4 lg:grid-cols-5">
+              {visibleActors.map((actor) => (
+                <motion.div
+                  key={actor.id}
+                  layout
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`group relative min-w-0 text-center ${
+                    selectionMode && selectedActorIds.includes(actor.id)
+                      ? 'rounded-2xl bg-[#E50914]/10 ring-1 ring-[#E50914]/50'
+                      : ''
+                  }`}
+                >
+                  {selectionMode && (
+                    <span
+                      className={`absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border ${
+                        selectedActorIds.includes(actor.id)
+                          ? 'border-[#E50914] bg-[#E50914] text-white'
+                          : 'border-white/20 bg-[#161616] text-transparent'
+                      }`}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      selectionMode ? toggleActorSelection(actor.id) : setSelectedActorId(actor.id)
+                    }
+                    aria-pressed={selectionMode ? selectedActorIds.includes(actor.id) : undefined}
+                    className="flex w-full flex-col items-center rounded-2xl p-2 text-center transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]"
+                  >
+                    <ActorAvatar actor={actor} size="md" />
+                    <p className="mt-3 w-full truncate text-sm font-bold text-white">{actor.name}</p>
+                    <p className="mt-1 w-full truncate text-xs text-[#777]">{actor.nationality}</p>
+                    <span className="mt-2 text-[10px] text-[#555]">
+                      {actor.filmography.length} {actor.filmography.length === 1 ? 'title' : 'titles'}
+                    </span>
+                  </button>
+                  {!selectionMode && (
+                    <div className="absolute right-0 top-0 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(actor)}
+                        className="rounded-full bg-[#222] p-2 text-[#aaa] hover:text-white"
+                        aria-label={`Edit ${actor.name}`}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(actor.id)}
+                        className="rounded-full bg-[#222] p-2 text-[#aaa] hover:text-[#E50914]"
+                        aria-label={`Delete ${actor.name}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          <Dialog open={formOpen} onOpenChange={(open) => !open && setFormOpen(false)}>
+            <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-xl">
+              <div className="mb-1 flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-[#E50914]">Actors</p>
+                  <h2 className="text-xl font-bold">{editingActor ? 'Edit actor' : 'Add actor'}</h2>
+                </div>
+              </div>
+              <ActorForm actor={editingActor} onSave={saveActor} onCancel={() => setFormOpen(false)} />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={Boolean(deleteId)} onOpenChange={(open) => !open && setDeleteId(null)}>
+            <DialogContent className="border-white/10 bg-[#141414] text-white sm:max-w-sm">
+              <h2 className="text-lg font-bold">Delete actor?</h2>
+              <p className="text-sm text-[#999]">
+                This removes the actor and their filmography links. Your BL titles stay untouched.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteId(null)}
+                  className="rounded-lg px-3 py-2 text-sm text-[#aaa]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (deleteId) dispatch({ type: 'DELETE_ACTOR', payload: deleteId });
+                    setDeleteId(null);
+                  }}
+                  className="rounded-lg bg-[#E50914] px-3 py-2 text-sm font-semibold"
+                >
+                  Delete
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <BulkCastDialog
+            key={bulkDialogVersion}
+            open={bulkDialogOpen}
+            onOpenChange={setBulkDialogOpen}
+            actors={selectedActors}
+            entries={state.entries}
+            onAdd={addBulkCast}
+          />
+        </>
       )}
 
-      <Dialog open={formOpen} onOpenChange={(open) => !open && setFormOpen(false)}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-xl">
-          <div className="mb-1 flex items-center justify-between">
-            <div><p className="text-xs uppercase tracking-[0.16em] text-[#E50914]">Actors</p><h2 className="text-xl font-bold">{editingActor ? 'Edit actor' : 'Add actor'}</h2></div>
-          </div>
-          <ActorForm actor={editingActor} onSave={saveActor} onCancel={() => setFormOpen(false)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(deleteId)} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <DialogContent className="border-white/10 bg-[#141414] text-white sm:max-w-sm">
-          <h2 className="text-lg font-bold">Delete actor?</h2>
-          <p className="text-sm text-[#999]">This removes the actor and their filmography links. Your BL titles stay untouched.</p>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setDeleteId(null)} className="rounded-lg px-3 py-2 text-sm text-[#aaa]">Cancel</button>
-            <button type="button" onClick={() => { if (deleteId) dispatch({ type: 'DELETE_ACTOR', payload: deleteId }); setDeleteId(null); }} className="rounded-lg bg-[#E50914] px-3 py-2 text-sm font-semibold">Delete</button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <BulkCastDialog
-        key={bulkDialogVersion}
-        open={bulkDialogOpen}
-        onOpenChange={setBulkDialogOpen}
-        actors={selectedActors}
-        entries={state.entries}
-        onAdd={addBulkCast}
+      <EntryModal
+        isOpen={Boolean(selectedEntry)}
+        onClose={() => setSelectedEntry(null)}
+        entry={selectedEntry}
       />
     </div>
   );
