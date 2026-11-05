@@ -1,6 +1,6 @@
 import { useState, useMemo, memo, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { PlayCircle, ArrowUpDown, Filter, Pencil, Check, X, Calendar } from "lucide-react";
+import { PlayCircle, ArrowUpDown, Filter, Pencil, Check, X, Calendar, CalendarDays, LayoutGrid } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
 import AnthologyBadges from "../AnthologyBadges";
@@ -16,6 +16,7 @@ import EntryModal from "../EntryModal";
 import EpisodeRatingGrid from "../EpisodeRatingGrid";
 import CalendarSheet from "../CalendarSheet";
 import OngoingCountdown from "../OngoingCountdown";
+import WeeklyReleaseCalendar from "../WeeklyReleaseCalendar";
 import { formatEntryTitle, formatSeasonLabel, formatLinkedReleaseDescription } from "@/lib/entry";
 
 const OngoingCard = memo(function OngoingCard({
@@ -315,6 +316,7 @@ export default function OngoingTab() {
   const [showFilter, setShowFilter] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'calendar'>('cards');
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -448,7 +450,7 @@ export default function OngoingTab() {
     setIsEditingYear(false);
   }, [state.ongoingYear]);
 
-  if (ongoingEntries.length === 0) {
+  if (viewMode === 'cards' && ongoingEntries.length === 0) {
     return (
       <div className="space-y-4 w-full">
         <div>
@@ -493,6 +495,13 @@ export default function OngoingTab() {
           <PlayCircle className="w-8 h-8 text-[#333] mb-3" />
           <p className="text-[#666] text-sm">No ongoing BLs</p>
           <p className="text-[#555] text-xs mt-1">Mark entries as Ongoing to track them here</p>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-semibold text-white transition-colors tap-active"
+          >
+            <CalendarDays className="w-4 h-4 text-[#E50914]" />
+            <span>Open Weekly Calendar</span>
+          </button>
         </div>
 
         {/* Calendar Sheet (still available when empty) */}
@@ -516,52 +525,84 @@ export default function OngoingTab() {
 
   return (
     <div className="space-y-4 w-full">
-      {/* Header with Editable Year */}
-      <div>
-        {isEditingYear ? (
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-extrabold">Ongoing BL (</span>
-            <input
-              type="number"
-              value={yearInput}
-              onChange={(e) => setYearInput(e.target.value)}
-              className="w-20 h-8 bg-white/[0.06] border border-white/10 rounded text-center text-lg font-extrabold text-white focus:border-[#E50914] outline-none"
-              min={2000}
-              max={2100}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleYearSave();
-                if (e.key === 'Escape') handleYearCancel();
-              }}
-            />
-            <span className="text-2xl font-extrabold">)</span>
-            <button onClick={handleYearSave} className="p-1 rounded-lg bg-green-500/20 text-green-400 tap-active">
-              <Check className="w-4 h-4" />
-            </button>
-            <button onClick={handleYearCancel} className="p-1 rounded-lg bg-red-500/20 text-red-400 tap-active">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold">Ongoing BL ({state.ongoingYear})</h1>
-            <button
-              onClick={() => {
-                setYearInput(state.ongoingYear.toString());
-                setIsEditingYear(true);
-              }}
-              className="p-1.5 rounded-lg hover:bg-white/[0.06] tap-active"
-              aria-label="Edit year"
-            >
-              <Pencil className="w-3.5 h-3.5 text-[#666] hover:text-[#B3B3B3]" />
-            </button>
-          </div>
-        )}
-        <p className="text-sm text-[#B3B3B3]">{ongoingEntries.length} currently airing</p>
+      {/* Header with Editable Year & View Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          {isEditingYear ? (
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-extrabold">Ongoing BL (</span>
+              <input
+                type="number"
+                value={yearInput}
+                onChange={(e) => setYearInput(e.target.value)}
+                className="w-20 h-8 bg-white/[0.06] border border-white/10 rounded text-center text-lg font-extrabold text-white focus:border-[#E50914] outline-none"
+                min={2000}
+                max={2100}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleYearSave();
+                  if (e.key === 'Escape') handleYearCancel();
+                }}
+              />
+              <span className="text-2xl font-extrabold">)</span>
+              <button onClick={handleYearSave} className="p-1 rounded-lg bg-green-500/20 text-green-400 tap-active">
+                <Check className="w-4 h-4" />
+              </button>
+              <button onClick={handleYearCancel} className="p-1 rounded-lg bg-red-500/20 text-red-400 tap-active">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold">Ongoing BL ({state.ongoingYear})</h1>
+              <button
+                onClick={() => {
+                  setYearInput(state.ongoingYear.toString());
+                  setIsEditingYear(true);
+                }}
+                className="p-1.5 rounded-lg hover:bg-white/[0.06] tap-active"
+                aria-label="Edit year"
+              >
+                <Pencil className="w-3.5 h-3.5 text-[#666] hover:text-[#B3B3B3]" />
+              </button>
+            </div>
+          )}
+          <p className="text-sm text-[#B3B3B3]">{ongoingEntries.length} currently airing</p>
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="flex items-center gap-1 rounded-xl bg-white/[0.04] p-1 border border-white/[0.08] self-start sm:self-auto">
+          <button
+            onClick={() => setViewMode('cards')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all tap-active ${
+              viewMode === 'cards'
+                ? 'bg-[#E50914] text-white shadow-sm'
+                : 'text-[#888] hover:text-white'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Cards</span>
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all tap-active ${
+              viewMode === 'calendar'
+                ? 'bg-[#E50914] text-white shadow-sm'
+                : 'text-[#888] hover:text-white'
+            }`}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            <span>Weekly Calendar</span>
+          </button>
+        </div>
       </div>
 
-      {/* Sort & Filter Controls + Calendar */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {viewMode === 'calendar' ? (
+        <WeeklyReleaseCalendar onEntryClick={setSelectedEntry} />
+      ) : (
+        <>
+          {/* Sort & Filter Controls + Calendar */}
+          <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => { setShowSort(!showSort); setShowFilter(false); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all tap-active ${
@@ -638,25 +679,27 @@ export default function OngoingTab() {
         </motion.div>
       )}
 
-      {/* Ongoing Cards */}
-      <div className="space-y-3 w-full">
-        {ongoingEntries.map(({ entry, ongoingData, schedule }) => (
-          <OngoingCard
-            key={entry.id}
-            entryId={entry.id}
-            entry={entry}
-            ongoingData={ongoingData}
-            schedule={schedule}
-            onEpisodeRating={handleEpisodeRating}
-            onSpecialWatchedChange={handleSpecialWatchedChange}
-            onEntryClick={setSelectedEntry}
-            onFinishPrompt={handleFinishPrompt}
-            linkedParentTitle={entry.parentEntryId
-              ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)?.title
-              : undefined}
-          />
-        ))}
-      </div>
+          {/* Ongoing Cards */}
+          <div className="space-y-3 w-full">
+            {ongoingEntries.map(({ entry, ongoingData, schedule }) => (
+              <OngoingCard
+                key={entry.id}
+                entryId={entry.id}
+                entry={entry}
+                ongoingData={ongoingData}
+                schedule={schedule}
+                onEpisodeRating={handleEpisodeRating}
+                onSpecialWatchedChange={handleSpecialWatchedChange}
+                onEntryClick={setSelectedEntry}
+                onFinishPrompt={handleFinishPrompt}
+                linkedParentTitle={entry.parentEntryId
+                  ? state.entries.find((candidate) => candidate.id === entry.parentEntryId)?.title
+                  : undefined}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Calendar Sheet */}
       <CalendarSheet
