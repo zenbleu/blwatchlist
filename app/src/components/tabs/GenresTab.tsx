@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, Plus, Settings2, Tags, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, Settings2, Tags, Trash2, GitBranch } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatEntryTitle } from '@/lib/entry';
 import type { Entry, GenreTag } from '@/types';
@@ -8,6 +8,7 @@ import Poster from '@/components/Poster';
 import AnthologyBadges from '@/components/AnthologyBadges';
 import GenreChip from '@/components/GenreChip';
 import EntryModal from '@/components/EntryModal';
+import FranchiseTimeline from '@/components/FranchiseTimeline';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,6 +107,7 @@ export default function GenresTab() {
   const [genreError, setGenreError] = useState('');
   const [manageDialogOpen, setManageDialogOpen] = useState(false);
   const [deleteGenreConfirm, setDeleteGenreConfirm] = useState<GenreTag | null>(null);
+  const [viewMode, setViewMode] = useState<'genres' | 'timeline'>('genres');
 
   const genresByCategory = useMemo(() => {
     const groups = new Map<string, GenreTag[]>();
@@ -159,7 +161,51 @@ export default function GenresTab() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-7 p-4 sm:p-6">
-      {selectedGenre ? (
+      {/* Top View Mode Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E50914] block mb-1">
+            Explore &amp; Discover
+          </span>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            {viewMode === 'genres' ? 'BL Genres & Tropes' : 'Franchise Universes & Timelines'}
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#141414] border border-white/[0.08] self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('genres');
+              setSelectedGenreId(null);
+            }}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all tap-active ${
+              viewMode === 'genres'
+                ? 'bg-[#E50914] text-white shadow-sm'
+                : 'text-[#888] hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <Tags className="w-3.5 h-3.5" />
+            <span>Genre Tropes &amp; Tags</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('timeline')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all tap-active ${
+              viewMode === 'timeline'
+                ? 'bg-[#E50914] text-white shadow-sm'
+                : 'text-[#888] hover:text-white hover:bg-white/[0.04]'
+            }`}
+          >
+            <GitBranch className="w-3.5 h-3.5" />
+            <span>Franchise &amp; Chronology</span>
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'timeline' ? (
+        <FranchiseTimeline onSelectEntry={(entry) => setSelectedEntry(entry)} />
+      ) : selectedGenre ? (
         <section className="space-y-5">
           <button
             type="button"
