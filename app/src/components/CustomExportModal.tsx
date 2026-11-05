@@ -3,7 +3,6 @@ import {
   Download,
   FileSpreadsheet,
   FileCode,
-  Check,
   CheckSquare,
   Square,
   SlidersHorizontal,
@@ -11,8 +10,8 @@ import {
   Star,
   Heart,
   Film,
-  Sparkles,
   Info,
+  X,
 } from 'lucide-react';
 import {
   Dialog,
@@ -23,7 +22,13 @@ import {
 } from '@/components/ui/dialog';
 import { useApp } from '@/context/AppContext';
 import { formatEntryTitle } from '@/lib/entry';
-import type { Entry, Status, FavoriteTier } from '@/types';
+import {
+  formatRating,
+  getBonusCount,
+  getEpisodeAverage,
+  getEffectiveStorylineRating,
+} from '@/lib/rating';
+import type { Entry, Status, FavoriteEntry } from '@/types';
 
 export type ExportScope = 'watchlist' | 'favorites' | 'top10' | 'comprehensive';
 export type ExportFormat = 'csv' | 'json';
@@ -37,18 +42,19 @@ export type FieldKey =
   | 'totalEpisodes'
   | 'genres'
   | 'actors'
-  | 'overallScore'
+  | 'overallRating'
+  | 'isFavorite'
   | 'storyline'
   | 'acting'
   | 'chemistry'
   | 'production'
+  | 'music'
   | 'rewatchValue'
-  | 'favoriteTier'
-  | 'personalComment'
+  | 'bonusCount'
   | 'top10Rank'
-  | 'top10Commentary'
   | 'episodeRatingsSummary'
   | 'plannedDate'
+  | 'plannedTime'
   | 'createdAt'
   | 'lastUpdatedAt'
   | 'franchiseInfo';
@@ -61,32 +67,33 @@ interface FieldOption {
 }
 
 const ALL_FIELDS: FieldOption[] = [
-  // Core
+  // Core Info
   { key: 'title', label: 'Title', category: 'core', defaultEnabled: true },
-  { key: 'type', label: 'Type (Series / Movie)', category: 'core', defaultEnabled: true },
+  { key: 'type', label: 'Type (Movie/Series)', category: 'core', defaultEnabled: true },
   { key: 'year', label: 'Release Year', category: 'core', defaultEnabled: true },
   { key: 'country', label: 'Country', category: 'core', defaultEnabled: true },
-  { key: 'status', label: 'Watchlist Status', category: 'core', defaultEnabled: true },
+  { key: 'status', label: 'Watch Status', category: 'core', defaultEnabled: true },
   { key: 'totalEpisodes', label: 'Total Episodes', category: 'core', defaultEnabled: true },
-  // Tags & People
+  // People & Tags
   { key: 'genres', label: 'Genres', category: 'people', defaultEnabled: true },
   { key: 'actors', label: 'Main Cast / Actors', category: 'people', defaultEnabled: true },
-  // Ratings & Evaluations
-  { key: 'overallScore', label: 'Overall Score (1–10)', category: 'ratings', defaultEnabled: true },
-  { key: 'favoriteTier', label: 'Favorite Tier (Top, High, Comfort)', category: 'ratings', defaultEnabled: true },
+  // Ratings & Review
+  { key: 'overallRating', label: 'Overall Rating (1–10)', category: 'ratings', defaultEnabled: true },
+  { key: 'isFavorite', label: 'In Favorites (Yes/No)', category: 'ratings', defaultEnabled: true },
   { key: 'storyline', label: 'Storyline Score', category: 'ratings', defaultEnabled: true },
   { key: 'acting', label: 'Acting Score', category: 'ratings', defaultEnabled: true },
   { key: 'chemistry', label: 'Chemistry Score', category: 'ratings', defaultEnabled: true },
   { key: 'production', label: 'Production Score', category: 'ratings', defaultEnabled: true },
-  { key: 'rewatchValue', label: 'Rewatch Value Score', category: 'ratings', defaultEnabled: true },
-  { key: 'personalComment', label: 'Personal Comment / Review', category: 'ratings', defaultEnabled: true },
+  { key: 'music', label: 'Music Score', category: 'ratings', defaultEnabled: true },
+  { key: 'rewatchValue', label: 'Rewatch Value (Bonus)', category: 'ratings', defaultEnabled: false },
+  { key: 'bonusCount', label: 'Bonus Category Count', category: 'ratings', defaultEnabled: false },
   { key: 'episodeRatingsSummary', label: 'Episode Ratings Summary', category: 'ratings', defaultEnabled: false },
-  // Rankings
+  // Rankings & Franchise
   { key: 'top10Rank', label: 'Top 10 Rankings (Year & Rank)', category: 'rankings', defaultEnabled: true },
-  { key: 'top10Commentary', label: 'Top 10 Commentary', category: 'rankings', defaultEnabled: true },
   { key: 'franchiseInfo', label: 'Franchise & Season Info', category: 'rankings', defaultEnabled: false },
   // Metadata & Dates
-  { key: 'plannedDate', label: 'Planned Air Date & Time', category: 'meta', defaultEnabled: false },
+  { key: 'plannedDate', label: 'Planned Air Date', category: 'meta', defaultEnabled: false },
+  { key: 'plannedTime', label: 'Planned Air Time', category: 'meta', defaultEnabled: false },
   { key: 'createdAt', label: 'Date Added to App', category: 'meta', defaultEnabled: false },
   { key: 'lastUpdatedAt', label: 'Last Updated Date', category: 'meta', defaultEnabled: false },
 ];
@@ -105,7 +112,7 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
 
   const [scope, setScope] = useState<ExportScope>('watchlist');
   const [statusFilter, setStatusFilter] = useState<'ALL' | Status>('ALL');
-  const [tierFilter, setTierFilter] = useState<'ALL' | FavoriteTier>('ALL');
+  const [favTypeFilter, setFavTypeFilter] = useState<'ALL' | 'Movie' | 'Series'>('ALL');
   const [top10YearFilter, setTop10YearFilter] = useState<'ALL' | number>('ALL');
 
   const [format, setFormat] = useState<ExportFormat>('csv');
@@ -114,12 +121,12 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
     () => new Set(DEFAULT_ENABLED_KEYS),
   );
 
-  // Available top 10 years in user's data
+  // Years available in Top 10 drawers
   const top10Years = useMemo(() => {
     return Array.from(new Set(state.top10Drawers.map((d) => d.year))).sort((a, b) => b - a);
   }, [state.top10Drawers]);
 
-  // Toggle single field
+  // Handle individual field toggle
   const toggleField = useCallback((key: FieldKey) => {
     setSelectedFields((prev) => {
       const next = new Set(prev);
@@ -132,19 +139,18 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
     });
   }, []);
 
-  // Select / Deselect all
+  // Bulk selectors
   const selectAllFields = useCallback(() => {
     setSelectedFields(new Set(ALL_FIELDS.map((f) => f.key)));
   }, []);
 
-  const resetFieldsToDefault = useCallback(() => {
-    setSelectedFields(new Set(DEFAULT_ENABLED_KEYS));
+  const deselectAllFields = useCallback(() => {
+    setSelectedFields(new Set());
   }, []);
 
-  // Active fields list to include
+  // Compute active fields based on selective export toggle & scope
   const activeFields = useMemo(() => {
     if (!selectiveExport) {
-      // Depending on scope, include relevant default fields
       if (scope === 'favorites') {
         return ALL_FIELDS.filter((f) =>
           [
@@ -152,16 +158,16 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
             'type',
             'year',
             'country',
-            'favoriteTier',
-            'overallScore',
+            'overallRating',
             'storyline',
             'acting',
             'chemistry',
             'production',
+            'music',
             'rewatchValue',
-            'personalComment',
             'genres',
             'actors',
+            'top10Rank',
           ].includes(f.key),
         );
       }
@@ -173,9 +179,7 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
             'type',
             'year',
             'country',
-            'top10Commentary',
-            'overallScore',
-            'favoriteTier',
+            'overallRating',
             'genres',
             'actors',
           ].includes(f.key),
@@ -188,152 +192,54 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
 
   // Resolve item data for export
   const resolvedExportData = useMemo(() => {
-    const genreMap = new Map(state.genreTags.map((g) => [g.id, g.name]));
-    const actorMap = new Map(state.actors.map((a) => [a.id, a.name]));
-    const parentMap = new Map(state.entries.map((e) => [e.id, e.title]));
+    const genreMap = new Map<string, string>(state.genreTags.map((g) => [g.id, g.name]));
+    const parentMap = new Map<string, string>(state.entries.map((e) => [e.id, e.title]));
+    const favMap = new Map<string, FavoriteEntry>(state.favorites.map((f) => [f.entryId, f]));
+    const ratingMap = new Map<string, FavoriteEntry>(state.ratings.map((r) => [r.entryId, r]));
 
-    const favMap = new Map(state.favorites.map((f) => [f.entryId, f]));
-    const ratingMap = new Map(state.ratings.map((r) => [r.entryId, r]));
+    // Map actors to entry IDs
+    const actorsByEntryId = new Map<string, string[]>();
+    for (const actor of state.actors) {
+      for (const cred of actor.filmography || []) {
+        const list = actorsByEntryId.get(cred.entryId) || [];
+        list.push(actor.name);
+        actorsByEntryId.set(cred.entryId, list);
+      }
+    }
 
-    // Top 10 lookups: entryId -> { year: number; rank: number; commentary?: string }[]
-    const top10ByEntryId = new Map<
-      string,
-      { year: number; rank: number; commentary?: string }[]
-    >();
+    // Top 10 map: entryId -> { year: number; rank: number }[]
+    const top10ByEntryId = new Map<string, { year: number; rank: number }[]>();
     for (const drawer of state.top10Drawers) {
       for (const item of drawer.entries) {
         const existing = top10ByEntryId.get(item.entryId) || [];
-        existing.push({ year: drawer.year, rank: item.rank, commentary: item.commentary });
+        existing.push({ year: drawer.year, rank: item.rank });
         top10ByEntryId.set(item.entryId, existing);
       }
     }
 
-    const formatTierLabel = (tier?: FavoriteTier) => {
-      if (tier === 'topTier') return 'Top Tier';
-      if (tier === 'highTier') return 'High Tier';
-      if (tier === 'comfortTier') return 'Comfort Tier';
-      return '';
-    };
-
-    // ── Scope 1: Top 10 specific export (each row is a ranking item) ──
-    if (scope === 'top10') {
-      const rows: Record<string, unknown>[] = [];
-      for (const drawer of state.top10Drawers) {
-        if (top10YearFilter !== 'ALL' && drawer.year !== top10YearFilter) continue;
-
-        for (const item of drawer.entries) {
-          const entry = state.entries.find((e) => e.id === item.entryId);
-          if (!entry) continue;
-
-          const fav = favMap.get(entry.id);
-          const evalItem = fav || ratingMap.get(entry.id);
-          const genres = (entry.genreTagIds || []).map((id) => genreMap.get(id) || '').filter(Boolean).join(', ');
-          const actors = (entry.mainActorIds || []).map((id) => actorMap.get(id) || '').filter(Boolean).join(', ');
-
-          rows.push({
-            top10Rank: `${drawer.year} Rank #${item.rank}`,
-            top10Commentary: item.commentary || '',
-            title: formatEntryTitle(entry),
-            type: entry.type,
-            year: entry.year,
-            country: entry.country,
-            status: entry.status,
-            totalEpisodes: entry.totalEpisodes ?? '',
-            genres,
-            actors,
-            overallScore: evalItem?.overallScore != null ? evalItem.overallScore.toFixed(1) : '',
-            favoriteTier: formatTierLabel(fav?.tier),
-            storyline: evalItem?.ratings?.storyline ?? '',
-            acting: evalItem?.ratings?.acting ?? '',
-            chemistry: evalItem?.ratings?.chemistry ?? '',
-            production: evalItem?.ratings?.production ?? '',
-            rewatchValue: evalItem?.ratings?.rewatchValue ?? '',
-            personalComment: evalItem?.personalComment ?? '',
-            episodeRatingsSummary: entry.episodeRatings
-              ? `${Object.keys(entry.episodeRatings).length} eps rated`
-              : '',
-            plannedDate: entry.plannedDate ?? '',
-            createdAt: entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : '',
-            lastUpdatedAt: entry.lastUpdatedAt ? new Date(entry.lastUpdatedAt).toLocaleDateString() : '',
-            franchiseInfo: entry.parentEntryId ? `Parent: ${parentMap.get(entry.parentEntryId) || ''}` : '',
-          });
-        }
-      }
-      return rows;
-    }
-
-    // ── Scope 2: Favorites Only ──
-    if (scope === 'favorites') {
-      let favList = state.favorites;
-      if (tierFilter !== 'ALL') {
-        favList = favList.filter((f) => f.tier === tierFilter);
-      }
-
-      return favList
-        .map((fav) => {
-          const entry = state.entries.find((e) => e.id === fav.entryId);
-          if (!entry) return null;
-
-          const genres = (entry.genreTagIds || []).map((id) => genreMap.get(id) || '').filter(Boolean).join(', ');
-          const actors = (entry.mainActorIds || []).map((id) => actorMap.get(id) || '').filter(Boolean).join(', ');
-          const top10Ranks = (top10ByEntryId.get(entry.id) || [])
-            .map((t) => `${t.year} (#${t.rank})`)
-            .join('; ');
-          const top10Comments = (top10ByEntryId.get(entry.id) || [])
-            .map((t) => (t.commentary ? `${t.year} (#${t.rank}): ${t.commentary}` : ''))
-            .filter(Boolean)
-            .join(' | ');
-
-          return {
-            title: formatEntryTitle(entry),
-            type: entry.type,
-            year: entry.year,
-            country: entry.country,
-            status: entry.status,
-            totalEpisodes: entry.totalEpisodes ?? '',
-            genres,
-            actors,
-            favoriteTier: formatTierLabel(fav.tier),
-            overallScore: fav.overallScore != null ? fav.overallScore.toFixed(1) : '',
-            storyline: fav.ratings?.storyline ?? '',
-            acting: fav.ratings?.acting ?? '',
-            chemistry: fav.ratings?.chemistry ?? '',
-            production: fav.ratings?.production ?? '',
-            rewatchValue: fav.ratings?.rewatchValue ?? '',
-            personalComment: fav.personalComment || '',
-            top10Rank: top10Ranks,
-            top10Commentary: top10Comments,
-            episodeRatingsSummary: entry.episodeRatings
-              ? `${Object.keys(entry.episodeRatings).length} eps rated`
-              : '',
-            plannedDate: entry.plannedDate ?? '',
-            createdAt: entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : '',
-            lastUpdatedAt: entry.lastUpdatedAt ? new Date(entry.lastUpdatedAt).toLocaleDateString() : '',
-            franchiseInfo: entry.parentEntryId ? `Parent: ${parentMap.get(entry.parentEntryId) || ''}` : '',
-          };
-        })
-        .filter((r): r is Record<string, unknown> => r !== null);
-    }
-
-    // ── Scope 3: Full Watchlist & Comprehensive ──
-    let entryList = state.entries;
-    if (statusFilter !== 'ALL') {
-      entryList = entryList.filter((e) => e.status === statusFilter);
-    }
-
-    return entryList.map((entry) => {
-      const fav = favMap.get(entry.id);
-      const evalItem = fav || ratingMap.get(entry.id);
-      const genres = (entry.genreTagIds || []).map((id) => genreMap.get(id) || '').filter(Boolean).join(', ');
-      const actors = (entry.mainActorIds || []).map((id) => actorMap.get(id) || '').filter(Boolean).join(', ');
-
-      const top10Ranks = (top10ByEntryId.get(entry.id) || [])
-        .map((t) => `${t.year} (#${t.rank})`)
-        .join('; ');
-      const top10Comments = (top10ByEntryId.get(entry.id) || [])
-        .map((t) => (t.commentary ? `${t.year} (#${t.rank}): ${t.commentary}` : ''))
+    const buildRow = (
+      entry: Entry,
+      evalItem?: FavoriteEntry,
+      isFav?: boolean,
+      customTop10Rank?: string,
+    ): Record<FieldKey, string | number> => {
+      const genres = (entry.genres || [])
+        .map((id) => genreMap.get(id) || id)
         .filter(Boolean)
-        .join(' | ');
+        .join(', ');
+      const actors = (actorsByEntryId.get(entry.id) || []).join(', ');
+      const top10Ranks =
+        customTop10Rank ??
+        (top10ByEntryId.get(entry.id) || [])
+          .map((t) => `${t.year} (#${t.rank})`)
+          .join('; ');
+      const epAverage = getEpisodeAverage(entry.episodeRatings);
+      const epCount = entry.episodeRatings ? Object.keys(entry.episodeRatings).length : 0;
+      const epSummary =
+        epCount > 0
+          ? `${epCount} eps rated (Avg: ${epAverage !== null ? formatRating(epAverage) : 'N/A'})`
+          : '';
+      const effStoryline = evalItem?.storyline ?? getEffectiveStorylineRating(entry);
 
       return {
         title: formatEntryTitle(entry),
@@ -344,29 +250,72 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
         totalEpisodes: entry.totalEpisodes ?? '',
         genres,
         actors,
-        overallScore: evalItem?.overallScore != null ? evalItem.overallScore.toFixed(1) : '',
-        favoriteTier: formatTierLabel(fav?.tier),
-        storyline: evalItem?.ratings?.storyline ?? '',
-        acting: evalItem?.ratings?.acting ?? '',
-        chemistry: evalItem?.ratings?.chemistry ?? '',
-        production: evalItem?.ratings?.production ?? '',
-        rewatchValue: evalItem?.ratings?.rewatchValue ?? '',
-        personalComment: evalItem?.personalComment ?? '',
+        overallRating: evalItem?.overallRating != null ? formatRating(evalItem.overallRating) : '',
+        isFavorite: isFav ? 'Yes' : favMap.has(entry.id) ? 'Yes' : 'No',
+        storyline: effStoryline != null ? formatRating(effStoryline) : '',
+        acting: evalItem?.acting != null ? formatRating(evalItem.acting) : '',
+        chemistry: evalItem?.chemistry != null ? formatRating(evalItem.chemistry) : '',
+        production: evalItem?.production != null ? formatRating(evalItem.production) : '',
+        music: evalItem?.music != null ? formatRating(evalItem.music) : '',
+        rewatchValue: evalItem?.rewatchValue ? 'Yes' : evalItem ? 'No' : '',
+        bonusCount: evalItem ? getBonusCount(evalItem) : '',
+        episodeRatingsSummary: epSummary,
         top10Rank: top10Ranks,
-        top10Commentary: top10Comments,
-        episodeRatingsSummary: entry.episodeRatings
-          ? `${Object.keys(entry.episodeRatings).length} eps rated`
+        franchiseInfo: entry.parentEntryId
+          ? `Parent: ${parentMap.get(entry.parentEntryId) || entry.parentEntryId}`
           : '',
         plannedDate: entry.plannedDate ?? '',
+        plannedTime: entry.plannedTime ?? '',
         createdAt: entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : '',
         lastUpdatedAt: entry.lastUpdatedAt ? new Date(entry.lastUpdatedAt).toLocaleDateString() : '',
-        franchiseInfo: entry.parentEntryId ? `Parent: ${parentMap.get(entry.parentEntryId) || ''}` : '',
       };
+    };
+
+    // ── Scope 1: Top 10 specific export ──
+    if (scope === 'top10') {
+      const rows: Record<FieldKey, string | number>[] = [];
+      for (const drawer of state.top10Drawers) {
+        if (top10YearFilter !== 'ALL' && drawer.year !== top10YearFilter) continue;
+
+        for (const item of drawer.entries) {
+          const entry = state.entries.find((e) => e.id === item.entryId);
+          if (!entry) continue;
+
+          const fav = favMap.get(entry.id);
+          const evalItem = fav || ratingMap.get(entry.id);
+          rows.push(buildRow(entry, evalItem, Boolean(fav), `${drawer.year} Rank #${item.rank}`));
+        }
+      }
+      return rows;
+    }
+
+    // ── Scope 2: Favorites Only ──
+    if (scope === 'favorites') {
+      const rows: Record<FieldKey, string | number>[] = [];
+      for (const fav of state.favorites) {
+        const entry = state.entries.find((e) => e.id === fav.entryId);
+        if (!entry) continue;
+        if (favTypeFilter !== 'ALL' && entry.type !== favTypeFilter) continue;
+        rows.push(buildRow(entry, fav, true));
+      }
+      return rows;
+    }
+
+    // ── Scope 3: Full Watchlist & Scope 4: Comprehensive ──
+    let entryList = state.entries;
+    if (scope === 'watchlist' && statusFilter !== 'ALL') {
+      entryList = entryList.filter((e) => e.status === statusFilter);
+    }
+
+    return entryList.map((entry) => {
+      const fav = favMap.get(entry.id);
+      const evalItem = fav || ratingMap.get(entry.id);
+      return buildRow(entry, evalItem, Boolean(fav));
     });
   }, [
     scope,
     statusFilter,
-    tierFilter,
+    favTypeFilter,
     top10YearFilter,
     state.entries,
     state.favorites,
@@ -376,7 +325,7 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
     state.actors,
   ]);
 
-  // Execute export download
+  // Download Trigger
   const handleExportNow = useCallback(() => {
     if (resolvedExportData.length === 0 || activeFields.length === 0) return;
 
@@ -394,7 +343,7 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
 
     // Filter each row to only contain the activeFields
     const filteredRows = resolvedExportData.map((row) => {
-      const obj: Record<string, unknown> = {};
+      const obj: Record<string, string | number> = {};
       for (const field of activeFields) {
         obj[field.key] = row[field.key] ?? '';
       }
@@ -402,7 +351,20 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
     });
 
     if (format === 'json') {
-      const jsonContent = JSON.stringify(filteredRows, null, 2);
+      const jsonContent = JSON.stringify(
+        {
+          exportMetadata: {
+            scope,
+            format,
+            date: new Date().toISOString(),
+            totalRecords: filteredRows.length,
+            selectedFields: activeFields.map((f) => f.key),
+          },
+          data: filteredRows,
+        },
+        null,
+        2,
+      );
       const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -413,7 +375,7 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } else {
-      // CSV format
+      // CSV format with RFC 4180 escaping and UTF-8 BOM
       const escapeCsvCell = (val: unknown): string => {
         if (val === null || val === undefined) return '';
         const str = String(val);
@@ -423,13 +385,12 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
         return str;
       };
 
-      const headerLine = activeFields.map((f) => escapeCsvCell(f.label)).join(',');
-      const dataLines = filteredRows.map((row) =>
+      const headers = activeFields.map((f) => escapeCsvCell(f.label)).join(',');
+      const csvLines = filteredRows.map((row) =>
         activeFields.map((f) => escapeCsvCell(row[f.key])).join(','),
       );
-
-      // Prepend UTF-8 BOM (\uFEFF) for Microsoft Excel compatibility
-      const csvContent = '\uFEFF' + [headerLine, ...dataLines].join('\r\n');
+      // Prepend UTF-8 BOM (\uFEFF) so Excel opens UTF-8 characters without mojibake
+      const csvContent = '\uFEFF' + [headers, ...csvLines].join('\r\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -440,72 +401,125 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     }
-
-    onClose();
-  }, [resolvedExportData, activeFields, scope, format, onClose]);
+  }, [resolvedExportData, activeFields, scope, format]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-[#111] text-white border-white/[0.08] p-0 overflow-hidden rounded-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <DialogHeader className="p-5 pb-4 border-b border-white/[0.08] bg-[#141414]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#E50914]/10 border border-[#E50914]/20 flex items-center justify-center flex-shrink-0">
-              <Download className="w-5 h-5 text-[#E50914]" />
+      <DialogContent className="max-w-xl max-h-[90vh] bg-[#141414] border border-white/10 text-white p-0 flex flex-col overflow-hidden shadow-2xl">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-white/[0.06] flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-[#E50914]/15 border border-[#E50914]/30 flex items-center justify-center text-[#E50914]">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold tracking-tight text-white">
+                  Custom Data Export
+                </DialogTitle>
+                <DialogDescription className="text-xs text-[#888]">
+                  Export watchlist, favorites, or rankings to CSV or JSON
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-lg font-bold text-white">Custom Export System</DialogTitle>
-              <DialogDescription className="text-xs text-[#888] mt-0.5">
-                Export your watchlist, favorites, or Top 10 rankings to CSV or JSON with custom fields.
-              </DialogDescription>
-            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#888] hover:text-white hover:bg-white/[0.06] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </DialogHeader>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {/* ── 1. Select Collection / Scope ── */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm">
+          {/* 1. Scope Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[#AAA] uppercase tracking-wider">
-              1. Choose Data Collection
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#888] flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#E50914]" />
+              Export Scope
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { id: 'watchlist', label: 'Watchlist', icon: Film, count: state.entries.length },
-                { id: 'favorites', label: 'Favorites', icon: Heart, count: state.favorites.length },
-                {
-                  id: 'top10',
-                  label: 'Top 10 Rankings',
-                  icon: Star,
-                  count: state.top10Drawers.reduce((acc, d) => acc + d.entries.length, 0),
-                },
-                { id: 'comprehensive', label: 'Full Data', icon: Layers, count: state.entries.length },
-              ].map((item) => {
-                const Icon = item.icon;
-                const isSelected = scope === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setScope(item.id as ExportScope)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all tap-active ${
-                      isSelected
-                        ? 'bg-[#E50914]/10 border-[#E50914] text-white shadow-sm'
-                        : 'bg-white/[0.03] border-white/[0.06] text-[#888] hover:bg-white/[0.06] hover:text-white'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 mb-1.5 ${isSelected ? 'text-[#E50914]' : 'text-[#666]'}`} />
-                    <span className="text-xs font-semibold">{item.label}</span>
-                    <span className="text-[10px] text-[#666] mt-0.5">{item.count} items</span>
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                onClick={() => setScope('watchlist')}
+                className={`p-3 rounded-xl border text-left transition-colors tap-active flex flex-col gap-1 ${
+                  scope === 'watchlist'
+                    ? 'bg-[#E50914]/15 border-[#E50914] text-white'
+                    : 'bg-[#1a1a1a] border-white/[0.08] text-[#999] hover:text-white hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Film className="w-4 h-4" />
+                  <span className="text-[11px] font-mono text-[#777]">
+                    {state.entries.length}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold mt-1">Watchlist</span>
+                <span className="text-[10px] text-[#666] leading-tight">All catalog titles</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScope('favorites')}
+                className={`p-3 rounded-xl border text-left transition-colors tap-active flex flex-col gap-1 ${
+                  scope === 'favorites'
+                    ? 'bg-[#E50914]/15 border-[#E50914] text-white'
+                    : 'bg-[#1a1a1a] border-white/[0.08] text-[#999] hover:text-white hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Heart className="w-4 h-4 text-rose-400" />
+                  <span className="text-[11px] font-mono text-[#777]">
+                    {state.favorites.length}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold mt-1">Favorites</span>
+                <span className="text-[10px] text-[#666] leading-tight">Evaluated favorites</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScope('top10')}
+                className={`p-3 rounded-xl border text-left transition-colors tap-active flex flex-col gap-1 ${
+                  scope === 'top10'
+                    ? 'bg-[#E50914]/15 border-[#E50914] text-white'
+                    : 'bg-[#1a1a1a] border-white/[0.08] text-[#999] hover:text-white hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Star className="w-4 h-4 text-amber-400" />
+                  <span className="text-[11px] font-mono text-[#777]">
+                    {state.top10Drawers.reduce((acc, d) => acc + d.entries.length, 0)}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold mt-1">Top 10</span>
+                <span className="text-[10px] text-[#666] leading-tight">Annual rankings</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScope('comprehensive')}
+                className={`p-3 rounded-xl border text-left transition-colors tap-active flex flex-col gap-1 ${
+                  scope === 'comprehensive'
+                    ? 'bg-[#E50914]/15 border-[#E50914] text-white'
+                    : 'bg-[#1a1a1a] border-white/[0.08] text-[#999] hover:text-white hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <SlidersHorizontal className="w-4 h-4 text-emerald-400" />
+                  <span className="text-[11px] font-mono text-[#777]">
+                    {state.entries.length}
+                  </span>
+                </div>
+                <span className="text-xs font-semibold mt-1">Comprehensive</span>
+                <span className="text-[10px] text-[#666] leading-tight">Joined dataset</span>
+              </button>
             </div>
 
-            {/* Scope Sub-filters */}
+            {/* Scope contextual filters */}
             {scope === 'watchlist' && (
               <div className="flex items-center gap-2 pt-1 text-xs">
-                <span className="text-[#777] font-medium">Filter by Status:</span>
+                <span className="text-[#777] font-medium">Filter Status:</span>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as 'ALL' | Status)}
@@ -530,22 +544,15 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
 
             {scope === 'favorites' && (
               <div className="flex items-center gap-2 pt-1 text-xs">
-                <span className="text-[#777] font-medium">Filter Tier:</span>
+                <span className="text-[#777] font-medium">Filter Type:</span>
                 <select
-                  value={tierFilter}
-                  onChange={(e) => setTierFilter(e.target.value as 'ALL' | FavoriteTier)}
+                  value={favTypeFilter}
+                  onChange={(e) => setFavTypeFilter(e.target.value as 'ALL' | 'Movie' | 'Series')}
                   className="bg-[#1a1a1a] border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white focus:border-[#E50914] outline-none"
                 >
-                  <option value="ALL">All Tiers ({state.favorites.length})</option>
-                  <option value="topTier">
-                    Top Tier ({state.favorites.filter((f) => f.tier === 'topTier').length})
-                  </option>
-                  <option value="highTier">
-                    High Tier ({state.favorites.filter((f) => f.tier === 'highTier').length})
-                  </option>
-                  <option value="comfortTier">
-                    Comfort Tier ({state.favorites.filter((f) => f.tier === 'comfortTier').length})
-                  </option>
+                  <option value="ALL">All Types ({state.favorites.length})</option>
+                  <option value="Series">Series Only</option>
+                  <option value="Movie">Movies Only</option>
                 </select>
               </div>
             )}
@@ -563,7 +570,7 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
                   <option value="ALL">All Years</option>
                   {top10Years.map((yr) => (
                     <option key={yr} value={yr}>
-                      {yr} Ranking
+                      {yr} Drawer
                     </option>
                   ))}
                 </select>
@@ -571,156 +578,184 @@ export default function CustomExportModal({ isOpen, onClose }: CustomExportModal
             )}
           </div>
 
-          {/* ── 2. Select Export Format ── */}
+          {/* 2. Format Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-[#AAA] uppercase tracking-wider">
-              2. Export Format
+            <label className="text-xs font-semibold uppercase tracking-wider text-[#888]">
+              Output Format
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setFormat('csv')}
-                className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all tap-active ${
+                className={`p-3 rounded-xl border flex items-center gap-3 transition-colors tap-active ${
                   format === 'csv'
-                    ? 'bg-[#E50914]/10 border-[#E50914] text-white shadow-sm'
-                    : 'bg-white/[0.03] border-white/[0.06] text-[#888] hover:bg-white/[0.06] hover:text-white'
+                    ? 'bg-white/[0.08] border-[#E50914] text-white shadow-sm'
+                    : 'bg-[#1a1a1a] border-white/[0.08] text-[#999] hover:text-white hover:border-white/20'
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    format === 'csv' ? 'bg-[#E50914]/20 text-[#E50914]' : 'bg-white/[0.06] text-[#666]'
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                    format === 'csv' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/[0.04]'
                   }`}
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
+                  <FileSpreadsheet className="w-5 h-5" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white">CSV Spreadsheet (.csv)</p>
-                  <p className="text-[11px] text-[#777] mt-0.5">
-                    Ready for Excel, Google Sheets, Notion & Numbers (UTF-8)
-                  </p>
+                <div className="text-left">
+                  <div className="text-xs font-semibold">CSV Spreadsheet</div>
+                  <div className="text-[11px] text-[#666]">Excel, Google Sheets (UTF-8)</div>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setFormat('json')}
-                className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all tap-active ${
+                className={`p-3 rounded-xl border flex items-center gap-3 transition-colors tap-active ${
                   format === 'json'
-                    ? 'bg-[#E50914]/10 border-[#E50914] text-white shadow-sm'
-                    : 'bg-white/[0.03] border-white/[0.06] text-[#888] hover:bg-white/[0.06] hover:text-white'
+                    ? 'bg-white/[0.08] border-[#E50914] text-white shadow-sm'
+                    : 'bg-[#1a1a1a] border-white/[0.08] text-[#999] hover:text-white hover:border-white/20'
                 }`}
               >
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    format === 'json' ? 'bg-[#E50914]/20 text-[#E50914]' : 'bg-white/[0.06] text-[#666]'
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                    format === 'json' ? 'bg-amber-500/20 text-amber-400' : 'bg-white/[0.04]'
                   }`}
                 >
-                  <FileCode className="w-4 h-4" />
+                  <FileCode className="w-5 h-5" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white">JSON Data (.json)</p>
-                  <p className="text-[11px] text-[#777] mt-0.5">
-                    Structured array of records formatted with 2-space indentation
-                  </p>
+                <div className="text-left">
+                  <div className="text-xs font-semibold">JSON Format</div>
+                  <div className="text-[11px] text-[#666]">Structured raw data</div>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* ── 3. Selective Export Toggle ── */}
-          <div className="space-y-3 pt-2 border-t border-white/[0.06]">
+          {/* 3. Selective Export Toggle */}
+          <div className="p-4 rounded-xl bg-[#1a1a1a] border border-white/[0.06] space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <SlidersHorizontal className="w-4 h-4 text-[#E50914]" />
                 <div>
-                  <p className="text-xs font-bold text-white">Selective Export</p>
-                  <p className="text-[11px] text-[#777]">
-                    Choose specific columns and data points to include
-                  </p>
+                  <div className="text-xs font-semibold text-white">Selective Export</div>
+                  <div className="text-[11px] text-[#777]">
+                    Choose specific data fields to include in your export
+                  </div>
                 </div>
               </div>
 
-              {/* Toggle switch */}
+              {/* Custom Toggle Switch */}
               <button
                 type="button"
                 role="switch"
                 aria-checked={selectiveExport}
                 onClick={() => setSelectiveExport(!selectiveExport)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                className={`w-11 h-6 rounded-full transition-colors relative focus:outline-none ${
                   selectiveExport ? 'bg-[#E50914]' : 'bg-white/20'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                    selectiveExport ? 'translate-x-5' : 'translate-x-0'
+                  className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                    selectiveExport ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
             </div>
 
-            {/* Field Selection Checklist (when Selective Export is ON) */}
+            {/* Field Checkbox Picker (When Selective Export is ON) */}
             {selectiveExport && (
-              <div className="bg-[#141414] border border-white/[0.06] rounded-xl p-3.5 space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
-                  <span className="text-[11px] font-semibold text-[#888]">
-                    {selectedFields.size} of {ALL_FIELDS.length} fields selected
+              <div className="pt-3 border-t border-white/[0.06] space-y-3">
+                <div className="flex items-center justify-between text-xs text-[#888]">
+                  <span>
+                    Fields selected: <strong className="text-white">{selectedFields.size}</strong> /{' '}
+                    {ALL_FIELDS.length}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={selectAllFields}
-                      className="text-[11px] font-medium text-red-400 hover:text-red-300"
+                      className="text-[#E50914] hover:underline text-[11px] font-semibold"
                     >
                       Select All
                     </button>
-                    <span className="text-[#444]">•</span>
+                    <span className="text-[#444]">|</span>
                     <button
                       type="button"
-                      onClick={resetFieldsToDefault}
-                      className="text-[11px] font-medium text-[#777] hover:text-white"
+                      onClick={deselectAllFields}
+                      className="text-[#888] hover:text-white text-[11px]"
                     >
-                      Reset Defaults
+                      Deselect All
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {ALL_FIELDS.map((field) => {
-                    const isChecked = selectedFields.has(field.key);
+                {/* Categories */}
+                <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                  {(
+                    [
+                      { id: 'core', title: 'Core Information' },
+                      { id: 'people', title: 'Cast & Tags' },
+                      { id: 'ratings', title: 'Ratings & Evaluation' },
+                      { id: 'rankings', title: 'Rankings & Franchise' },
+                      { id: 'meta', title: 'Metadata & Timestamps' },
+                    ] as const
+                  ).map((cat) => {
+                    const fieldsInCat = ALL_FIELDS.filter((f) => f.category === cat.id);
+                    if (fieldsInCat.length === 0) return null;
+
                     return (
-                      <label
-                        key={field.key}
-                        onClick={() => toggleField(field.key)}
-                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer text-xs transition-colors ${
-                          isChecked
-                            ? 'bg-white/[0.05] text-white font-medium'
-                            : 'text-[#666] hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        {isChecked ? (
-                          <CheckSquare className="w-3.5 h-3.5 text-[#E50914] flex-shrink-0" />
-                        ) : (
-                          <Square className="w-3.5 h-3.5 text-[#555] flex-shrink-0" />
-                        )}
-                        <span className="truncate">{field.label}</span>
-                      </label>
+                      <div key={cat.id} className="space-y-1.5">
+                        <div className="text-[11px] font-semibold text-[#666] uppercase tracking-wider">
+                          {cat.title}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {fieldsInCat.map((f) => {
+                            const isChecked = selectedFields.has(f.key);
+                            return (
+                              <button
+                                key={f.key}
+                                type="button"
+                                onClick={() => toggleField(f.key)}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-xs transition-colors ${
+                                  isChecked
+                                    ? 'bg-white/[0.06] border-white/20 text-white'
+                                    : 'bg-transparent border-white/[0.04] text-[#666] hover:text-[#999]'
+                                }`}
+                              >
+                                {isChecked ? (
+                                  <CheckSquare className="w-3.5 h-3.5 text-[#E50914] flex-shrink-0" />
+                                ) : (
+                                  <Square className="w-3.5 h-3.5 text-[#555] flex-shrink-0" />
+                                )}
+                                <span className="truncate">{f.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Quick Info Box */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-[11px] text-[#777]">
+            <Info className="w-4 h-4 text-[#888] flex-shrink-0 mt-0.5" />
+            <div>
+              CSV files are saved with a <strong>UTF-8 BOM</strong> to ensure Asian character sets
+              (Thai, Japanese, Korean, Chinese) display accurately in Microsoft Excel and Numbers.
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/[0.08] bg-[#141414] flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-[#888]">
-            <Info className="w-3.5 h-3.5 text-[#666]" />
-            <span>
-              Exporting <strong className="text-white">{resolvedExportData.length}</strong> items with{' '}
-              <strong className="text-white">{activeFields.length}</strong> fields in{' '}
-              <strong className="text-white uppercase">{format}</strong>
-            </span>
+        {/* Modal Footer */}
+        <div className="px-6 py-4 border-t border-white/[0.06] bg-[#111] flex items-center justify-between flex-shrink-0">
+          <div className="text-xs text-[#888]">
+            Will export <strong className="text-white">{resolvedExportData.length}</strong> record
+            {resolvedExportData.length !== 1 ? 's' : ''} with{' '}
+            <strong className="text-white">{activeFields.length}</strong> column
+            {activeFields.length !== 1 ? 's' : ''}
           </div>
 
           <div className="flex items-center gap-2">
