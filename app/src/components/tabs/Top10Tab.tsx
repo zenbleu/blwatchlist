@@ -17,12 +17,13 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Star, ChevronDown, ChevronRight, Trash2, Plus, X, AlertTriangle, Edit3, Lock } from "lucide-react";
+import { Star, ChevronDown, ChevronRight, Trash2, Plus, X, AlertTriangle, Edit3, Lock, Layers } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Poster from "../Poster";
 import AnthologyBadges from "../AnthologyBadges";
 import type { Entry } from "@/types";
 import EntryModal from "../EntryModal";
+import TierListBuilder from "../TierListBuilder";
 import ShareButton from "../ShareCard";
 import {
   Dialog,
@@ -272,6 +273,7 @@ export default function Top10Tab() {
   const [deleteDrawerConfirm, setDeleteDrawerConfirm] = useState<number | null>(null);
   const [editModeDrawers, setEditModeDrawers] = useState<Set<number>>(new Set());
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
+  const [viewMode, setViewMode] = useState<'drawers' | 'tierlist'>('drawers');
   const [duplicateError, setDuplicateError] = useState("");
   const [rankingModalYear, setRankingModalYear] = useState<number | null>(null);
 
@@ -395,90 +397,91 @@ export default function Top10Tab() {
       });
   };
 
-  if (state.top10Drawers.length === 0) {
-    return (
-      <div className="space-y-4 w-full">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Star className="w-6 h-6 text-[#E50914]" />
-            <h1 className="text-2xl font-extrabold">Top 10 Rankings</h1>
-          </div>
-          <button
-            onClick={() => setAddYearOpen(true)}
-            className="flex items-center gap-1.5 glass text-white px-3 py-2 rounded-lg text-sm font-semibold tap-active"
-          >
-            <Plus className="w-4 h-4" />
-            Add Year
-          </button>
-        </div>
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Star className="w-8 h-8 text-[#333] mb-3" />
-          <p className="text-[#666] text-sm">No rankings yet</p>
-          <p className="text-[#555] text-xs mt-1">Add your first year drawer</p>
-        </div>
-
-        <Dialog open={addYearOpen} onOpenChange={setAddYearOpen}>
-          <DialogContent className="bg-[#141414] border-white/10 text-white">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold">Add Year Drawer</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <Input
-                type="number"
-                placeholder="Enter year (e.g. 2025)"
-                value={newYear}
-                onChange={(e) => { setNewYear(e.target.value); setDuplicateError(""); }}
-                min={2000}
-                max={2100}
-                className="bg-white/[0.06] border-white/10 text-white placeholder:text-[#666] focus:border-[#E50914] focus:ring-[#E50914]/15"
-              />
-              {duplicateError && <p className="text-red-500 text-xs">{duplicateError}</p>}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => { setAddYearOpen(false); setNewYear(""); setDuplicateError(""); }}
-                  className="flex-1 bg-white/[0.06] border-white/10 text-white hover:bg-white/10"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleAddYear}
-                  className="flex-1 bg-[#E50914] text-white hover:bg-[#E50914]/90 font-semibold"
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.08] pb-4">
         <div className="flex items-center gap-2">
-          <Star className="w-6 h-6 text-[#E50914]" />
-          <h1 className="text-2xl font-extrabold">Top 10 Rankings</h1>
+          {viewMode === 'drawers' ? (
+            <Star className="w-6 h-6 text-[#E50914]" />
+          ) : (
+            <Layers className="w-6 h-6 text-[#E50914]" />
+          )}
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight">
+              {viewMode === 'drawers' ? 'Top 10 Rankings' : 'Visual Tier List'}
+            </h1>
+            <p className="text-xs text-[#777]">
+              {viewMode === 'drawers'
+                ? 'Annual drawers to rank your top 10 BL titles for each release year.'
+                : 'Drag-and-drop BL series into customizable tiers with personal presets.'}
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => setAddYearOpen(true)}
-          className="flex items-center gap-1.5 glass text-white px-3 py-2 rounded-lg text-sm font-semibold tap-active"
-        >
-          <Plus className="w-4 h-4" />
-          Add Year
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Segmented View Switcher */}
+          <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('drawers')}
+              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all tap-active ${
+                viewMode === 'drawers'
+                  ? 'bg-[#E50914] text-white shadow-sm'
+                  : 'text-[#888] hover:bg-white/[0.04] hover:text-white'
+              }`}
+            >
+              <Star className="h-3.5 w-3.5" />
+              <span>Top 10 Drawers</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('tierlist')}
+              className={`flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all tap-active ${
+                viewMode === 'tierlist'
+                  ? 'bg-[#E50914] text-white shadow-sm'
+                  : 'text-[#888] hover:bg-white/[0.04] hover:text-white'
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Visual Tier List</span>
+            </button>
+          </div>
+
+          {viewMode === 'drawers' && (
+            <button
+              onClick={() => setAddYearOpen(true)}
+              className="flex items-center gap-1.5 glass text-white px-3 py-2 rounded-lg text-sm font-semibold tap-active"
+            >
+              <Plus className="w-4 h-4" />
+              Add Year
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Year Drawers */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="space-y-3">
+      {viewMode === 'tierlist' ? (
+        <TierListBuilder onSelectEntry={(entry) => setSelectedEntry(entry)} />
+      ) : state.top10Drawers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-dashed border-white/10 bg-[#0f0f0f]">
+          <Star className="w-8 h-8 text-[#333] mb-3" />
+          <p className="text-[#888] text-sm font-semibold">No rankings yet</p>
+          <p className="text-[#555] text-xs mt-1">Add your first year drawer to rank your top 10 titles for that year.</p>
+          <button
+            onClick={() => setAddYearOpen(true)}
+            className="mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-[#E50914] text-white hover:bg-[#E50914]/90 transition-colors"
+          >
+            Add Year Drawer
+          </button>
+        </div>
+      ) : (
+        /* Year Drawers */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="space-y-3">
           {state.top10Drawers.map((drawer) => {
           const isOpen = openDrawers.has(drawer.year);
           const isEditMode = editModeDrawers.has(drawer.year);
@@ -645,6 +648,7 @@ export default function Top10Tab() {
           })}
         </div>
       </DndContext>
+      )}
 
       {/* Ranking Modal */}
       {rankingModalYear && (
