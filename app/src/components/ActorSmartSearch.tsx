@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, UserRound, Check } from 'lucide-react';
+import { Search, X, UserRound } from 'lucide-react';
 import type { Actor } from '@/types';
 
 interface ActorSmartSearchProps {

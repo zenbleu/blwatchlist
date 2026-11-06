@@ -960,7 +960,7 @@ export default function ActorsTab() {
             setSelectedActorId(null);
           }}
           onSelectActorId={(actorId) => setSelectedActorId(actorId)}
-          onSetCpPartner={handleSetCpPartner}
+          onSetCpPartner={(entryId, partnerId) => handleSetCpPartner(entryId, selectedActor.id, partnerId)}
         />
         <Dialog open={formOpen} onOpenChange={(open) => !open && setFormOpen(false)}>
           <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-xl">
