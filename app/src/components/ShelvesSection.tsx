@@ -74,9 +74,15 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
   const [editDesc, setEditDesc] = useState('');
   const [editEmoji, setEditEmoji] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [confirmDeleteShelfId, setConfirmDeleteShelfId] = useState<string | null>(null);
 
-  const [addTitlesShelf, setAddTitlesShelf] = useState<Shelf | null>(null);
+  const [addTitlesShelfId, setAddTitlesShelfId] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+
+  // Always derive activeAddShelf dynamically so additions/removals reflect immediately
+  const activeAddShelf = useMemo(() => {
+    return shelves.find((s) => s.id === addTitlesShelfId) || null;
+  }, [shelves, addTitlesShelfId]);
 
   const handleCreateShelf = () => {
     if (!newShelfName.trim()) return;
@@ -94,6 +100,7 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
     setEditDesc(shelf.description || '');
     setEditEmoji(shelf.emoji || '📁');
     setEditColor(shelf.color || '#E50914');
+    setConfirmDeleteShelfId(null);
   };
 
   const handleSaveEditShelf = () => {
@@ -187,7 +194,7 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        setAddTitlesShelf(shelf);
+                        setAddTitlesShelfId(shelf.id);
                         setPickerSearch('');
                       }}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.08] transition-colors"
@@ -210,7 +217,7 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
                 {shelfEntries.length === 0 ? (
                   <div
                     onClick={() => {
-                      setAddTitlesShelf(shelf);
+                      setAddTitlesShelfId(shelf.id);
                       setPickerSearch('');
                     }}
                     className="p-6 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.04] cursor-pointer text-center transition-colors group"
@@ -286,7 +293,7 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
                     <button
                       type="button"
                       onClick={() => {
-                        setAddTitlesShelf(shelf);
+                        setAddTitlesShelfId(shelf.id);
                         setPickerSearch('');
                       }}
                       className="h-40 w-28 shrink-0 rounded-xl border border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-[#E50914]/40 flex flex-col items-center justify-center gap-1.5 text-center transition-colors group"
@@ -480,19 +487,38 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-white/[0.08]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm(`Delete shelf "${editModalShelf.name}"? Titles will remain in your watchlist.`)) {
-                      deleteShelf(editModalShelf.id);
-                      setEditModalShelf(null);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 font-semibold"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Shelf</span>
-                </button>
+                {confirmDeleteShelfId === editModalShelf.id ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-red-400 font-medium">Delete &ldquo;{editModalShelf.name}&rdquo;?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteShelf(editModalShelf.id);
+                        setEditModalShelf(null);
+                        setConfirmDeleteShelfId(null);
+                      }}
+                      className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold"
+                    >
+                      Yes, Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteShelfId(null)}
+                      className="px-2 py-1 text-[11px] text-[#888] hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteShelfId(editModalShelf.id)}
+                    className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 font-semibold"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Shelf</span>
+                  </button>
+                )}
 
                 <div className="flex gap-2">
                   <button
@@ -517,12 +543,12 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
       </Dialog>
 
       {/* ── MODAL: Add Series to Shelf ── */}
-      <Dialog open={Boolean(addTitlesShelf)} onOpenChange={() => setAddTitlesShelf(null)}>
+      <Dialog open={Boolean(activeAddShelf)} onOpenChange={(open) => !open && setAddTitlesShelfId(null)}>
         <DialogContent className="bg-[#121212] border-white/10 text-white sm:max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <span>{addTitlesShelf?.emoji}</span>
-              <span>Add Series to {addTitlesShelf?.name}</span>
+              <span>{activeAddShelf?.emoji}</span>
+              <span>Add Series to {activeAddShelf?.name}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -545,7 +571,7 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
                 })
                 .slice(0, 40)
                 .map((entry) => {
-                  const isAdded = addTitlesShelf?.entryIds.includes(entry.id);
+                  const isAdded = Boolean(activeAddShelf?.entryIds.includes(entry.id));
 
                   return (
                     <div
@@ -575,11 +601,11 @@ export default function ShelvesSection({ onSelectEntry }: ShelvesSectionProps) {
                       <button
                         type="button"
                         onClick={() => {
-                          if (!addTitlesShelf) return;
+                          if (!activeAddShelf) return;
                           if (isAdded) {
-                            removeEntryFromShelf(addTitlesShelf.id, entry.id);
+                            removeEntryFromShelf(activeAddShelf.id, entry.id);
                           } else {
-                            addEntryToShelf(addTitlesShelf.id, entry.id);
+                            addEntryToShelf(activeAddShelf.id, entry.id);
                           }
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${

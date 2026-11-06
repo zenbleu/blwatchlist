@@ -10,98 +10,97 @@ import {
   Edit3,
   X,
   UserRound,
+  EyeOff,
+  RotateCcw,
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatEntryTitle } from '@/lib/entry';
 import { formatRating } from '@/lib/rating';
-import type { Actor, ActorRole, Entry, FavoriteEntry } from '@/types';
+import type { Actor, Entry, FavoriteEntry } from '@/types';
+import type { BlPairingRecord, ComputedPairing, SharedProjectCredit } from '@/types/pairing';
+import {
+  makePairingId,
+  loadStoredPairings,
+  saveStoredPairings,
+  loadTitleCpPartners,
+  loadDismissedPairings,
+  saveDismissedPairings,
+  PAIRINGS_UPDATED_EVENT,
+  TITLE_CP_UPDATED_EVENT,
+} from '@/lib/pairings';
 import Poster from './Poster';
+import ActorSmartSearch from './ActorSmartSearch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-const PAIRINGS_STORAGE_KEY = 'bl_watchlist_pairings_v1';
-
-export interface BlPairingRecord {
-  id: string; // cp_{actor1Id}_{actor2Id}
-  actor1Id: string;
-  actor2Id: string;
-  shipName?: string;
-  isFavorite: boolean;
-  notes?: string;
-  createdAt: number;
-}
-
-export interface SharedProjectCredit {
-  entry: Entry;
-  actor1Role: ActorRole;
-  actor1Character: string;
-  actor2Role: ActorRole;
-  actor2Character: string;
-  chemistryScore: number | null;
-  hasOutstandingChemistry: boolean;
-  overallRating: number | null;
-}
-
-export interface ComputedPairing {
-  id: string;
-  actor1: Actor;
-  actor2: Actor;
-  shipName: string;
-  isFavorite: boolean;
-  notes?: string;
-  sharedProjects: SharedProjectCredit[];
-  totalProjects: number;
-  mainLeadProjects: number;
-  totalEpisodes: number;
-  averageChemistry: number | null;
-  outstandingChemistryCount: number;
-  averageOverallScore: number | null;
-  country: string;
-  isCustomTagged: boolean;
-}
+export type { BlPairingRecord, ComputedPairing, SharedProjectCredit };
 
 interface PairingsTrackerProps {
   onSelectEntry?: (entry: Entry) => void;
   onSelectActor?: (actorId: string) => void;
+  initialActor1Id?: string;
+  openCreateOnMount?: boolean;
+  onCloseCreate?: () => void;
 }
 
-function makePairingId(id1: string, id2: string): string {
-  const [a, b] = [id1, id2].sort();
-  return `cp_${a}_${b}`;
-}
-
-export default function PairingsTracker({ onSelectEntry, onSelectActor }: PairingsTrackerProps) {
+export default function PairingsTracker({
+  onSelectEntry,
+  onSelectActor,
+  initialActor1Id,
+  openCreateOnMount,
+  onCloseCreate,
+}: PairingsTrackerProps) {
   const { state } = useApp();
 
   // Stored user tagged pairings in localStorage
-  const [storedPairings, setStoredPairings] = useState<Record<string, BlPairingRecord>>(() => {
-    try {
-      const raw = localStorage.getItem(PAIRINGS_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [storedPairings, setStoredPairings] = useState<Record<string, BlPairingRecord>>(loadStoredPairings);
 
-  // Sync state to localStorage
+  // Title-specific CP partner assignments: { [entryId_actorId]: partnerId }
+  const [titleCpPartners, setTitleCpPartners] = useState<Record<string, string>>(loadTitleCpPartners);
+
+  // User dismissed pairing suggestions: string[] of pairIds
+  const [dismissedPairings, setDismissedPairings] = useState<string[]>(loadDismissedPairings);
+
+  // Sync with custom events across tabs / components
   useEffect(() => {
-    try {
-      localStorage.setItem(PAIRINGS_STORAGE_KEY, JSON.stringify(storedPairings));
-    } catch {
-      // ignore storage write errors
-    }
-  }, [storedPairings]);
+    const handlePairingsUpdate = () => {
+      setStoredPairings(loadStoredPairings());
+      setDismissedPairings(loadDismissedPairings());
+    };
+    const handleTitleCpUpdate = () => {
+      setTitleCpPartners(loadTitleCpPartners());
+      setStoredPairings(loadStoredPairings());
+    };
+
+    window.addEventListener(PAIRINGS_UPDATED_EVENT, handlePairingsUpdate);
+    window.addEventListener(TITLE_CP_UPDATED_EVENT, handleTitleCpUpdate);
+    window.addEventListener('storage', handlePairingsUpdate);
+
+    return () => {
+      window.removeEventListener(PAIRINGS_UPDATED_EVENT, handlePairingsUpdate);
+      window.removeEventListener(TITLE_CP_UPDATED_EVENT, handleTitleCpUpdate);
+      window.removeEventListener('storage', handlePairingsUpdate);
+    };
+  }, []);
 
   // Selected pairing for detailed view
   const [selectedPairingId, setSelectedPairingId] = useState<string | null>(null);
 
   // Modal for tagging / editing pairing
-  const [tagModalOpen, setTagModalOpen] = useState(false);
-  const [editActor1Id, setEditActor1Id] = useState('');
+  const [tagModalOpen, setTagModalOpen] = useState(Boolean(openCreateOnMount));
+  const [editActor1Id, setEditActor1Id] = useState(initialActor1Id || '');
   const [editActor2Id, setEditActor2Id] = useState('');
   const [editShipName, setEditShipName] = useState('');
   const [editIsFavorite, setEditIsFavorite] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   const [formError, setFormError] = useState('');
+
+  // Handle open on mount
+  useEffect(() => {
+    if (openCreateOnMount) {
+      if (initialActor1Id) setEditActor1Id(initialActor1Id);
+      setTagModalOpen(true);
+    }
+  }, [openCreateOnMount, initialActor1Id]);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,14 +114,28 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
   const favMap = useMemo(() => new Map<string, FavoriteEntry>(state.favorites.map((f) => [f.entryId, f])), [state.favorites]);
   const ratingMap = useMemo(() => new Map<string, FavoriteEntry>(state.ratings.map((r) => [r.entryId, r])), [state.ratings]);
 
-  // Compute all pairs of co-stars who acted together, plus any user-tagged pairings
+  // Precompute count of MAIN roles per entry to prevent cross-pairing in ensemble casts
+  const entryMainRolesCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const actor of state.actors) {
+      for (const credit of actor.filmography) {
+        if (credit.role === 'MAIN') {
+          map.set(credit.entryId, (map.get(credit.entryId) || 0) + 1);
+        }
+      }
+    }
+    return map;
+  }, [state.actors]);
+
+  // Compute all smart CP pairs
   const computedPairings = useMemo<ComputedPairing[]>(() => {
     const result: ComputedPairing[] = [];
     const processedIds = new Set<string>();
+    const dismissedSet = new Set(dismissedPairings);
 
     const actors = state.actors;
 
-    // 1. Detect all pairs who share at least 1 filmography credit
+    // 1. Detect candidate pairs
     for (let i = 0; i < actors.length; i++) {
       const a1 = actors[i];
       const a1FilmMap = new Map(a1.filmography.map((c) => [c.entryId, c]));
@@ -131,32 +144,67 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
         const a2 = actors[j];
         const pairId = makePairingId(a1.id, a2.id);
 
+        const custom = storedPairings[pairId];
+
+        // If user explicitly dismissed this pair and hasn't explicitly customized it, skip
+        if (dismissedSet.has(pairId) && !custom) {
+          continue;
+        }
+
         const shared: SharedProjectCredit[] = [];
         for (const c2 of a2.filmography) {
           const c1 = a1FilmMap.get(c2.entryId);
           if (c1) {
             const entry = entryMap.get(c2.entryId);
             if (entry) {
-              const evalItem = favMap.get(entry.id) || ratingMap.get(entry.id);
-              shared.push({
-                entry,
-                actor1Role: c1.role,
-                actor1Character: c1.character,
-                actor2Role: c2.role,
-                actor2Character: c2.character,
-                chemistryScore: evalItem?.chemistry ?? null,
-                hasOutstandingChemistry: Boolean(evalItem?.outstandingChemistry),
-                overallRating: evalItem?.overallRating ?? null,
-              });
+              const partnerOf1 = titleCpPartners[`${entry.id}_${a1.id}`];
+              const partnerOf2 = titleCpPartners[`${entry.id}_${a2.id}`];
+
+              let isLegitPair = false;
+
+              // Condition A: Explicitly assigned CP partner for this title
+              if (partnerOf1 === a2.id || partnerOf2 === a1.id) {
+                isLegitPair = true;
+              }
+              // Condition B: User created an explicit custom pairing record for this duo
+              else if (custom) {
+                isLegitPair = true;
+              }
+              // Condition C: Both are MAIN roles, exactly 2 MAIN roles exist in the entry,
+              // AND neither actor has a different CP partner explicitly assigned
+              else if (c1.role === 'MAIN' && c2.role === 'MAIN') {
+                const totalMainLeads = entryMainRolesCountMap.get(entry.id) || 0;
+                if (totalMainLeads === 2 && !partnerOf1 && !partnerOf2) {
+                  isLegitPair = true;
+                }
+              }
+
+              // Strict BL Rules:
+              // - Main Role + Supporting Role is NEVER auto-paired
+              // - Supporting + Supporting is NEVER auto-paired
+              // - 3+ Main Roles (ensemble shows) are NEVER blindly cross-paired
+
+              if (isLegitPair) {
+                const evalItem = favMap.get(entry.id) || ratingMap.get(entry.id);
+                shared.push({
+                  entry,
+                  actor1Role: c1.role,
+                  actor1Character: c1.character,
+                  actor2Role: c2.role,
+                  actor2Character: c2.character,
+                  chemistryScore: evalItem?.chemistry ?? null,
+                  hasOutstandingChemistry: Boolean(evalItem?.outstandingChemistry),
+                  overallRating: evalItem?.overallRating ?? null,
+                });
+              }
             }
           }
         }
 
-        const custom = storedPairings[pairId];
         if (shared.length > 0 || custom) {
           processedIds.add(pairId);
 
-          // Sort shared projects chronologically
+          // Sort shared projects chronologically (newest first)
           shared.sort((x, y) => {
             if (x.entry.year !== y.entry.year) return y.entry.year - x.entry.year;
             return (y.entry.plannedDate || '').localeCompare(x.entry.plannedDate || '');
@@ -251,7 +299,17 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
     }
 
     return result;
-  }, [state.actors, entryMap, favMap, ratingMap, storedPairings, actorMap]);
+  }, [
+    state.actors,
+    entryMap,
+    favMap,
+    ratingMap,
+    storedPairings,
+    actorMap,
+    titleCpPartners,
+    dismissedPairings,
+    entryMainRolesCountMap,
+  ]);
 
   // Countries available in pairings
   const availableCountries = useMemo(() => {
@@ -332,29 +390,29 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
 
   // Toggle favorite for a pairing
   const toggleFavorite = useCallback((pairing: ComputedPairing) => {
-    setStoredPairings((prev) => {
-      const existing = prev[pairing.id] || {
-        id: pairing.id,
-        actor1Id: pairing.actor1.id,
-        actor2Id: pairing.actor2.id,
-        shipName: pairing.shipName,
-        isFavorite: false,
-        notes: pairing.notes,
-        createdAt: Date.now(),
-      };
-      return {
-        ...prev,
-        [pairing.id]: {
-          ...existing,
-          isFavorite: !existing.isFavorite,
-        },
-      };
-    });
-  }, []);
+    const existing = storedPairings[pairing.id] || {
+      id: pairing.id,
+      actor1Id: pairing.actor1.id,
+      actor2Id: pairing.actor2.id,
+      shipName: pairing.shipName,
+      isFavorite: false,
+      notes: pairing.notes,
+      createdAt: Date.now(),
+    };
+    const updated = {
+      ...storedPairings,
+      [pairing.id]: {
+        ...existing,
+        isFavorite: !existing.isFavorite,
+      },
+    };
+    setStoredPairings(updated);
+    saveStoredPairings(updated);
+  }, [storedPairings]);
 
   // Open modal to create or tag pairing
-  const openNewPairingModal = () => {
-    setEditActor1Id('');
+  const openNewPairingModal = (defaultActor1Id = '') => {
+    setEditActor1Id(defaultActor1Id || '');
     setEditActor2Id('');
     setEditShipName('');
     setEditIsFavorite(false);
@@ -377,7 +435,7 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
   // Save tagged pairing
   const handleSavePairing = () => {
     if (!editActor1Id || !editActor2Id) {
-      setFormError('Please select both actors.');
+      setFormError('Please select both Actor 1 and Actor 2.');
       return;
     }
     if (editActor1Id === editActor2Id) {
@@ -388,15 +446,15 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
     const a1 = actorMap.get(editActor1Id);
     const a2 = actorMap.get(editActor2Id);
     if (!a1 || !a2) {
-      setFormError('Actor could not be found.');
+      setFormError('Selected actor could not be found.');
       return;
     }
 
     const id = makePairingId(editActor1Id, editActor2Id);
     const defaultShipName = `${a1.name.split(' ')[0]}${a2.name.split(' ')[0]}`;
 
-    setStoredPairings((prev) => ({
-      ...prev,
+    const updated = {
+      ...storedPairings,
       [id]: {
         id,
         actor1Id: editActor1Id,
@@ -404,23 +462,51 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
         shipName: editShipName.trim() || defaultShipName,
         isFavorite: editIsFavorite,
         notes: editNotes.trim(),
-        createdAt: prev[id]?.createdAt || Date.now(),
+        createdAt: storedPairings[id]?.createdAt || Date.now(),
       },
-    }));
+    };
+
+    setStoredPairings(updated);
+    saveStoredPairings(updated);
+
+    // If it was previously dismissed, remove it from dismissed
+    if (dismissedPairings.includes(id)) {
+      const nextDismissed = dismissedPairings.filter((d) => d !== id);
+      setDismissedPairings(nextDismissed);
+      saveDismissedPairings(nextDismissed);
+    }
 
     setTagModalOpen(false);
+    onCloseCreate?.();
   };
 
   // Delete custom tag
   const handleDeleteCustomTag = (pairingId: string) => {
-    setStoredPairings((prev) => {
-      const next = { ...prev };
-      delete next[pairingId];
-      return next;
-    });
+    const next = { ...storedPairings };
+    delete next[pairingId];
+    setStoredPairings(next);
+    saveStoredPairings(next);
     if (selectedPairingId === pairingId) {
       setSelectedPairingId(null);
     }
+  };
+
+  // Dismiss an auto-detected pairing suggestion (not a CP)
+  const handleDismissPairing = (pairingId: string) => {
+    if (!dismissedPairings.includes(pairingId)) {
+      const next = [...dismissedPairings, pairingId];
+      setDismissedPairings(next);
+      saveDismissedPairings(next);
+    }
+    if (selectedPairingId === pairingId) {
+      setSelectedPairingId(null);
+    }
+  };
+
+  // Restore all dismissed pairings
+  const handleRestoreDismissed = () => {
+    setDismissedPairings([]);
+    saveDismissedPairings([]);
   };
 
   return (
@@ -433,7 +519,7 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
               Tracked Pairings
             </div>
             <div className="text-xl sm:text-2xl font-black text-white mt-0.5">{metrics.total}</div>
-            <div className="text-[10px] text-[#666] mt-0.5">On-screen duos</div>
+            <div className="text-[10px] text-[#666] mt-0.5">Verified on-screen duos</div>
           </div>
           <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-[#E50914]">
             <Heart className="w-4 h-4 fill-[#E50914]" />
@@ -510,9 +596,21 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          {dismissedPairings.length > 0 && (
+            <button
+              type="button"
+              onClick={handleRestoreDismissed}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/[0.05] hover:bg-white/[0.1] text-[#aaa] hover:text-white border border-white/[0.08] transition-colors"
+              title="Restore dismissed pairing suggestions"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restore Dismissed ({dismissedPairings.length})</span>
+            </button>
+          )}
+
           <button
             type="button"
-            onClick={openNewPairingModal}
+            onClick={() => openNewPairingModal()}
             className="inline-flex items-center gap-2 rounded-xl bg-[#E50914] hover:bg-[#c90811] px-4 py-2 text-xs font-bold text-white shadow-lg transition-colors tap-active"
           >
             <Plus className="w-4 h-4" />
@@ -629,8 +727,20 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
                       </div>
                     </div>
 
-                    {/* Favorite and Options */}
+                    {/* Favorite, Dismiss and Options */}
                     <div className="flex items-center gap-1.5">
+                      {/* Dismiss (Not a CP) for auto-detected suggestions */}
+                      {!pairing.isCustomTagged && (
+                        <button
+                          type="button"
+                          onClick={() => handleDismissPairing(pairing.id)}
+                          className="w-8 h-8 rounded-full flex items-center justify-center bg-white/[0.04] border border-white/[0.06] text-[#666] hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                          title="Dismiss: Not a real CP"
+                        >
+                          <EyeOff className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => toggleFavorite(pairing)}
@@ -764,7 +874,7 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
                 {/* Footer Action */}
                 <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between">
                   <span className="text-[11px] text-[#777]">
-                    {pairing.isCustomTagged ? 'Official CP Tag' : 'Auto-detected Co-stars'}
+                    {pairing.isCustomTagged ? 'Official CP Tag' : 'Primary Lead CP'}
                   </span>
 
                   <button
@@ -787,11 +897,11 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
           <p className="text-xs text-[#888] max-w-md mx-auto leading-relaxed">
             {searchQuery
               ? 'Try adjusting your search terms or clearing filters.'
-              : 'Add actors to multiple series or movies in the Cast library, or click "Tag New CP" to officially create a pairing.'}
+              : 'Add actors to your BL series and movies, or click "Tag New CP" to officially create a couple pairing.'}
           </p>
           <button
             type="button"
-            onClick={openNewPairingModal}
+            onClick={() => openNewPairingModal()}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E50914] hover:underline pt-2"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -804,7 +914,7 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
           MODAL 1: DETAILED PAIRING PROFILE
          ═══════════════════════════════════════════════════════════ */}
       <Dialog
-        open={!!selectedPairingId}
+        open={Boolean(selectedPairingId)}
         onOpenChange={(open) => !open && setSelectedPairingId(null)}
       >
         <DialogContent className="max-w-2xl max-h-[90vh] bg-[#141414] border border-white/10 text-white p-0 flex flex-col overflow-hidden shadow-2xl">
@@ -1040,14 +1150,29 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
 
               {/* Footer */}
               <div className="px-6 py-4 border-t border-white/[0.08] bg-[#111] flex items-center justify-between flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleDeleteCustomTag(activePairing.id)}
-                  className="text-xs text-red-400 hover:text-red-300 inline-flex items-center gap-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove CP Tag</span>
-                </button>
+                {activePairing.isCustomTagged ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCustomTag(activePairing.id)}
+                    className="text-xs text-red-400 hover:text-red-300 inline-flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove CP Tag</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDismissPairing(activePairing.id);
+                      setSelectedPairingId(null);
+                    }}
+                    className="text-xs text-amber-400 hover:text-amber-300 inline-flex items-center gap-1"
+                    title="Hide this auto-detected pairing if they are not a real couple pair"
+                  >
+                    <EyeOff className="w-3.5 h-3.5" />
+                    <span>Not a CP / Dismiss</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -1067,9 +1192,15 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
       </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════
-          MODAL 2: TAG / EDIT PAIRING MODAL
+          MODAL 2: TAG / EDIT PAIRING MODAL (WITH SMART SEARCH)
          ═══════════════════════════════════════════════════════════ */}
-      <Dialog open={tagModalOpen} onOpenChange={setTagModalOpen}>
+      <Dialog
+        open={tagModalOpen}
+        onOpenChange={(open) => {
+          setTagModalOpen(open);
+          if (!open) onCloseCreate?.();
+        }}
+      >
         <DialogContent className="max-w-md bg-[#141414] border border-white/10 text-white p-6 shadow-2xl">
           <DialogHeader className="p-0 mb-4">
             <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
@@ -1079,45 +1210,45 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
           </DialogHeader>
 
           <div className="space-y-4 text-xs">
-            {/* Actor 1 & Actor 2 pickers */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[#888] font-semibold uppercase tracking-wider text-[10px] block mb-1">
-                  Actor 1
-                </label>
-                <select
-                  value={editActor1Id}
-                  onChange={(e) => setEditActor1Id(e.target.value)}
-                  className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-[#E50914]"
-                >
-                  <option value="">Select Actor 1</option>
-                  {state.actors.map((actor) => (
-                    <option key={actor.id} value={actor.id}>
-                      {actor.name} ({actor.nationality})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Actor 1 & Actor 2 Smart Search */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <ActorSmartSearch
+                label="Actor 1"
+                selectedActorId={editActor1Id}
+                onSelectActorId={(id) => {
+                  setEditActor1Id(id);
+                  setFormError('');
+                  if (!editShipName && id && editActor2Id) {
+                    const a1 = actorMap.get(id);
+                    const a2 = actorMap.get(editActor2Id);
+                    if (a1 && a2) {
+                      setEditShipName(`${a1.name.split(' ')[0]}${a2.name.split(' ')[0]}`);
+                    }
+                  }
+                }}
+                excludeActorId={editActor2Id}
+                actors={state.actors}
+                placeholder="Search first actor..."
+              />
 
-              <div>
-                <label className="text-[#888] font-semibold uppercase tracking-wider text-[10px] block mb-1">
-                  Actor 2
-                </label>
-                <select
-                  value={editActor2Id}
-                  onChange={(e) => setEditActor2Id(e.target.value)}
-                  className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-[#E50914]"
-                >
-                  <option value="">Select Actor 2</option>
-                  {state.actors
-                    .filter((a) => a.id !== editActor1Id)
-                    .map((actor) => (
-                      <option key={actor.id} value={actor.id}>
-                        {actor.name} ({actor.nationality})
-                      </option>
-                    ))}
-                </select>
-              </div>
+              <ActorSmartSearch
+                label="Actor 2"
+                selectedActorId={editActor2Id}
+                onSelectActorId={(id) => {
+                  setEditActor2Id(id);
+                  setFormError('');
+                  if (!editShipName && id && editActor1Id) {
+                    const a1 = actorMap.get(editActor1Id);
+                    const a2 = actorMap.get(id);
+                    if (a1 && a2) {
+                      setEditShipName(`${a1.name.split(' ')[0]}${a2.name.split(' ')[0]}`);
+                    }
+                  }
+                }}
+                excludeActorId={editActor1Id}
+                actors={state.actors}
+                placeholder="Search second actor..."
+              />
             </div>
 
             {/* Ship Name */}
@@ -1177,7 +1308,10 @@ export default function PairingsTracker({ onSelectEntry, onSelectActor }: Pairin
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/[0.08]">
               <button
                 type="button"
-                onClick={() => setTagModalOpen(false)}
+                onClick={() => {
+                  setTagModalOpen(false);
+                  onCloseCreate?.();
+                }}
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-[#888] hover:text-white"
               >
                 Cancel

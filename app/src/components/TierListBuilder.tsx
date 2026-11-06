@@ -644,23 +644,93 @@ export default function TierListBuilder({ onSelectEntry }: TierListBuilderProps)
     setIsExportingImage(true);
 
     try {
-      // Dynamic lightweight canvas renderer for crisp offline image export
+      // Collect all ranked entry IDs
+      const allItemIds = Array.from(
+        new Set(currentList.tiers.flatMap((tier) => currentList.tierItems[tier.id] || []))
+      );
+
+      // Preload all entry poster images
+      const imageMap = new Map<string, HTMLImageElement>();
+      await Promise.allSettled(
+        allItemIds.map(async (id) => {
+          const entry = entriesMap.get(id);
+          if (!entry?.poster) return;
+          try {
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+              const image = new Image();
+              image.crossOrigin = 'anonymous';
+              image.onload = () => resolve(image);
+              image.onerror = () => {
+                // Secondary attempt without crossOrigin
+                const fallbackImg = new Image();
+                fallbackImg.onload = () => resolve(fallbackImg);
+                fallbackImg.onerror = () => reject(new Error('Poster load failed'));
+                fallbackImg.src = entry.poster!;
+              };
+              image.src = entry.poster!;
+            });
+            imageMap.set(id, img);
+          } catch {
+            // Silent fallback to placeholder card
+          }
+        })
+      );
+
       const canvas = document.createElement('canvas');
       const width = 1200;
-      const rowHeight = 130;
       const headerHeight = 120;
-      const totalHeight = headerHeight + currentList.tiers.length * rowHeight + 60;
+      const cardW = 72;
+      const cardH = 108; // Crisp 2:3 ratio
+      const cardGap = 10;
+      const startX = 165;
+      const availableWidth = width - 40 - startX; // 995px
+      const cardsPerRow = Math.max(1, Math.floor(availableWidth / (cardW + cardGap))); // 12 cards
+
+      // Calculate dynamic tier heights so wrapping rows fit cleanly
+      const tierHeights = currentList.tiers.map((tier) => {
+        const itemIds = currentList.tierItems[tier.id] || [];
+        if (itemIds.length === 0) return 120;
+        const rows = Math.ceil(itemIds.length / cardsPerRow);
+        return 20 + rows * cardH + (rows - 1) * cardGap + 20;
+      });
+
+      const totalHeight = headerHeight + tierHeights.reduce((acc, h) => acc + h, 0) + 60;
 
       canvas.width = width;
       canvas.height = totalHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      const drawRounded = (
+        c: CanvasRenderingContext2D,
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        r: number
+      ) => {
+        c.beginPath();
+        if (typeof c.roundRect === 'function') {
+          c.roundRect(x, y, w, h, r);
+        } else {
+          c.moveTo(x + r, y);
+          c.lineTo(x + w - r, y);
+          c.quadraticCurveTo(x + w, y, x + w, y + r);
+          c.lineTo(x + w, y + h - r);
+          c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+          c.lineTo(x + r, y + h);
+          c.quadraticCurveTo(x, y + h, x, y + h - r);
+          c.lineTo(x, y + r);
+          c.quadraticCurveTo(x, y, x + r, y);
+        }
+        c.closePath();
+      };
+
       // Dark background
       ctx.fillStyle = '#0D0D0D';
       ctx.fillRect(0, 0, width, totalHeight);
 
-      // Title & Header
+      // Title & Header Accent
       ctx.fillStyle = '#E50914';
       ctx.fillRect(40, 36, 6, 40);
 
@@ -678,74 +748,90 @@ export default function TierListBuilder({ onSelectEntry }: TierListBuilderProps)
 
       // Render each tier
       let currentY = headerHeight;
-      currentList.tiers.forEach((tier) => {
+      currentList.tiers.forEach((tier, tierIdx) => {
         const itemIds = currentList.tierItems[tier.id] || [];
+        const thisTierH = tierHeights[tierIdx];
+        const rowInnerH = thisTierH - 8;
 
         // Tier row background
         ctx.fillStyle = '#141414';
-        ctx.fillRect(40, currentY, width - 80, rowHeight - 8);
+        ctx.fillRect(40, currentY, width - 80, rowInnerH);
 
         // Tier label badge (left)
         ctx.fillStyle = tier.color || '#E50914';
-        ctx.fillRect(40, currentY, 110, rowHeight - 8);
+        ctx.fillRect(40, currentY, 110, rowInnerH);
 
-        // Tier label text
+        // Tier label text (centered in badge)
         ctx.fillStyle = '#FFFFFF';
         ctx.font = 'bold 26px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(tier.label, 95, currentY + (rowHeight - 8) / 2 + 9);
+        ctx.fillText(tier.label, 95, currentY + rowInnerH / 2 + 9);
 
-        // Titles inside tier
+        // Cards inside tier - Posters Only, No Titles
         ctx.textAlign = 'left';
-        let cardX = 165;
-        const cardY = currentY + 10;
-        const cardW = 74;
-        const cardH = rowHeight - 28;
 
         if (itemIds.length === 0) {
           ctx.fillStyle = '#444444';
           ctx.font = 'italic 14px sans-serif';
-          ctx.fillText('(No titles placed in this tier)', 170, currentY + (rowHeight - 8) / 2 + 5);
+          ctx.fillText('(No titles placed in this tier)', 170, currentY + rowInnerH / 2 + 5);
         } else {
-          itemIds.slice(0, 12).forEach((id) => {
+          itemIds.forEach((id, itemIdx) => {
             const entry = entriesMap.get(id);
             if (!entry) return;
 
-            // Card background placeholder
-            ctx.fillStyle = '#222222';
-            ctx.fillRect(cardX, cardY, cardW, cardH);
+            const rowNumber = Math.floor(itemIdx / cardsPerRow);
+            const colNumber = itemIdx % cardsPerRow;
 
-            // Subtle border
-            ctx.strokeStyle = '#333333';
+            const cardX = startX + colNumber * (cardW + cardGap);
+            const cardY = currentY + 14 + rowNumber * (cardH + cardGap);
+
+            // Draw poster card with rounded clipping
+            ctx.save();
+            drawRounded(ctx, cardX, cardY, cardW, cardH, 6);
+            ctx.clip();
+
+            const img = imageMap.get(id);
+            if (img) {
+              ctx.drawImage(img, cardX, cardY, cardW, cardH);
+            } else {
+              // Sleek dark poster fallback if image missing/blocked
+              ctx.fillStyle = '#222222';
+              ctx.fillRect(cardX, cardY, cardW, cardH);
+
+              ctx.fillStyle = '#555555';
+              ctx.font = 'bold 16px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText(
+                entry.title.slice(0, 2).toUpperCase(),
+                cardX + cardW / 2,
+                cardY + cardH / 2 + 6
+              );
+              ctx.textAlign = 'left';
+            }
+            ctx.restore();
+
+            // Subtle crisp border around poster
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
             ctx.lineWidth = 1;
-            ctx.strokeRect(cardX, cardY, cardW, cardH);
-
-            // Title text preview inside card
-            ctx.fillStyle = '#EEEEEE';
-            ctx.font = 'bold 10px sans-serif';
-            const displayTitle = entry.title.length > 20 ? `${entry.title.slice(0, 18)}...` : entry.title;
-            ctx.fillText(displayTitle, cardX + 4, cardY + cardH - 10);
-
-            cardX += cardW + 10;
+            drawRounded(ctx, cardX, cardY, cardW, cardH, 6);
+            ctx.stroke();
           });
-
-          if (itemIds.length > 12) {
-            ctx.fillStyle = '#888888';
-            ctx.font = 'bold 12px sans-serif';
-            ctx.fillText(`+${itemIds.length - 12} more`, cardX + 10, currentY + (rowHeight - 8) / 2 + 5);
-          }
         }
 
-        currentY += rowHeight;
+        currentY += thisTierH;
       });
 
       // Footer branding
       ctx.fillStyle = '#555555';
       ctx.font = '12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Generated by BL Watchlist Manager · Share your tier list with fellow fans', width / 2, totalHeight - 20);
+      ctx.fillText(
+        'Generated by BL Watchlist Manager · Share your tier list with fellow fans',
+        width / 2,
+        totalHeight - 20
+      );
 
-      // Download triggered
+      // Trigger download
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl;

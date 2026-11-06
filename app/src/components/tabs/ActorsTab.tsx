@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -27,6 +27,14 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import EntryModal from '../EntryModal';
 import PairingsTracker from '../PairingsTracker';
+import {
+  loadTitleCpPartners,
+  setTitleCpPartner,
+  loadStoredPairings,
+  makePairingId,
+  TITLE_CP_UPDATED_EVENT,
+  PAIRINGS_UPDATED_EVENT,
+} from '@/lib/pairings';
 
 const NATIONALITIES = [
   'Thai',
@@ -275,19 +283,37 @@ function FilmographyRow({
   rating,
   favorite,
   top10,
+  currentActor,
+  titleCpPartners,
   onSaveCredit,
   onRemoveCredit,
+  onSetCpPartner,
 }: {
   entry: Entry;
   credit: ActorCredit;
   rating: ReturnType<typeof useApp>['state']['ratings'][number] | undefined;
   favorite: boolean;
   top10: { year: number; rank: number } | null;
+  currentActor: Actor;
+  titleCpPartners: Record<string, string>;
   onSaveCredit: (credit: ActorCredit) => void;
   onRemoveCredit: () => void;
+  onSetCpPartner: (entryId: string, partnerId: string | null) => void;
 }) {
+  const { state } = useApp();
   const episodeRating = getEpisodeAverage(entry.episodeRatings);
   const overallRating = rating?.overallRating || episodeRating;
+
+  // Other actors credited in this same title
+  const coStars = useMemo(() => {
+    return state.actors.filter(
+      (a) => a.id !== currentActor.id && a.filmography.some((c) => c.entryId === entry.id)
+    );
+  }, [state.actors, currentActor.id, entry.id]);
+
+  const assignedPartnerId = titleCpPartners[`${entry.id}_${currentActor.id}`] || '';
+  const assignedPartner = state.actors.find((a) => a.id === assignedPartnerId);
+
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-[#141414] p-3 sm:p-4">
       <div className="flex gap-3">
@@ -296,11 +322,24 @@ function FilmographyRow({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <h3 className="truncate text-sm font-bold text-white">{entry.title}</h3>
-              <p className="mt-1 text-[11px] text-[#777]">{entry.year} · {entry.country}{entry.season != null ? ` · ${formatSeasonLabel(entry.season)}` : ''}</p>
+              <p className="mt-1 text-[11px] text-[#777]">
+                {entry.year} · {entry.country}
+                {entry.season != null ? ` · ${formatSeasonLabel(entry.season)}` : ''}
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2 py-1 text-[10px] ${entry.status === 'COMPLETE' ? 'bg-emerald-500/15 text-emerald-400' : entry.status === 'ONGOING' ? 'bg-amber-500/15 text-amber-400' : 'bg-white/[0.08] text-[#999]'}`}>
-                {entry.status === 'COMPLETE' ? 'Completed' : entry.status[0] + entry.status.slice(1).toLowerCase()}
+              <span
+                className={`rounded-full px-2 py-1 text-[10px] ${
+                  entry.status === 'COMPLETE'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : entry.status === 'ONGOING'
+                    ? 'bg-amber-500/15 text-amber-400'
+                    : 'bg-white/[0.08] text-[#999]'
+                }`}
+              >
+                {entry.status === 'COMPLETE'
+                  ? 'Completed'
+                  : entry.status[0] + entry.status.slice(1).toLowerCase()}
               </span>
               <button
                 type="button"
@@ -314,12 +353,66 @@ function FilmographyRow({
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[#999]">
-            <span className={`rounded-full px-2 py-1 ${credit.role === 'MAIN' ? 'bg-[#E50914]/15 text-[#ff6970]' : 'bg-white/[0.08] text-[#aaa]'}`}>{credit.role === 'MAIN' ? 'Main Role' : 'Supporting Role'}</span>
+            <span
+              className={`rounded-full px-2 py-1 ${
+                credit.role === 'MAIN'
+                  ? 'bg-[#E50914]/15 text-[#ff6970]'
+                  : 'bg-white/[0.08] text-[#aaa]'
+              }`}
+            >
+              {credit.role === 'MAIN' ? 'Main Role' : 'Supporting Role'}
+            </span>
             <span className="truncate">as {credit.character || 'Character not set'}</span>
-            {overallRating ? <span className="inline-flex items-center gap-1 text-yellow-400"><Star className="h-3 w-3 fill-current" /> {formatRating(overallRating)}</span> : null}
-            {favorite && <Heart className="h-3.5 w-3.5 fill-[#E50914] text-[#E50914]" aria-label="Favorite" />}
+            {overallRating ? (
+              <span className="inline-flex items-center gap-1 text-yellow-400">
+                <Star className="h-3 w-3 fill-current" /> {formatRating(overallRating)}
+              </span>
+            ) : null}
+            {favorite && (
+              <Heart
+                className="h-3.5 w-3.5 fill-[#E50914] text-[#E50914]"
+                aria-label="Favorite"
+              />
+            )}
             {top10 && <span className="font-bold text-[#E50914]">Top 10 #{top10.rank}</span>}
           </div>
+
+          {/* CP Partner Selector for this title (handles 2 or more Main/Supporting roles) */}
+          {coStars.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-2.5 text-xs">
+              <div className="flex items-center gap-1.5 text-[#aaa]">
+                <Heart className="h-3.5 w-3.5 text-rose-400 fill-rose-400 shrink-0" />
+                <span className="text-[11px] font-semibold text-[#888]">
+                  CP Partner in this title:
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={assignedPartnerId}
+                  onChange={(e) => onSetCpPartner(entry.id, e.target.value || null)}
+                  className="rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 text-xs text-white outline-none hover:border-white/20 focus:border-rose-400 transition-colors cursor-pointer"
+                >
+                  <option value="">No CP Partner / Solo</option>
+                  {coStars.map((cs) => {
+                    const csRole = cs.filmography.find((c) => c.entryId === entry.id)?.role;
+                    return (
+                      <option key={cs.id} value={cs.id}>
+                        {cs.name} ({csRole === 'MAIN' ? 'Main' : 'Supporting'})
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {assignedPartner && (
+                  <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">
+                    <Check className="h-3 w-3" />
+                    <span>Linked</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <CreditEditor entry={entry} credit={credit} onSave={onSaveCredit} />
@@ -329,12 +422,22 @@ function FilmographyRow({
 
 function ActorDetail({
   actor,
+  titleCpPartners,
   onBack,
   onEdit,
+  onOpenLinkCp,
+  onOpenPairingsTab,
+  onSelectActorId,
+  onSetCpPartner,
 }: {
   actor: Actor;
+  titleCpPartners: Record<string, string>;
   onBack: () => void;
   onEdit: () => void;
+  onOpenLinkCp: (actorId: string) => void;
+  onOpenPairingsTab: () => void;
+  onSelectActorId: (actorId: string) => void;
+  onSetCpPartner: (entryId: string, partnerId: string | null) => void;
 }) {
   const { state, dispatch, isFavorited, isInTop10 } = useApp();
   const [addingEntryId, setAddingEntryId] = useState('');
@@ -342,6 +445,61 @@ function ActorDetail({
   const [entryPickerOpen, setEntryPickerOpen] = useState(false);
   const [addingRole, setAddingRole] = useState<ActorRole>('MAIN');
   const [addingCharacter, setAddingCharacter] = useState('');
+
+  // Pairings involving this actor
+  const actorPairings = useMemo(() => {
+    const stored = loadStoredPairings();
+    const pairs: {
+      pairId: string;
+      partner: Actor;
+      shipName: string;
+      isFavorite: boolean;
+      sharedCount: number;
+    }[] = [];
+
+    // Checked stored custom pairings
+    for (const [id, record] of Object.entries(stored)) {
+      if (record.actor1Id === actor.id || record.actor2Id === actor.id) {
+        const partnerId = record.actor1Id === actor.id ? record.actor2Id : record.actor1Id;
+        const partner = state.actors.find((a) => a.id === partnerId);
+        if (partner && !pairs.some((p) => p.partner.id === partnerId)) {
+          const sharedCount = actor.filmography.filter((c1) =>
+            partner.filmography.some((c2) => c2.entryId === c1.entryId)
+          ).length;
+          pairs.push({
+            pairId: id,
+            partner,
+            shipName: record.shipName || `${actor.name.split(' ')[0]}${partner.name.split(' ')[0]}`,
+            isFavorite: Boolean(record.isFavorite),
+            sharedCount,
+          });
+        }
+      }
+    }
+
+    // Also check titleCpPartners
+    for (const [key, partnerId] of Object.entries(titleCpPartners)) {
+      if (key.endsWith(`_${actor.id}`)) {
+        const partner = state.actors.find((a) => a.id === partnerId);
+        if (partner && !pairs.some((p) => p.partner.id === partnerId)) {
+          const pairId = makePairingId(actor.id, partnerId);
+          const sharedCount = actor.filmography.filter((c1) =>
+            partner.filmography.some((c2) => c2.entryId === c1.entryId)
+          ).length;
+          pairs.push({
+            pairId,
+            partner,
+            shipName: `${actor.name.split(' ')[0]}${partner.name.split(' ')[0]}`,
+            isFavorite: false,
+            sharedCount,
+          });
+        }
+      }
+    }
+
+    return pairs;
+  }, [actor, state.actors, titleCpPartners]);
+
   const credits = actor.filmography
     .map((credit) => ({ credit, entry: state.entries.find((entry) => entry.id === credit.entryId) }))
     .filter((item): item is { credit: ActorCredit; entry: Entry } => Boolean(item.entry));
@@ -362,26 +520,30 @@ function ActorDetail({
     setAddingCharacter('');
   };
 
-  const renderCredits = (title: string, items: typeof credits) => items.length > 0 ? (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-bold">{title}</h2>
-        <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#888]">{items.length}</span>
-      </div>
-      {items.map(({ credit, entry }) => (
-        <FilmographyRow
-          key={entry.id}
-          entry={entry}
-          credit={credit}
-          rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
-          favorite={isFavorited(entry.id)}
-          top10={isInTop10(entry.id)}
-          onSaveCredit={(next) => dispatch({ type: 'UPDATE_ACTOR_CREDIT', payload: { actorId: actor.id, ...next } })}
-          onRemoveCredit={() => dispatch({ type: 'REMOVE_ACTOR_CREDIT', payload: { actorId: actor.id, entryId: entry.id } })}
-        />
-      ))}
-    </section>
-  ) : null;
+  const renderCredits = (title: string, items: typeof credits) =>
+    items.length > 0 ? (
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold">{title}</h2>
+          <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#888]">{items.length}</span>
+        </div>
+        {items.map(({ credit, entry }) => (
+          <FilmographyRow
+            key={entry.id}
+            entry={entry}
+            credit={credit}
+            rating={state.favorites.find((item) => item.entryId === entry.id) ?? state.ratings.find((item) => item.entryId === entry.id)}
+            favorite={isFavorited(entry.id)}
+            top10={isInTop10(entry.id)}
+            currentActor={actor}
+            titleCpPartners={titleCpPartners}
+            onSaveCredit={(next) => dispatch({ type: 'UPDATE_ACTOR_CREDIT', payload: { actorId: actor.id, ...next } })}
+            onRemoveCredit={() => dispatch({ type: 'REMOVE_ACTOR_CREDIT', payload: { actorId: actor.id, entryId: entry.id } })}
+            onSetCpPartner={onSetCpPartner}
+          />
+        ))}
+      </section>
+    ) : null;
 
   const availableEntries = state.entries.filter((entry) => !actor.filmography.some((credit) => credit.entryId === entry.id));
   const selectedEntry = availableEntries.find((entry) => entry.id === addingEntryId);
@@ -413,6 +575,88 @@ function ActorDetail({
             <Edit3 className="h-4 w-4" /> Edit profile
           </button>
         </div>
+      </section>
+
+      {/* ── Couple Pairings (CP) Section on Actor Profile ── */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Heart className="h-4 w-4 text-rose-400 fill-rose-400" />
+            <h2 className="text-base sm:text-lg font-bold">Couple Pairings (CP)</h2>
+            <span className="rounded-full bg-white/[0.07] px-2 py-0.5 text-[10px] text-[#888]">
+              {actorPairings.length}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onOpenLinkCp(actor.id)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/25 transition-colors tap-active"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Link / Tag CP Partner</span>
+          </button>
+        </div>
+
+        {actorPairings.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {actorPairings.map((p) => (
+              <div
+                key={p.pairId}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-[#141414] border border-white/[0.08] hover:border-white/20 transition-all"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    onClick={() => onSelectActorId(p.partner.id)}
+                    className="w-11 h-11 rounded-full overflow-hidden bg-[#222] border-2 border-white/10 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+                    title={p.partner.name}
+                  >
+                    {p.partner.photo ? (
+                      <img src={p.partner.photo} alt={p.partner.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[#666]">
+                        <UserRound className="w-5 h-5" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-white truncate">{p.shipName}</p>
+                      {p.isFavorite && (
+                        <Star className="w-3.5 h-3.5 text-rose-400 fill-rose-400 shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-[#888] truncate">
+                      Partner:{' '}
+                      <strong
+                        className="text-white hover:underline cursor-pointer"
+                        onClick={() => onSelectActorId(p.partner.id)}
+                      >
+                        {p.partner.name}
+                      </strong>
+                    </p>
+                    <p className="text-[10px] text-[#666] mt-0.5">
+                      {p.sharedCount} joint {p.sharedCount === 1 ? 'project' : 'projects'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onOpenPairingsTab}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/[0.05] hover:bg-white/[0.1] text-white shrink-0 ml-2"
+                >
+                  CP Tracker &rarr;
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] text-center text-xs text-[#777]">
+            No verified CP partners linked yet. Assign a partner in their filmography below or click &ldquo;Link / Tag CP Partner&rdquo;.
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-4">
@@ -616,6 +860,30 @@ export default function ActorsTab() {
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkDialogVersion, setBulkDialogVersion] = useState(0);
 
+  // Title-specific CP partner assignments
+  const [titleCpPartners, setTitleCpPartners] = useState<Record<string, string>>(loadTitleCpPartners);
+  const [pairingModalActor1Id, setPairingModalActor1Id] = useState<string | null>(null);
+  const [openPairingModalOnMount, setOpenPairingModalOnMount] = useState(false);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setTitleCpPartners(loadTitleCpPartners());
+    };
+    window.addEventListener(TITLE_CP_UPDATED_EVENT, handleUpdate);
+    window.addEventListener(PAIRINGS_UPDATED_EVENT, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener(TITLE_CP_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener(PAIRINGS_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const handleSetCpPartner = (entryId: string, actorId: string, partnerId: string | null) => {
+    setTitleCpPartner(entryId, actorId, partnerId);
+    setTitleCpPartners(loadTitleCpPartners());
+  };
+
   const selectedActor = state.actors.find((actor) => actor.id === selectedActorId) ?? null;
   const selectedActors = state.actors.filter((actor) => selectedActorIds.includes(actor.id));
   const nationalities = useMemo(() => [...new Set(state.actors.map((actor) => actor.nationality))].sort(), [state.actors]);
@@ -676,7 +944,24 @@ export default function ActorsTab() {
   if (selectedActor) {
     return (
       <>
-        <ActorDetail actor={selectedActor} onBack={() => setSelectedActorId(null)} onEdit={() => openEdit(selectedActor)} />
+        <ActorDetail
+          actor={selectedActor}
+          titleCpPartners={titleCpPartners}
+          onBack={() => setSelectedActorId(null)}
+          onEdit={() => openEdit(selectedActor)}
+          onOpenLinkCp={(actorId) => {
+            setPairingModalActor1Id(actorId);
+            setOpenPairingModalOnMount(true);
+            setActorViewMode('pairings');
+            setSelectedActorId(null);
+          }}
+          onOpenPairingsTab={() => {
+            setActorViewMode('pairings');
+            setSelectedActorId(null);
+          }}
+          onSelectActorId={(actorId) => setSelectedActorId(actorId)}
+          onSetCpPartner={handleSetCpPartner}
+        />
         <Dialog open={formOpen} onOpenChange={(open) => !open && setFormOpen(false)}>
           <DialogContent className="max-h-[92vh] overflow-y-auto border-white/10 bg-[#101010] text-white sm:max-w-xl">
             <div className="mb-1 flex items-center justify-between">
@@ -762,6 +1047,12 @@ export default function ActorsTab() {
           onSelectActor={(id) => {
             setActorViewMode('cast');
             setSelectedActorId(id);
+          }}
+          initialActor1Id={pairingModalActor1Id || undefined}
+          openCreateOnMount={openPairingModalOnMount}
+          onCloseCreate={() => {
+            setOpenPairingModalOnMount(false);
+            setPairingModalActor1Id(null);
           }}
         />
       ) : (
