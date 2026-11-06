@@ -212,6 +212,18 @@ export interface CollectionStats {
   allRegions: string[];
 }
 
+export interface Shelf {
+  id: string;
+  name: string;
+  description?: string;
+  emoji: string;
+  color: string;
+  entryIds: string[];
+  createdAt: number;
+  updatedAt: number;
+  isDefaultPreset?: boolean;
+}
+
 export interface AppState {
   entries: Entry[];
   genreTags: GenreTag[];

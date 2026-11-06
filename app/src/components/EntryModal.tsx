@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Heart, Pencil, Star, UserRound, UsersRound } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { useState } from 'react';
+import { Bookmark, Check, Heart, Pencil, Star, UserRound, UsersRound } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useApp } from '@/context/AppContext';
+import { useShelves } from '@/hooks/useShelves';
 import Poster from './Poster';
 import EditEntryModal from './EditEntryModal';
 import FavoriteEvaluation from './FavoriteEvaluation';
@@ -27,9 +28,12 @@ interface EntryModalProps {
 
 export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) {
   const { state, dispatch, isFavorited, getFavoriteByEntryId, getRatingByEntryId, getOngoingByEntryId } = useApp();
+  const { shelves, toggleEntryOnShelf } = useShelves();
   const [imageLoaded, setImageLoaded] = useState(false);
   const [activePage, setActivePage] = useState<'details' | 'episodes' | 'cast'>('details');
-  const [activeAction, setActiveAction] = useState<'rating' | 'edit' | null>(null);
+  const [activeAction, setActiveAction] = useState<'rating' | 'edit' | 'shelves' | null>(null);
+
+  const entryShelves = entry ? shelves.filter((s) => s.entryIds.includes(entry.id)) : [];
 
   const favorited = entry ? isFavorited(entry.id) : false;
   const displayTitle = entry ? formatEntryTitle(entry) : '';
@@ -49,16 +53,13 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
     : 1;
   const episodeSchedule = ongoing ? getOngoingSchedule(ongoing, new Date()) : null;
 
-  // Reset image loaded state when entry changes
-  useEffect(() => {
+  const [prevEntryId, setPrevEntryId] = useState(entry?.id);
+  if (entry?.id !== prevEntryId) {
+    setPrevEntryId(entry?.id);
     setImageLoaded(false);
     setActivePage('details');
     setActiveAction(null);
-  }, [entry?.id]);
-
-  useEffect(() => {
-    if (!isOpen) setActiveAction(null);
-  }, [isOpen]);
+  }
 
   const handleToggleFavorite = () => {
     if (!entry) return;
@@ -115,6 +116,19 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-[#aaa] transition-colors hover:bg-yellow-400/15 hover:text-yellow-400"
               >
                 <Star className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveAction('shelves')}
+                title="Manage Shelves"
+                aria-label="Manage Shelves"
+                className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+                  entryShelves.length > 0
+                    ? 'bg-[#E50914]/20 text-[#E50914]'
+                    : 'bg-white/[0.06] text-[#aaa] hover:bg-white/[0.12] hover:text-white'
+                }`}
+              >
+                <Bookmark className={`h-4 w-4 ${entryShelves.length > 0 ? 'fill-current' : ''}`} />
               </button>
               <button
                 type="button"
@@ -213,6 +227,27 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
                 </span>
               )}
             </div>
+
+            {/* Shelf Badges */}
+            {entryShelves.length > 0 && (
+              <div className="mx-4 flex flex-wrap justify-center gap-1.5 pb-3">
+                {entryShelves.map((shelf) => (
+                  <button
+                    key={shelf.id}
+                    type="button"
+                    onClick={() => setActiveAction('shelves')}
+                    style={{
+                      borderColor: `${shelf.color}60`,
+                      backgroundColor: `${shelf.color}15`,
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-white border hover:scale-105 transition-transform"
+                  >
+                    <span>{shelf.emoji}</span>
+                    <span>{shelf.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {entry.anthologyName && (
               <AnthologyBadges entry={entry} className="justify-center pb-3" />
             )}
@@ -306,6 +341,70 @@ export default function EntryModal({ isOpen, onClose, entry }: EntryModalProps) 
         onClose={() => setActiveAction(null)}
         entry={entry}
       />
+      {entry && (
+        <Dialog open={isOpen && activeAction === 'shelves'} onOpenChange={(open) => !open && setActiveAction(null)}>
+          <DialogContent className="bg-[#121212] border-white/10 text-white sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <Bookmark className="w-5 h-5 text-[#E50914]" />
+                Shelves &amp; Playlists
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 pt-2">
+              <p className="text-xs text-[#888]">
+                Add <strong className="text-white">{entry.title}</strong> to your curated shelves:
+              </p>
+
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {shelves.map((shelf) => {
+                  const isInShelf = shelf.entryIds.includes(entry.id);
+                  return (
+                    <button
+                      key={shelf.id}
+                      type="button"
+                      onClick={() => toggleEntryOnShelf(shelf.id, entry.id)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                        isInShelf
+                          ? 'border-[#E50914] bg-[#E50914]/10 text-white'
+                          : 'border-white/[0.08] bg-white/[0.03] text-[#aaa] hover:bg-white/[0.06] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base shrink-0">{shelf.emoji}</span>
+                        <div className="text-left min-w-0">
+                          <p className="text-xs font-bold truncate">{shelf.name}</p>
+                          {shelf.description && (
+                            <p className="text-[10px] text-[#777] truncate">{shelf.description}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <span
+                        className={`w-5 h-5 rounded-md flex items-center justify-center text-xs shrink-0 ${
+                          isInShelf ? 'bg-[#E50914] text-white' : 'border border-white/20'
+                        }`}
+                      >
+                        {isInShelf && <Check className="w-3.5 h-3.5" />}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end pt-2 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setActiveAction(null)}
+                  className="px-4 py-1.5 rounded-xl text-xs font-bold bg-[#E50914] text-white hover:bg-[#E50914]/90"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

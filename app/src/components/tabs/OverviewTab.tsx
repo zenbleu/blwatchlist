@@ -27,6 +27,7 @@ import {
 import { formatRating } from '@/lib/rating';
 import BLGamesPanel from '../BLGamesPanel';
 import BLReleasesPanel from '../BLReleasesPanel';
+import ShelvesSection from '../ShelvesSection';
 
 const RECENTLY_ADDED_WINDOW = 24 * 60 * 60 * 1000;
 
@@ -1069,6 +1070,9 @@ export default function OverviewTab() {
           onEntryClick={setSelectedEntry}
         />
       </div>
+
+      {/* Curated Shelves & Playlists */}
+      <ShelvesSection onSelectEntry={setSelectedEntry} />
 
       {/* Recently Completed */}
       <RecentlyCompletedSection
