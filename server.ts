@@ -14,7 +14,7 @@ app.use(express.json());
 const staticDir = path.resolve(__dirname, 'app/dist');
 app.use(express.static(staticDir));
 
-app.get('*', (_req, res) => {
+app.use((_req, res) => {
   res.sendFile(path.join(staticDir, 'index.html'));
 });
 
