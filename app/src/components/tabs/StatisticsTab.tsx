@@ -20,6 +20,7 @@ import { useApp } from '@/context/AppContext';
 import type { Entry } from '@/types';
 import ShareButton from '../ShareCard';
 import { formatRating } from '@/lib/rating';
+import { getWatcherTitle } from '@/lib/profileProgress';
 
 /* ============================================================
    Full-Screen Modal Component
@@ -78,23 +79,12 @@ function ProfileSummaryCard({ onViewProfile }: { onViewProfile: () => void }) {
   const { title, total, watchingSince, experience } = useMemo(() => {
     const total = state.entries.filter(e => e.status === 'COMPLETE' || e.status === 'ONGOING').length;
     const watchingSince = state.watchingSince;
-
-    // Title progression
-    let emoji = '🌱';
-    let name = 'Newcomer';
-    if (total >= 1000) { emoji = '🌌'; name = 'BL Legend'; }
-    else if (total >= 750) { emoji = '👑'; name = 'BL Curator'; }
-    else if (total >= 500) { emoji = '🎬'; name = 'BL Archivist'; }
-    else if (total >= 300) { emoji = '💖'; name = 'Romance Connoisseur'; }
-    else if (total >= 150) { emoji = '🎭'; name = 'Drama Enthusiast'; }
-    else if (total >= 75) { emoji = '🍿'; name = 'Weekend Binger'; }
-    else if (total >= 25) { emoji = '📺'; name = 'Casual Viewer'; }
-
+    const title = getWatcherTitle(total);
     const currentYear = new Date().getFullYear();
-    const experience = watchingSince ? currentYear - watchingSince : 0;
+    const experience = watchingSince ? Math.max(0, currentYear - watchingSince) : 0;
 
-    return { title: { emoji, name }, total, watchingSince, experience };
-  }, [state.entries.length, state.watchingSince]);
+    return { title: { emoji: title.emoji, name: title.name }, total, watchingSince, experience };
+  }, [state.entries, state.watchingSince]);
 
   return (
     <motion.div

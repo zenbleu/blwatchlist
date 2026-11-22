@@ -29,12 +29,20 @@ import {
 } from '@/lib/rating';
 import { isEligibleForFavoriteOrTop10, isSameEntryIdentity } from '@/lib/entry';
 import { isDateOnlyOnOrBefore } from '@/lib/episodeSchedule';
+import { computeProfileProgress, WATCHER_TITLES } from '@/lib/profileProgress';
 
 const AIR_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
 function getCurrentDay(): string {
   const day = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   return AIR_DAYS.includes(day as typeof AIR_DAYS[number]) ? day : 'Monday';
+}
+
+function getLocalDateKey(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /* ============================================================
@@ -68,6 +76,170 @@ function getMilestoneMessage(type: MilestoneType, value: number): string {
   }
 }
 
+function collectSatisfiedProfileCelebrations(state: AppState): Array<{ id: string; milestone: Milestone }> {
+  const results: Array<{ id: string; milestone: Milestone }> = [];
+  const progress = computeProfileProgress(state);
+
+  // 1. Watcher Title Upgrades (Casual Viewer and above)
+  for (const title of WATCHER_TITLES.slice(1)) {
+    if (progress.total >= title.min) {
+      const id = `WATCHER_TITLE-${title.name}`;
+      results.push({
+        id,
+        milestone: {
+          type: 'WATCHER_TITLE',
+          title: title.name,
+          message: title.description,
+          value: title.min,
+          milestoneId: id,
+          badge: `${title.min}+ Titles`,
+          emoji: title.emoji,
+          profileSection: 'title',
+        },
+      });
+    }
+  }
+
+  // 2. Core Milestones
+  for (const threshold of MILESTONE_THRESHOLDS.COLLECTION_SIZE) {
+    if (progress.total >= threshold) {
+      const id = `COLLECTION_SIZE-${threshold}`;
+      results.push({
+        id,
+        milestone: {
+          type: 'COLLECTION_SIZE',
+          title: getMilestoneTitle('COLLECTION_SIZE', threshold),
+          message: getMilestoneMessage('COLLECTION_SIZE', threshold),
+          value: threshold,
+          milestoneId: id,
+          badge: `${threshold} Titles`,
+          profileSection: 'achievements',
+        },
+      });
+    }
+  }
+
+  for (const threshold of MILESTONE_THRESHOLDS.FAVORITES_MILESTONE) {
+    if (progress.favorites >= threshold) {
+      const id = `FAVORITES_MILESTONE-${threshold}`;
+      results.push({
+        id,
+        milestone: {
+          type: 'FAVORITES_MILESTONE',
+          title: getMilestoneTitle('FAVORITES_MILESTONE', threshold),
+          message: getMilestoneMessage('FAVORITES_MILESTONE', threshold),
+          value: threshold,
+          milestoneId: id,
+          badge: `${threshold} Favorites`,
+          profileSection: 'achievements',
+        },
+      });
+    }
+  }
+
+  if (progress.perfectRatings >= 1) {
+    const id = 'PERFECT_RATING-10';
+    results.push({
+      id,
+      milestone: {
+        type: 'PERFECT_RATING',
+        title: getMilestoneTitle('PERFECT_RATING', 10),
+        message: getMilestoneMessage('PERFECT_RATING', 10),
+        value: 10,
+        milestoneId: id,
+        badge: '10.00 / 10',
+        profileSection: 'achievements',
+      },
+    });
+  }
+
+  for (const drawer of state.top10Drawers) {
+    if (drawer.entries.length >= 10) {
+      const id = `TOP10_COMPLETE-${drawer.year}`;
+      results.push({
+        id,
+        milestone: {
+          type: 'TOP10_COMPLETE',
+          title: getMilestoneTitle('TOP10_COMPLETE', drawer.year),
+          message: getMilestoneMessage('TOP10_COMPLETE', drawer.year),
+          value: drawer.year,
+          milestoneId: id,
+          badge: `${drawer.year} Top 10`,
+          profileSection: 'achievements',
+        },
+      });
+    }
+  }
+
+  if (state.watchingSince && progress.experience > 0) {
+    const id = `ANNIVERSARY-${progress.experience}`;
+    results.push({
+      id,
+      milestone: {
+        type: 'ANNIVERSARY',
+        title: getMilestoneTitle('ANNIVERSARY', progress.experience),
+        message: getMilestoneMessage('ANNIVERSARY', progress.experience),
+        value: progress.experience,
+        milestoneId: id,
+        badge: `${progress.experience} Years`,
+        profileSection: 'title',
+      },
+    });
+  }
+
+  // 3. Achievement Showcase unlocks
+  const unlockedCount = progress.achievements.filter((a) => a.unlocked).length;
+  for (const ach of progress.achievements) {
+    if (ach.unlocked) {
+      const id = `ACHIEVEMENT-${ach.id}`;
+      results.push({
+        id,
+        milestone: {
+          type: 'ACHIEVEMENT',
+          title: ach.name,
+          message: ach.description,
+          value: unlockedCount,
+          milestoneId: id,
+          badge: `${unlockedCount} / ${progress.achievements.length} Unlocked`,
+          emoji: ach.emoji,
+          category: ach.hidden ? 'Hidden' : ach.category,
+          profileSection: 'achievements',
+        },
+      });
+    }
+  }
+
+  // 4. Collection Personality unlocks
+  for (const trait of progress.personalityTraits) {
+    const id = `PERSONALITY-${trait.celebrationKey}`;
+    results.push({
+      id,
+      milestone: {
+        type: 'PERSONALITY',
+        title: trait.name,
+        message: trait.description,
+        value: progress.personalityTraits.length,
+        milestoneId: id,
+        badge: trait.shortDesc,
+        emoji: trait.emoji,
+        profileSection: 'personality',
+      },
+    });
+  }
+
+  return results;
+}
+
+function baselineCelebratedState(state: AppState): AppState {
+  const satisfiedIds = collectSatisfiedProfileCelebrations(state).map((item) => item.id);
+  const merged = Array.from(new Set([...(state.celebratedMilestones || []), ...satisfiedIds]));
+  return {
+    ...state,
+    celebratedMilestones: merged,
+    milestoneQueue: [],
+  };
+}
+
 export const initialState: AppState = {
   entries: [],
   genreTags: [...DEFAULT_GENRE_TAGS],
@@ -81,6 +253,8 @@ export const initialState: AppState = {
   importMode: false,
   milestoneQueue: [],
   celebratedMilestones: [],
+  droppedEntryIds: [],
+  activeDays: [],
 };
 
 /** Migrate legacy status values and ensure entry timestamps exist */
@@ -359,6 +533,8 @@ function validateData(data: unknown): AppState {
 
   // Migrate milestone-related fields
   const celebratedMilestones = Array.isArray(d.celebratedMilestones) ? d.celebratedMilestones as string[] : [];
+  const savedDroppedIds = Array.isArray(d.droppedEntryIds) ? d.droppedEntryIds as string[] : [];
+  const activeDays = Array.isArray(d.activeDays) ? d.activeDays as string[] : [];
 
   const migratedEntriesRaw = entries.map((e: Record<string, unknown>) => {
     const entry = migrateEntry(e);
@@ -563,6 +739,11 @@ function validateData(data: unknown): AppState {
       }))
   })) as unknown as Top10Drawer[];
 
+  const currentDroppedIds = allMigratedEntries
+    .filter((entry) => entry.status === 'DROPPED')
+    .map((entry) => entry.id);
+  const droppedEntryIds = Array.from(new Set([...savedDroppedIds, ...currentDroppedIds]));
+
   return {
     entries: allMigratedEntries as unknown as Entry[],
     genreTags,
@@ -576,6 +757,8 @@ function validateData(data: unknown): AppState {
     importMode: false,
     milestoneQueue: [],
     celebratedMilestones,
+    droppedEntryIds,
+    activeDays,
   };
 }
 
@@ -761,7 +944,14 @@ function hasValidAnthologyMetadata(candidate: Entry): boolean {
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'SET_STATE':
-      return action.payload;
+      return baselineCelebratedState({
+        ...action.payload,
+        droppedEntryIds: Array.from(new Set([
+          ...(action.payload.droppedEntryIds ?? []),
+          ...action.payload.entries.filter((e) => e.status === 'DROPPED').map((e) => e.id),
+        ])),
+        activeDays: action.payload.activeDays ?? state.activeDays ?? [],
+      });
 
     case 'PROMOTE_PLANNED_ENTRIES': {
       const plannedEntries = state.entries.filter(
@@ -813,7 +1003,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         };
         ongoing = [...state.ongoing, o];
       }
-      return { ...state, entries: [...state.entries, entry], ongoing };
+      const droppedEntryIds = entry.status === 'DROPPED'
+        ? Array.from(new Set([...(state.droppedEntryIds ?? []), entry.id]))
+        : state.droppedEntryIds ?? [];
+      return { ...state, entries: [...state.entries, entry], ongoing, droppedEntryIds };
     }
 
     case 'ADD_GENRE_TAG': {
@@ -978,7 +1171,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }));
       }
 
-      return { ...state, entries, ongoing, favorites, ratings, top10Drawers };
+      const droppedEntryIds = entry.status === 'DROPPED'
+        ? Array.from(new Set([...(state.droppedEntryIds ?? []), entry.id]))
+        : state.droppedEntryIds ?? [];
+
+      return { ...state, entries, ongoing, favorites, ratings, top10Drawers, droppedEntryIds };
     }
 
     case 'DELETE_ENTRY': {
@@ -1289,7 +1486,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'IMPORT_DATA': {
       const validated = validateData(action.payload);
-      return validated;
+      return baselineCelebratedState(validated);
     }
 
     case 'SET_ONGOING_YEAR':
@@ -1316,6 +1513,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         celebratedMilestones: [...state.celebratedMilestones, milestoneId],
+      };
+    }
+
+    case 'CELEBRATE_MILESTONES_BATCH': {
+      const incoming = action.payload.filter((id) => !state.celebratedMilestones.includes(id));
+      if (incoming.length === 0) return state;
+      return {
+        ...state,
+        celebratedMilestones: [...state.celebratedMilestones, ...incoming],
+      };
+    }
+
+    case 'RECORD_ACTIVE_DAY': {
+      const day = action.payload;
+      const existing = state.activeDays ?? [];
+      if (existing.includes(day)) return state;
+      return {
+        ...state,
+        activeDays: [...existing, day],
       };
     }
 
@@ -1383,7 +1599,9 @@ interface AppContextValue {
   checkMilestones: (type: MilestoneType, value: number) => void;
   celebrateMilestone: (milestone: Milestone) => void;
   dismissMilestone: () => void;
+  dismissAllMilestones: () => void;
   currentMilestone: Milestone | null;
+  milestoneQueueCount: number;
   currentCompletion: Entry | null;
   dismissCompletion: () => void;
   openCompletion: (entry: Entry) => void;
@@ -1398,6 +1616,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentCompletion, setCurrentCompletion] = useState<Entry | null>(null);
   const initialized = useRef(false);
   const previousEntries = useRef<Entry[] | null>(null);
+  const celebratedSetRef = useRef<Set<string>>(new Set(state.celebratedMilestones));
+  const lastStateCelebratedRef = useRef(state.celebratedMilestones);
+  const recordedDayRef = useRef<string | null>(null);
+  const prevImportModeRef = useRef(state.importMode);
 
   // Wrap dispatch to track wrapped activity as a fire-and-forget side effect
   const dispatchWithTracking = useCallback((action: AppAction) => {
@@ -1426,6 +1648,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [state, isLoaded]);
 
+  // Record today's calendar date once loaded (powers Daily Explorer achievement)
+  useEffect(() => {
+    if (!isLoaded || state.importMode) return;
+    const today = getLocalDateKey();
+    if (recordedDayRef.current === today) return;
+    recordedDayRef.current = today;
+    if (!(state.activeDays ?? []).includes(today)) {
+      dispatch({ type: 'RECORD_ACTIVE_DAY', payload: today });
+    }
+  }, [isLoaded, state.importMode, state.activeDays]);
+
   // Planned entries with a release date become ongoing on the first render
   // after that local calendar date arrives. The interval also handles an app
   // that remains open across midnight.
@@ -1440,33 +1673,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearInterval(timer);
   }, [isLoaded, state.entries]);
 
-  // Process milestone queue
+  // Centralized Achievement Showcase, Collection Personality, Watcher Title, and Milestone observer
   useEffect(() => {
-    if (state.milestoneQueue.length > 0 && !currentMilestone) {
+    if (!isLoaded) return;
+
+    if (state.celebratedMilestones !== lastStateCelebratedRef.current) {
+      lastStateCelebratedRef.current = state.celebratedMilestones;
+      celebratedSetRef.current = new Set(state.celebratedMilestones);
+    }
+
+    // If importMode just ended or is active, baseline silently without firing popups
+    if (state.importMode || prevImportModeRef.current) {
+      prevImportModeRef.current = state.importMode;
+      const satisfied = collectSatisfiedProfileCelebrations(state);
+      const missingIds = satisfied
+        .map((item) => item.id)
+        .filter((id) => !celebratedSetRef.current.has(id));
+      if (missingIds.length > 0) {
+        missingIds.forEach((id) => celebratedSetRef.current.add(id));
+        dispatch({ type: 'CELEBRATE_MILESTONES_BATCH', payload: missingIds });
+      }
+      return;
+    }
+
+    const satisfied = collectSatisfiedProfileCelebrations(state);
+    const newlyUnlocked = satisfied.filter((item) => !celebratedSetRef.current.has(item.id));
+    if (newlyUnlocked.length === 0) return;
+
+    const newIds = newlyUnlocked.map((item) => item.id);
+    newIds.forEach((id) => celebratedSetRef.current.add(id));
+    dispatch({ type: 'CELEBRATE_MILESTONES_BATCH', payload: newIds });
+    for (const item of newlyUnlocked) {
+      dispatch({ type: 'PUSH_MILESTONE', payload: item.milestone });
+    }
+  }, [isLoaded, state]);
+
+  // Observe completion celebrations first and defer milestone queue popping while
+  // CompletionCelebrationModal is open or just triggered.
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    let justCompleted = false;
+    if (!previousEntries.current) {
+      previousEntries.current = state.entries;
+    } else {
+      const newlyCompleted = state.entries.find((entry) => {
+        if (entry.status !== 'COMPLETE') return false;
+        const previous = previousEntries.current?.find((item) => item.id === entry.id);
+        return !previous || previous.status !== 'COMPLETE';
+      });
+      previousEntries.current = state.entries;
+
+      if (newlyCompleted && !state.importMode) {
+        justCompleted = true;
+        setCurrentCompletion(newlyCompleted);
+      }
+    }
+
+    if (!justCompleted && state.milestoneQueue.length > 0 && !currentMilestone && !currentCompletion) {
       const next = state.milestoneQueue[0];
       setCurrentMilestone(next);
       dispatch({ type: 'POP_MILESTONE' });
     }
-  }, [state.milestoneQueue, currentMilestone]);
-
-  // Completion celebrations are observed centrally so status changes from
-  // every editor/search path receive the same celebration modal.
-  useEffect(() => {
-    if (!isLoaded) return;
-    if (!previousEntries.current) {
-      previousEntries.current = state.entries;
-      return;
-    }
-
-    const newlyCompleted = state.entries.find((entry) => {
-      if (entry.status !== 'COMPLETE') return false;
-      const previous = previousEntries.current?.find((item) => item.id === entry.id);
-      return !previous || previous.status !== 'COMPLETE';
-    });
-    previousEntries.current = state.entries;
-
-    if (newlyCompleted) setCurrentCompletion(newlyCompleted);
-  }, [state.entries, isLoaded]);
+  }, [isLoaded, state.entries, state.importMode, state.milestoneQueue, currentMilestone, currentCompletion]);
 
   const getEntryById = useCallback((id: string) => state.entries.find(e => e.id === id), [state.entries]);
   const getOngoingByEntryId = useCallback((id: string) => state.ongoing.find(o => o.entryId === id), [state.ongoing]);
@@ -1483,29 +1752,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Check if a milestone threshold was crossed
   const checkMilestones = useCallback((type: MilestoneType, value: number) => {
-    const celebrated = state.celebratedMilestones;
+    const celebrated = Array.from(celebratedSetRef.current);
     let milestone: Milestone | null = null;
 
     if (type === 'PERFECT_RATING' && value >= 10.0) {
       const id = 'PERFECT_RATING-10';
-      if (!celebrated.includes(id)) {
+      if (!celebratedSetRef.current.has(id)) {
         milestone = {
           type: 'PERFECT_RATING',
           title: getMilestoneTitle('PERFECT_RATING', 10),
           message: getMilestoneMessage('PERFECT_RATING', 10),
           value: 10,
+          milestoneId: id,
+          badge: '10.00 / 10',
+          profileSection: 'achievements',
         };
       }
     } else if (type === 'TOP10_COMPLETE') {
-      // value = the year of the drawer being completed (passed by the caller
-      // who has already verified the drawer will reach 10 entries after dispatch)
       const id = `TOP10_COMPLETE-${value}`;
-      if (!celebrated.includes(id)) {
+      if (!celebratedSetRef.current.has(id)) {
         milestone = {
           type: 'TOP10_COMPLETE',
           title: getMilestoneTitle('TOP10_COMPLETE', value),
           message: getMilestoneMessage('TOP10_COMPLETE', value),
           value,
+          milestoneId: id,
+          badge: `${value} Top 10`,
+          profileSection: 'achievements',
         };
       }
     } else if (type === 'ANNIVERSARY') {
@@ -1514,12 +1787,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const years = currentYear - state.watchingSince;
         if (years > 0) {
           const id = `ANNIVERSARY-${years}`;
-          if (!celebrated.includes(id)) {
+          if (!celebratedSetRef.current.has(id)) {
             milestone = {
               type: 'ANNIVERSARY',
               title: getMilestoneTitle('ANNIVERSARY', years),
               message: getMilestoneMessage('ANNIVERSARY', years),
               value: years,
+              milestoneId: id,
+              badge: `${years} Years`,
+              profileSection: 'title',
             };
           }
         }
@@ -1529,16 +1805,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (milestone) {
-      dispatch({ type: 'CELEBRATE_MILESTONE', payload: `${milestone.type}-${milestone.value}` });
-      // Only queue for display if not in import mode and celebrations are enabled
+      const id = milestone.milestoneId ?? `${milestone.type}-${milestone.value}`;
+      if (celebratedSetRef.current.has(id)) return;
+      celebratedSetRef.current.add(id);
+      dispatch({ type: 'CELEBRATE_MILESTONE', payload: id });
+      // Only queue for display if not in import mode
       if (!state.importMode) {
         dispatch({ type: 'PUSH_MILESTONE', payload: milestone });
       }
     }
-  }, [state.celebratedMilestones, state.importMode, state.watchingSince, state.top10Drawers]);
+  }, [state.importMode, state.watchingSince]);
 
   const celebrateMilestone = useCallback((milestone: Milestone) => {
-    dispatch({ type: 'CELEBRATE_MILESTONE', payload: `${milestone.type}-${milestone.value}` });
+    const id = milestone.milestoneId ?? `${milestone.type}-${milestone.value}`;
+    if (celebratedSetRef.current.has(id)) return;
+    celebratedSetRef.current.add(id);
+    dispatch({ type: 'CELEBRATE_MILESTONE', payload: id });
     if (!state.importMode) {
       dispatch({ type: 'PUSH_MILESTONE', payload: milestone });
     }
@@ -1546,6 +1828,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const dismissMilestone = useCallback(() => {
     setCurrentMilestone(null);
+  }, []);
+
+  const dismissAllMilestones = useCallback(() => {
+    setCurrentMilestone(null);
+    dispatch({ type: 'CLEAR_MILESTONE_QUEUE' });
   }, []);
 
   const dismissCompletion = useCallback(() => {
@@ -1564,7 +1851,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       checkMilestones,
       celebrateMilestone,
       dismissMilestone,
+      dismissAllMilestones,
       currentMilestone,
+      milestoneQueueCount: state.milestoneQueue.length,
       currentCompletion,
       dismissCompletion,
       openCompletion,

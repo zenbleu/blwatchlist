@@ -109,7 +109,9 @@ function AppContent() {
   const {
     isLoaded,
     currentMilestone,
+    milestoneQueueCount,
     dismissMilestone,
+    dismissAllMilestones,
     currentCompletion,
     dismissCompletion,
     dispatch,
@@ -119,6 +121,7 @@ function AppContent() {
   const [desktopMode, setDesktopMode] = useState<DesktopDisplayMode>('fullscreen');
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileInitialSection, setProfileInitialSection] = useState<'title' | 'personality' | 'achievements' | undefined>(undefined);
   const [completionRatingOpen, setCompletionRatingOpen] = useState(false);
   const [completionRatingEntryId, setCompletionRatingEntryId] = useState<string | null>(null);
 
@@ -176,9 +179,11 @@ function AppContent() {
     }
   }, [completionRatingEntryId, currentCompletion]);
 
-  // Handle profile open events from SettingsTab post-import prompt
+  // Handle profile open events from SettingsTab post-import prompt or celebration modals
   useEffect(() => {
-    const handler = () => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ section?: 'title' | 'personality' | 'achievements' } | undefined>).detail;
+      setProfileInitialSection(detail?.section);
       setActiveTab('statistics');
       setProfileOpen(true);
     };
@@ -249,7 +254,13 @@ function AppContent() {
       <Suspense fallback={null}>
         <AnimatePresence>
           {profileOpen && (
-            <BLWatcherProfile onBack={() => setProfileOpen(false)} />
+            <BLWatcherProfile
+              initialSection={profileInitialSection}
+              onBack={() => {
+                setProfileOpen(false);
+                setProfileInitialSection(undefined);
+              }}
+            />
           )}
         </AnimatePresence>
       </Suspense>
@@ -259,6 +270,14 @@ function AppContent() {
         isOpen={!!currentMilestone}
         milestone={currentMilestone}
         onClose={dismissMilestone}
+        queueRemaining={milestoneQueueCount}
+        onDismissAll={dismissAllMilestones}
+        onViewProfile={(section) => {
+          dismissAllMilestones();
+          setProfileInitialSection(section);
+          setActiveTab('statistics');
+          setProfileOpen(true);
+        }}
       />
 
       <CompletionCelebrationModal

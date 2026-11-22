@@ -293,7 +293,9 @@ export type AppAction =
   | { type: 'PUSH_MILESTONE'; payload: Milestone }
   | { type: 'POP_MILESTONE' }
   | { type: 'CLEAR_MILESTONE_QUEUE' }
-  | { type: 'CELEBRATE_MILESTONE'; payload: string };
+  | { type: 'CELEBRATE_MILESTONE'; payload: string }
+  | { type: 'CELEBRATE_MILESTONES_BATCH'; payload: string[] }
+  | { type: 'RECORD_ACTIVE_DAY'; payload: string };
 
 export interface StorageResult {
   success: boolean;

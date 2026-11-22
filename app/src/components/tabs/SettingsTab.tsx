@@ -288,6 +288,8 @@ export default function SettingsTab() {
           importMode: false,
           milestoneQueue: [],
           celebratedMilestones: Array.isArray(data.celebratedMilestones) ? data.celebratedMilestones as string[] : [],
+          droppedEntryIds: Array.isArray(data.droppedEntryIds) ? data.droppedEntryIds as string[] : [],
+          activeDays: Array.isArray(data.activeDays) ? data.activeDays as string[] : [],
         };
       } else {
         // Legacy format - entries only
@@ -304,6 +306,8 @@ export default function SettingsTab() {
           importMode: false,
           milestoneQueue: [],
           celebratedMilestones: [],
+          droppedEntryIds: [],
+          activeDays: [],
         };
       }
 
@@ -356,6 +360,8 @@ export default function SettingsTab() {
         importMode: false,
         milestoneQueue: [],
         celebratedMilestones: [],
+        droppedEntryIds: [],
+        activeDays: [],
       }
     });
     setShowClearConfirm(false);

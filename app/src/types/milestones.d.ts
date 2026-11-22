@@ -8,5 +8,7 @@ declare module '@/types' {
     importMode: boolean;
     milestoneQueue: Milestone[];
     celebratedMilestones: string[];
+    droppedEntryIds?: string[];
+    activeDays?: string[];
   }
 }

@@ -306,10 +306,14 @@ export default function BLSeriesTab() {
       dispatch({ type: "UPDATE_ENTRY", payload: entry });
     } else {
       dispatch({ type: "ADD_ENTRY", payload: entry });
-      // Check collection size milestone after adding a new entry
-      checkMilestones('COLLECTION_SIZE', state.entries.length + 1);
+      if (entry.status === 'COMPLETE' || entry.status === 'ONGOING') {
+        const collectionCount = state.entries.filter(
+          (e) => e.status === 'COMPLETE' || e.status === 'ONGOING'
+        ).length + 1;
+        checkMilestones('COLLECTION_SIZE', collectionCount);
+      }
     }
-  }, [editingEntry, dispatch, checkMilestones, state.entries.length]);
+  }, [editingEntry, dispatch, checkMilestones, state.entries]);
 
   const handleDelete = useCallback((id: string) => {
     dispatch({ type: "DELETE_ENTRY", payload: id });
