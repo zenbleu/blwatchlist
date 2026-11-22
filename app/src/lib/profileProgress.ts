@@ -62,13 +62,12 @@ export interface ExtendedCollectionStats extends CollectionStats {
   hasEarlyAdopterEntry: boolean;
 }
 
-export interface AchievementStatus extends Achievement {
+export interface AchievementStatus extends Omit<Achievement, 'condition'> {
+  condition: (stats: ExtendedCollectionStats) => boolean;
   unlocked: boolean;
 }
 
-export const ACHIEVEMENTS: (Omit<Achievement, 'condition'> & {
-  condition: (stats: ExtendedCollectionStats) => boolean;
-})[] = [
+export const ACHIEVEMENTS: Omit<AchievementStatus, 'unlocked'>[] = [
   /* ---- Collection (9) ---- */
   { id: 'first-collection', emoji: '🏆', name: 'First Collection', description: 'Add your first BL entry', category: 'Collection', condition: (s) => s.total >= 1 },
   { id: 'growing-library', emoji: '📚', name: 'Growing Library', description: 'Collect 25 BL titles', category: 'Collection', condition: (s) => s.total >= 25 },
