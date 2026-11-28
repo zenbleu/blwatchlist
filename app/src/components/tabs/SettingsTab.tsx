@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -14,6 +15,8 @@ import {
   Sparkles,
   Monitor,
   FileSpreadsheet,
+  Play,
+  Eye,
 } from 'lucide-react';
 import { migrateGenreTags, migrateOngoing, useApp } from '@/context/AppContext';
 import { useWrapped } from '@/context/WrappedContext';
@@ -28,8 +31,17 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { normalizeFavoriteEntry } from '@/lib/rating';
+import { calculateOverallRating, normalizeFavoriteEntry } from '@/lib/rating';
 import CustomExportModal from '@/components/CustomExportModal';
+import AnnualWrappedPresentation from '@/components/wrapped/AnnualWrappedPresentation';
+import { currentYear, loadAnnualActivity } from '@/lib/wrappedDB';
+import { generateAnnualSnapshot } from '@/lib/annualWrappedEngine';
+import {
+  emptyAnnualActivityData,
+  type AnnualRankingEntry,
+  type AnnualTrackedEntry,
+  type AnnualWrappedSnapshot,
+} from '@/types/wrapped';
 
 const APP_VERSION = '1.3.8';
 
@@ -65,6 +77,10 @@ export default function SettingsTab() {
 
   // Custom export state
   const [showCustomExport, setShowCustomExport] = useState(false);
+
+  // Temporary Annual BL Wrapped live preview state (for testing before year-end)
+  const [annualPreviewSnapshot, setAnnualPreviewSnapshot] = useState<AnnualWrappedSnapshot | null>(null);
+  const [isLoadingAnnualPreview, setIsLoadingAnnualPreview] = useState(false);
 
 
   // Post-import profile prompt
@@ -367,6 +383,132 @@ export default function SettingsTab() {
     setShowClearConfirm(false);
   }, [dispatch]);
 
+  const handleOpenAnnualPreview = useCallback(async (mode: 'live' | 'collection') => {
+    setIsLoadingAnnualPreview(true);
+    try {
+      const year = currentYear();
+      const completedEntries = state.entries.filter(e => e.status === 'COMPLETE');
+
+      if (mode === 'live') {
+        const activity = await loadAnnualActivity(year);
+        const snap = generateAnnualSnapshot(activity, state.entries.length, completedEntries.length);
+        setAnnualPreviewSnapshot(snap);
+        return;
+      }
+
+      const genreNameById = new Map(state.genreTags.map(tag => [tag.id, tag.name]));
+      const toTracked = (entry: AppState['entries'][number]): AnnualTrackedEntry => ({
+        id: entry.id,
+        title: entry.title,
+        country: entry.country,
+        type: entry.type,
+        genres: (entry.genres ?? [])
+          .map(id => genreNameById.get(id) ?? id)
+          .filter(Boolean),
+      });
+
+      const activity = emptyAnnualActivityData(year);
+
+      if (state.entries.length > 0) {
+        const entryById = new Map(state.entries.map(e => [e.id, e]));
+        const ongoingEntries = state.entries.filter(e => e.status === 'ONGOING');
+        const plannedEntries = state.entries.filter(e => e.status === 'PLANNED');
+        const droppedEntries = state.entries.filter(e => e.status === 'DROPPED');
+        const ratingSource = state.ratings.length > 0 ? state.ratings : state.favorites;
+
+        activity.completedTitles = completedEntries.map(toTracked);
+        activity.ongoingStarted = ongoingEntries.map(toTracked);
+        activity.plannedTitles = plannedEntries.map(toTracked);
+        activity.droppedTitles = droppedEntries.map(toTracked);
+        activity.totalEntriesAdded = state.entries.length;
+        activity.netCollectionGrowth = state.entries.length;
+        activity.moviesWatched = completedEntries.filter(e => e.type === 'Movie').length;
+        activity.seriesWatched = completedEntries.filter(e => e.type === 'Series').length;
+        activity.favoritesAdded = state.favorites
+          .map(fav => entryById.get(fav.entryId))
+          .filter((entry): entry is AppState['entries'][number] => Boolean(entry))
+          .map(toTracked);
+
+        for (const item of ratingSource) {
+          const entry = entryById.get(item.entryId);
+          if (!entry) continue;
+          const score = item.overallRating > 0 ? item.overallRating : calculateOverallRating(item);
+          if (score <= 0) continue;
+          activity.ratingValues.push(score);
+          activity.ratingByEntry[item.entryId] = { ...toTracked(entry), rating: score };
+        }
+        activity.ratingsGiven = activity.ratingValues.length;
+
+        const sourceForDistribution = completedEntries.length > 0 ? completedEntries : state.entries;
+        activity.countriesWatched = sourceForDistribution.map(e => e.country).filter(Boolean);
+        activity.genresWatched = sourceForDistribution.flatMap(e =>
+          (e.genres ?? []).map(id => genreNameById.get(id) ?? id).filter(Boolean),
+        );
+
+        const sortedDrawers = [...state.top10Drawers]
+          .filter(drawer => drawer.entries.length > 0)
+          .sort((a, b) => b.year - a.year);
+        for (const drawer of sortedDrawers) {
+          const rankings: AnnualRankingEntry[] = drawer.entries
+            .map(item => {
+              const entry = entryById.get(item.entryId);
+              if (!entry) return null;
+              return { ...toTracked(entry), rank: item.rank, drawerYear: drawer.year };
+            })
+            .filter((item): item is AnnualRankingEntry => item !== null);
+          if (rankings.length > 0) {
+            activity.top10Rankings[String(drawer.year)] = rankings;
+          }
+        }
+        activity.top10DrawersCreated = sortedDrawers.length;
+        activity.top10Updates = sortedDrawers.reduce((sum, drawer) => sum + drawer.entries.length, 0);
+
+        activity.milestonesUnlocked = state.celebratedMilestones.slice(0, 5).map((id, idx) => ({
+          id,
+          title: id.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          type: 'MILESTONE',
+          value: idx + 1,
+        }));
+
+        const snap = generateAnnualSnapshot(activity, state.entries.length, completedEntries.length);
+        setAnnualPreviewSnapshot(snap);
+      } else {
+        const sampleEntries: AnnualTrackedEntry[] = [
+          { id: 'preview-1', title: 'KinnPorsche The Series', country: 'Thailand', type: 'Series', genres: ['Action', 'Romance'] },
+          { id: 'preview-2', title: 'Semantic Error', country: 'South Korea', type: 'Series', genres: ['Rom-Com', 'Campus'] },
+          { id: 'preview-3', title: 'Cherry Magic!', country: 'Japan', type: 'Series', genres: ['Slice of Life', 'Rom-Com'] },
+          { id: 'preview-4', title: 'We Best Love', country: 'Taiwan', type: 'Series', genres: ['Romance', 'Campus'] },
+        ];
+        activity.completedTitles = sampleEntries;
+        activity.totalEntriesAdded = sampleEntries.length;
+        activity.favoritesAdded = sampleEntries.slice(0, 2);
+        activity.plannedTitles = [{ id: 'preview-5', title: 'Upcoming BL Pick', country: 'Thailand', type: 'Series' }];
+        activity.ratingsGiven = 3;
+        activity.ratingValues = [9.5, 9.2, 8.8];
+        activity.ratingByEntry = {
+          'preview-1': { ...sampleEntries[0], rating: 9.5 },
+          'preview-2': { ...sampleEntries[1], rating: 9.2 },
+          'preview-3': { ...sampleEntries[2], rating: 8.8 },
+        };
+        activity.countriesWatched = ['Thailand', 'South Korea', 'Japan', 'Taiwan'];
+        activity.genresWatched = ['Romance', 'Rom-Com', 'Campus', 'Action'];
+        activity.ongoingStarted = [{ id: 'preview-6', title: 'Weekly Ongoing Pick', country: 'Thailand', type: 'Series' }];
+        activity.top10Rankings[String(year)] = sampleEntries.map((entry, idx) => ({
+          ...entry,
+          rank: idx + 1,
+          drawerYear: year,
+        }));
+        activity.milestonesUnlocked = [
+          { id: 'preview-milestone', title: 'Sample Milestone Preview', type: 'COLLECTION_SIZE', value: 1 },
+        ];
+        const snap = generateAnnualSnapshot(activity, sampleEntries.length, sampleEntries.length);
+        setAnnualPreviewSnapshot(snap);
+      }
+    } finally {
+      setIsLoadingAnnualPreview(false);
+    }
+  }, [state]);
+
 
 
   return (
@@ -559,6 +701,49 @@ export default function SettingsTab() {
             <p className="text-xs text-[#666]">Relive the grand finale of each BL year</p>
           </div>
         </button>
+
+        {/* Temporary Live Preview for testing Annual BL Wrapped */}
+        <div className="rounded-xl border border-amber-500/25 bg-[#141414] p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <Eye className="h-5 w-5 text-amber-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-white">Annual Wrapped Live Preview</p>
+                <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300 border border-amber-500/30">
+                  Temporary Test
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-[#777] leading-relaxed">
+                Test Annual BL Wrapped now without waiting for year-end or modifying saved history.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={isLoadingAnnualPreview}
+              onClick={() => void handleOpenAnnualPreview('live')}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.1] disabled:opacity-50 tap-active"
+            >
+              <Play className="h-3.5 w-3.5 text-amber-400" />
+              <span>Preview Live {currentYear()} Activity</span>
+            </button>
+            <button
+              type="button"
+              disabled={isLoadingAnnualPreview}
+              onClick={() => void handleOpenAnnualPreview('collection')}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#E50914] px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#E50914]/90 disabled:opacity-50 tap-active"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>
+                {state.entries.length > 0 ? 'Preview Full Deck (Collection)' : 'Preview Full Deck (Sample)'}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* About Section */}
@@ -910,6 +1095,20 @@ export default function SettingsTab() {
         isOpen={showCustomExport}
         onClose={() => setShowCustomExport(false)}
       />
+
+      {/* Temporary Annual BL Wrapped Live Preview */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {annualPreviewSnapshot && (
+            <AnnualWrappedPresentation
+              key={`preview-${annualPreviewSnapshot.year}-${annualPreviewSnapshot.generatedAt}`}
+              snapshot={annualPreviewSnapshot}
+              onDismiss={() => setAnnualPreviewSnapshot(null)}
+            />
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }
