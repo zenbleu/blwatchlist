@@ -24,8 +24,18 @@ function entryToTracked(e: Entry, rating?: number) {
   };
 }
 
-function entryToAnnualTracked(e: Entry, rating?: number): AnnualTrackedEntry {
-  return entryToTracked(e, rating);
+function resolveGenreNames(e: Entry, state: AppState): string[] {
+  if (!e.genres?.length) return [];
+  const byId = new Map(state.genreTags.map(tag => [tag.id, tag.name]));
+  return e.genres.map(id => byId.get(id) ?? id).filter(Boolean);
+}
+
+function entryToAnnualTracked(e: Entry, state: AppState, rating?: number): AnnualTrackedEntry {
+  const genres = resolveGenreNames(e, state);
+  return {
+    ...entryToTracked(e, rating),
+    ...(genres.length > 0 ? { genres } : {}),
+  };
 }
 
 function unique<T extends { id: string }>(arr: T[]): T[] {
@@ -37,8 +47,27 @@ function unique<T extends { id: string }>(arr: T[]): T[] {
   });
 }
 
+function withoutId<T extends { id: string }>(arr: T[], id: string): T[] {
+  return arr.filter(item => item.id !== id);
+}
+
 function addUnique(values: string[], value: string): string[] {
   return values.includes(value) ? values : [...values, value];
+}
+
+function addAllUnique(values: string[], incoming: string[]): string[] {
+  let next = values;
+  for (const item of incoming) {
+    if (item && !next.includes(item)) {
+      next = next === values ? [...values, item] : [...next, item];
+    }
+  }
+  return next;
+}
+
+function localTodayDateKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /** Capture rank from current completed count */
@@ -52,8 +81,9 @@ export async function trackWrappedEvent(action: AppAction, state: AppState): Pro
   try {
     // Only track actions that represent meaningful user activity
     const relevantTypes = [
-      'ADD_ENTRY', 'UPDATE_ENTRY', 'DELETE_ENTRY',
-      'TOGGLE_FAVORITE', 'UPDATE_FAVORITE',
+      'ADD_ENTRY', 'UPDATE_ENTRY', 'DELETE_ENTRY', 'PROMOTE_PLANNED_ENTRIES',
+      'TOGGLE_FAVORITE', 'UPDATE_FAVORITE', 'UPDATE_RATING', 'REMOVE_RATING',
+      'UPDATE_STORYLINE_RATING', 'UPDATE_EPISODE_RATING',
       'ADD_TO_TOP10', 'REMOVE_FROM_TOP10', 'REORDER_TOP10', 'ADD_DRAWER',
       'PUSH_MILESTONE', 'UPDATE_ONGOING',
     ];
@@ -91,7 +121,8 @@ function processAnnualAction(
   switch (action.type) {
     case 'ADD_ENTRY': {
       const entry = action.payload;
-      const tracked = entryToAnnualTracked(entry);
+      const tracked = entryToAnnualTracked(entry, state);
+      const genres = resolveGenreNames(entry, state);
       const patch: Partial<AnnualActivityData> = {
         totalEntriesAdded: activity.totalEntriesAdded + 1,
         netCollectionGrowth: activity.netCollectionGrowth + 1,
@@ -101,6 +132,7 @@ function processAnnualAction(
       if (entry.status === 'COMPLETE') {
         patch.completedTitles = unique([...activity.completedTitles, tracked]);
         patch.countriesWatched = addUnique(activity.countriesWatched, entry.country);
+        patch.genresWatched = addAllUnique(activity.genresWatched, genres);
       }
       if (entry.status === 'ONGOING') patch.ongoingStarted = unique([...activity.ongoingStarted, tracked]);
       if (entry.status === 'PLANNED') patch.plannedTitles = unique([...activity.plannedTitles, tracked]);
@@ -112,29 +144,105 @@ function processAnnualAction(
       const entry = action.payload;
       const oldEntry = state.entries.find(e => e.id === entry.id);
       if (!oldEntry || oldEntry.status === entry.status) return { ...activity, ...base };
-      const tracked = entryToAnnualTracked(entry);
+      const tracked = entryToAnnualTracked(entry, state);
+      const genres = resolveGenreNames(entry, state);
+
+      // Clear prior status buckets that should only hold currently-active status
+      const nextPlanned = entry.status === 'PLANNED'
+        ? unique([...activity.plannedTitles, tracked])
+        : withoutId(activity.plannedTitles, entry.id);
+      const nextOngoingStarted = entry.status === 'ONGOING'
+        ? unique([...activity.ongoingStarted, tracked])
+        : withoutId(activity.ongoingStarted, entry.id);
+      const nextOngoingContinued = entry.status === 'ONGOING'
+        ? activity.ongoingContinued
+        : withoutId(activity.ongoingContinued, entry.id);
+
       if (entry.status === 'COMPLETE') {
         return {
           ...activity,
           ...base,
+          plannedTitles: nextPlanned,
+          ongoingStarted: nextOngoingStarted,
+          ongoingContinued: nextOngoingContinued,
+          droppedTitles: withoutId(activity.droppedTitles, entry.id),
           statusCompletions: unique([...activity.statusCompletions, tracked]),
           countriesWatched: addUnique(activity.countriesWatched, entry.country),
+          genresWatched: addAllUnique(activity.genresWatched, genres),
         };
       }
       if (entry.status === 'DROPPED') {
-        return { ...activity, ...base, droppedTitles: unique([...activity.droppedTitles, tracked]) };
+        const nextRatingByEntry = { ...activity.ratingByEntry };
+        delete nextRatingByEntry[entry.id];
+        return {
+          ...activity,
+          ...base,
+          plannedTitles: nextPlanned,
+          ongoingStarted: nextOngoingStarted,
+          ongoingContinued: nextOngoingContinued,
+          completedTitles: withoutId(activity.completedTitles, entry.id),
+          statusCompletions: withoutId(activity.statusCompletions, entry.id),
+          droppedTitles: unique([...activity.droppedTitles, tracked]),
+          ratingByEntry: nextRatingByEntry,
+        };
       }
       if (entry.status === 'ONGOING') {
-        return { ...activity, ...base, ongoingStarted: unique([...activity.ongoingStarted, tracked]) };
+        return {
+          ...activity,
+          ...base,
+          plannedTitles: nextPlanned,
+          ongoingStarted: nextOngoingStarted,
+          ongoingContinued: nextOngoingContinued,
+          droppedTitles: withoutId(activity.droppedTitles, entry.id),
+        };
       }
       if (entry.status === 'PLANNED') {
-        return { ...activity, ...base, plannedTitles: unique([...activity.plannedTitles, tracked]) };
+        return {
+          ...activity,
+          ...base,
+          plannedTitles: nextPlanned,
+          ongoingStarted: nextOngoingStarted,
+          ongoingContinued: nextOngoingContinued,
+          droppedTitles: withoutId(activity.droppedTitles, entry.id),
+        };
       }
       return { ...activity, ...base };
     }
 
-    case 'DELETE_ENTRY':
-      return { ...activity, ...base, netCollectionGrowth: activity.netCollectionGrowth - 1 };
+    case 'PROMOTE_PLANNED_ENTRIES': {
+      const today = localTodayDateKey();
+      const promoted = state.entries.filter(
+        (entry) => entry.status === 'PLANNED' && entry.plannedDate && entry.plannedDate <= today,
+      );
+      if (promoted.length === 0) return activity;
+      const promotedIds = new Set(promoted.map(entry => entry.id));
+      const promotedTracked = promoted.map(entry => entryToAnnualTracked(entry, state));
+      return {
+        ...activity,
+        ...base,
+        plannedTitles: activity.plannedTitles.filter(item => !promotedIds.has(item.id)),
+        ongoingStarted: unique([...activity.ongoingStarted, ...promotedTracked]),
+      };
+    }
+
+    case 'DELETE_ENTRY': {
+      const id = action.payload;
+      const nextRatingByEntry = { ...activity.ratingByEntry };
+      delete nextRatingByEntry[id];
+      return {
+        ...activity,
+        ...base,
+        netCollectionGrowth: activity.netCollectionGrowth - 1,
+        plannedTitles: withoutId(activity.plannedTitles, id),
+        ongoingStarted: withoutId(activity.ongoingStarted, id),
+        ongoingContinued: withoutId(activity.ongoingContinued, id),
+        completedTitles: withoutId(activity.completedTitles, id),
+        statusCompletions: withoutId(activity.statusCompletions, id),
+        droppedTitles: withoutId(activity.droppedTitles, id),
+        favoritesAdded: withoutId(activity.favoritesAdded, id),
+        ratingByEntry: nextRatingByEntry,
+      };
+    }
 
     case 'TOGGLE_FAVORITE': {
       const entryId = action.payload;
@@ -143,14 +251,16 @@ function processAnnualAction(
       const alreadyFavorited = state.favorites.some(f => f.entryId === entryId);
       return alreadyFavorited
         ? { ...activity, ...base, favoritesRemoved: activity.favoritesRemoved + 1 }
-        : { ...activity, ...base, favoritesAdded: unique([...activity.favoritesAdded, entryToAnnualTracked(entry)]) };
+        : { ...activity, ...base, favoritesAdded: unique([...activity.favoritesAdded, entryToAnnualTracked(entry, state)]) };
     }
 
-    case 'UPDATE_FAVORITE': {
+    case 'UPDATE_FAVORITE':
+    case 'UPDATE_RATING': {
       const fav = action.payload;
       const entry = state.entries.find(e => e.id === fav.entryId);
       if (!entry) return { ...activity, ...base };
-      const rating = fav.overallRating;
+      const rating = fav.overallRating > 0 ? fav.overallRating : calculateOverallRating(fav);
+      const ratedAt = fav.ratedAt ?? Date.now();
       const existing = activity.ratingByEntry[fav.entryId];
       return {
         ...activity,
@@ -160,15 +270,50 @@ function processAnnualAction(
         ratingValues: existing ? activity.ratingValues : [...activity.ratingValues, rating],
         ratingByEntry: {
           ...activity.ratingByEntry,
-          [fav.entryId]: { ...entryToAnnualTracked(entry), rating },
+          [fav.entryId]: { ...entryToAnnualTracked(entry, state), rating, ratedAt },
+        },
+      };
+    }
+
+    case 'REMOVE_RATING': {
+      const entryId = action.payload;
+      const hasFav = state.favorites.some(f => f.entryId === entryId);
+      if (hasFav) return { ...activity, ...base };
+      const nextRatingByEntry = { ...activity.ratingByEntry };
+      delete nextRatingByEntry[entryId];
+      return { ...activity, ...base, ratingByEntry: nextRatingByEntry };
+    }
+
+    case 'UPDATE_STORYLINE_RATING':
+    case 'UPDATE_EPISODE_RATING': {
+      const entryId = action.payload.entryId;
+      const entry = state.entries.find(e => e.id === entryId);
+      const existingEval = state.ratings.find(r => r.entryId === entryId)
+        ?? state.favorites.find(f => f.entryId === entryId);
+      if (!entry || !existingEval) return { ...activity, ...base };
+      const existing = activity.ratingByEntry[entryId];
+      const nextStoryline = action.type === 'UPDATE_STORYLINE_RATING'
+        ? (action.payload.rating ?? existingEval.storyline)
+        : existingEval.storyline;
+      const rating = calculateOverallRating({ ...existingEval, storyline: nextStoryline });
+      const ratedAt = Date.now();
+      return {
+        ...activity,
+        ...base,
+        ratingsGiven: existing ? activity.ratingsGiven : activity.ratingsGiven + 1,
+        ratingsEdited: existing ? activity.ratingsEdited + 1 : activity.ratingsEdited,
+        ratingValues: existing ? activity.ratingValues : [...activity.ratingValues, rating],
+        ratingByEntry: {
+          ...activity.ratingByEntry,
+          [entryId]: { ...entryToAnnualTracked(entry, state), rating, ratedAt },
         },
       };
     }
 
     case 'UPDATE_ONGOING': {
       const entry = state.entries.find(e => e.id === action.payload.entryId);
-      return entry
-        ? { ...activity, ...base, ongoingContinued: unique([...activity.ongoingContinued, entryToAnnualTracked(entry)]) }
+      return entry && entry.status === 'ONGOING'
+        ? { ...activity, ...base, ongoingContinued: unique([...activity.ongoingContinued, entryToAnnualTracked(entry, state)]) }
         : { ...activity, ...base };
     }
 
@@ -191,7 +336,7 @@ function processAnnualAction(
       const rankings: AnnualRankingEntry[] = entries.map(e => {
         const entry = state.entries.find(item => item.id === e.entryId);
         return entry
-          ? { ...entryToAnnualTracked(entry), rank: e.rank, drawerYear: year }
+          ? { ...entryToAnnualTracked(entry, state), rank: e.rank, drawerYear: year }
           : null;
       }).filter(Boolean) as AnnualRankingEntry[];
       return {

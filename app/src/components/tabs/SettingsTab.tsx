@@ -35,7 +35,10 @@ import { calculateOverallRating, normalizeFavoriteEntry } from '@/lib/rating';
 import CustomExportModal from '@/components/CustomExportModal';
 import AnnualWrappedPresentation from '@/components/wrapped/AnnualWrappedPresentation';
 import { currentYear, loadAnnualActivity } from '@/lib/wrappedDB';
-import { generateAnnualSnapshot } from '@/lib/annualWrappedEngine';
+import {
+  generateAnnualSnapshot,
+  reconcileAnnualActivityWithEntries,
+} from '@/lib/annualWrappedEngine';
 import {
   emptyAnnualActivityData,
   type AnnualRankingEntry,
@@ -388,15 +391,16 @@ export default function SettingsTab() {
     try {
       const year = currentYear();
       const completedEntries = state.entries.filter(e => e.status === 'COMPLETE');
+      const genreNameById = new Map(state.genreTags.map(tag => [tag.id, tag.name]));
 
       if (mode === 'live') {
-        const activity = await loadAnnualActivity(year);
+        const rawActivity = await loadAnnualActivity(year);
+        const activity = reconcileAnnualActivityWithEntries(rawActivity, state.entries, genreNameById);
         const snap = generateAnnualSnapshot(activity, state.entries.length, completedEntries.length);
         setAnnualPreviewSnapshot(snap);
         return;
       }
 
-      const genreNameById = new Map(state.genreTags.map(tag => [tag.id, tag.name]));
       const toTracked = (entry: AppState['entries'][number]): AnnualTrackedEntry => ({
         id: entry.id,
         title: entry.title,
@@ -414,7 +418,18 @@ export default function SettingsTab() {
         const ongoingEntries = state.entries.filter(e => e.status === 'ONGOING');
         const plannedEntries = state.entries.filter(e => e.status === 'PLANNED');
         const droppedEntries = state.entries.filter(e => e.status === 'DROPPED');
-        const ratingSource = state.ratings.length > 0 ? state.ratings : state.favorites;
+
+        // Merge ratings & favorites deduplicated by entryId, preferring explicit ratings / latest ratedAt
+        const mergedEvaluations = new Map<string, AppState['ratings'][number]>();
+        for (const fav of state.favorites) {
+          mergedEvaluations.set(fav.entryId, fav);
+        }
+        for (const r of state.ratings) {
+          const prev = mergedEvaluations.get(r.entryId);
+          if (!prev || (r.ratedAt ?? 0) >= (prev.ratedAt ?? 0)) {
+            mergedEvaluations.set(r.entryId, r);
+          }
+        }
 
         activity.completedTitles = completedEntries.map(toTracked);
         activity.ongoingStarted = ongoingEntries.map(toTracked);
@@ -429,13 +444,15 @@ export default function SettingsTab() {
           .filter((entry): entry is AppState['entries'][number] => Boolean(entry))
           .map(toTracked);
 
-        for (const item of ratingSource) {
+        for (const item of mergedEvaluations.values()) {
           const entry = entryById.get(item.entryId);
-          if (!entry) continue;
+          if (!entry || entry.status === 'DROPPED') continue;
           const score = item.overallRating > 0 ? item.overallRating : calculateOverallRating(item);
           if (score <= 0) continue;
+          const ratedAt = item.ratedAt ?? entry.lastUpdatedAt;
+          if (ratedAt !== undefined && new Date(ratedAt).getFullYear() !== year) continue;
           activity.ratingValues.push(score);
-          activity.ratingByEntry[item.entryId] = { ...toTracked(entry), rating: score };
+          activity.ratingByEntry[item.entryId] = { ...toTracked(entry), rating: score, ratedAt };
         }
         activity.ratingsGiven = activity.ratingValues.length;
 
@@ -474,25 +491,28 @@ export default function SettingsTab() {
         setAnnualPreviewSnapshot(snap);
       } else {
         const sampleEntries: AnnualTrackedEntry[] = [
-          { id: 'preview-1', title: 'KinnPorsche The Series', country: 'Thailand', type: 'Series', genres: ['Action', 'Romance'] },
-          { id: 'preview-2', title: 'Semantic Error', country: 'South Korea', type: 'Series', genres: ['Rom-Com', 'Campus'] },
-          { id: 'preview-3', title: 'Cherry Magic!', country: 'Japan', type: 'Series', genres: ['Slice of Life', 'Rom-Com'] },
-          { id: 'preview-4', title: 'We Best Love', country: 'Taiwan', type: 'Series', genres: ['Romance', 'Campus'] },
+          { id: 'preview-1', title: 'The Untamed', country: 'China', type: 'Series', genres: ['Fantasy', 'Historical'] },
+          { id: 'preview-2', title: 'KinnPorsche The Series', country: 'Thailand', type: 'Series', genres: ['Action', 'Romance'] },
+          { id: 'preview-3', title: 'Semantic Error', country: 'South Korea', type: 'Series', genres: ['Rom-Com', 'Campus'] },
+          { id: 'preview-4', title: 'Cherry Magic!', country: 'Japan', type: 'Series', genres: ['Slice of Life', 'Rom-Com'] },
+          { id: 'preview-5', title: 'We Best Love', country: 'Taiwan', type: 'Series', genres: ['Romance', 'Campus'] },
         ];
+        const now = Date.now();
         activity.completedTitles = sampleEntries;
-        activity.totalEntriesAdded = sampleEntries.length;
-        activity.favoritesAdded = sampleEntries.slice(0, 2);
-        activity.plannedTitles = [{ id: 'preview-5', title: 'Upcoming BL Pick', country: 'Thailand', type: 'Series' }];
-        activity.ratingsGiven = 3;
-        activity.ratingValues = [9.5, 9.2, 8.8];
+        activity.totalEntriesAdded = sampleEntries.length + 2;
+        activity.favoritesAdded = sampleEntries.slice(0, 3);
+        activity.plannedTitles = [{ id: 'preview-6', title: 'Upcoming BL Pick', country: 'Thailand', type: 'Series' }];
+        activity.ratingsGiven = 4;
+        activity.ratingValues = [9.9, 9.7, 9.5, 8.9];
         activity.ratingByEntry = {
-          'preview-1': { ...sampleEntries[0], rating: 9.5 },
-          'preview-2': { ...sampleEntries[1], rating: 9.2 },
-          'preview-3': { ...sampleEntries[2], rating: 8.8 },
+          'preview-1': { ...sampleEntries[0], rating: 9.9, ratedAt: now },
+          'preview-2': { ...sampleEntries[1], rating: 9.7, ratedAt: now },
+          'preview-3': { ...sampleEntries[2], rating: 9.5, ratedAt: now },
+          'preview-4': { ...sampleEntries[3], rating: 8.9, ratedAt: now },
         };
-        activity.countriesWatched = ['Thailand', 'South Korea', 'Japan', 'Taiwan'];
-        activity.genresWatched = ['Romance', 'Rom-Com', 'Campus', 'Action'];
-        activity.ongoingStarted = [{ id: 'preview-6', title: 'Weekly Ongoing Pick', country: 'Thailand', type: 'Series' }];
+        activity.countriesWatched = ['China', 'Thailand', 'South Korea', 'Japan', 'Taiwan'];
+        activity.genresWatched = ['Romance', 'Rom-Com', 'Campus', 'Action', 'Fantasy'];
+        activity.ongoingStarted = [{ id: 'preview-7', title: 'Weekly Ongoing Pick', country: 'Thailand', type: 'Series' }];
         activity.top10Rankings[String(year)] = sampleEntries.map((entry, idx) => ({
           ...entry,
           rank: idx + 1,
@@ -501,7 +521,7 @@ export default function SettingsTab() {
         activity.milestonesUnlocked = [
           { id: 'preview-milestone', title: 'Sample Milestone Preview', type: 'COLLECTION_SIZE', value: 1 },
         ];
-        const snap = generateAnnualSnapshot(activity, sampleEntries.length, sampleEntries.length);
+        const snap = generateAnnualSnapshot(activity, sampleEntries.length + 2, sampleEntries.length);
         setAnnualPreviewSnapshot(snap);
       }
     } finally {

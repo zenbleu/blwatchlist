@@ -16,7 +16,7 @@ import {
   currentYear,
   yearsBetween,
 } from '@/lib/annualWrappedDB';
-import { generateAnnualSnapshot } from '@/lib/annualWrappedEngine';
+import { generateAnnualSnapshot, reconcileAnnualActivityWithEntries } from '@/lib/annualWrappedEngine';
 
 const START_YEAR_KEY = 'bl-wrapped-start-year';
 
@@ -58,13 +58,15 @@ export function AnnualWrappedProvider({ children }: { children: React.ReactNode 
       // Collect current stats for snapshot generation
       const currentCollectionSize = state.entries.length;
       const currentCompletedCount = state.entries.filter(e => e.status === 'COMPLETE').length;
+      const genreNameById = new Map(state.genreTags.map(tag => [tag.id, tag.name]));
 
       const newSnapshots: AnnualWrappedSnapshot[] = [];
 
       for (const year of pastYears) {
         if (existingSet.has(year)) continue;
 
-        const activity = await loadAnnualActivity(year);
+        const rawActivity = await loadAnnualActivity(year);
+        const activity = reconcileAnnualActivityWithEntries(rawActivity, state.entries, genreNameById);
         const snap = generateAnnualSnapshot(activity, currentCollectionSize, currentCompletedCount);
         const saved = await saveAnnualSnapshotOnce(snap);
         if (saved) newSnapshots.push(snap);
@@ -80,7 +82,7 @@ export function AnnualWrappedProvider({ children }: { children: React.ReactNode 
 
       setIsAnnualReady(true);
     })();
-  }, [isLoaded, state.entries]);
+  }, [isLoaded, state.entries, state.genreTags]);
 
   // ── Public API ────────────────────────────────────────────────────────────────
 

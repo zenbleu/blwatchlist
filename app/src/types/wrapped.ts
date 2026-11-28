@@ -202,7 +202,7 @@ export interface AnnualActivityData {
   ratingsGiven: number;
   ratingsEdited: number;
   ratingValues: number[];
-  ratingByEntry: Record<string, AnnualTrackedEntry & { rating: number }>;
+  ratingByEntry: Record<string, AnnualTrackedEntry & { rating: number; ratedAt?: number }>;
   top10Updates: number;
   top10DrawersCreated: number;
   top10Rankings: Record<string, AnnualRankingEntry[]>;
@@ -274,17 +274,34 @@ export interface AnnualWrappedSlide {
   payload: AnnualSlidePayload;
 }
 
+export type AnnualHighestRatedEntry = AnnualTrackedEntry & { rating: number; ratedAt?: number };
+
 export type AnnualSlidePayload =
-  | { year: number; totalActivity: number }
+  | { year: number; totalActivity: number; completedCount?: number; collectionSize?: number | null }
   | { count: number; label: string; titles?: string[]; entries?: AnnualTrackedEntry[] }
-  | { title: string; country: string; type: string; rating: number; entryId?: string }
+  | {
+      title: string;
+      country: string;
+      type: string;
+      rating: number;
+      entryId?: string;
+      year?: number;
+      entries?: AnnualHighestRatedEntry[];
+    }
   | { name: string; count: number; all: [string, number][]; entries?: AnnualTrackedEntry[] }
   | { countryCount: number; topCountry?: string; topCountryCount?: number }
   | { genreCount: number; topGenre?: string; topGenreCount?: number }
   | { achievements: Array<{ title: string; type: string }> }
-  | { rank: string; emoji: string }
+  | { rank: string; emoji: string; completedCount?: number; collectionSize?: number | null }
   | { entries: AnnualRankingEntry[]; drawerYear: number }
-  | { year: number };
+  | {
+      year: number;
+      completedCount?: number;
+      favoritesCount?: number;
+      countriesCount?: number;
+      topRating?: number | null;
+      collectionSize?: number | null;
+    };
 
 export interface AnnualWrappedContextValue {
   snapshots: AnnualWrappedSnapshot[];

@@ -191,6 +191,7 @@ export function normalizeFavoriteEntry(raw: Record<string, unknown>): FavoriteEn
     rewatchValue: Boolean(raw.rewatchValue),
     gapPenalty: 0,
     overallRating: 0,
+    ...(typeof raw.ratedAt === 'number' && Number.isFinite(raw.ratedAt) ? { ratedAt: raw.ratedAt } : {}),
   };
 
   normalized.gapPenalty = calculateEvaluationDeduction(normalized);

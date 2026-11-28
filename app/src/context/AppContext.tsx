@@ -670,6 +670,7 @@ function validateData(data: unknown): AppState {
       flowAndPacing: Boolean(f.flowAndPacing),
       gapPenalty: typeof f.gapPenalty === 'number' ? f.gapPenalty : 0,
       overallRating: typeof f.overallRating === 'number' ? f.overallRating : 5.0,
+      ...(typeof f.ratedAt === 'number' && Number.isFinite(f.ratedAt) ? { ratedAt: f.ratedAt } : {}),
     })) as unknown as FavoriteEntry[];
   const recalculatedFavorites = validFavorites.map((favorite) => {
     const entry = allMigratedEntries.find((candidate) => candidate.id === favorite.entryId);
@@ -711,6 +712,7 @@ function validateData(data: unknown): AppState {
       flowAndPacing: Boolean(r.flowAndPacing),
       gapPenalty: typeof r.gapPenalty === 'number' ? r.gapPenalty : 0,
       overallRating: typeof r.overallRating === 'number' ? r.overallRating : 5.0,
+      ...(typeof r.ratedAt === 'number' && Number.isFinite(r.ratedAt) ? { ratedAt: r.ratedAt } : {}),
     })) as unknown as FavoriteEntry[];
   const recalculatedRatings = validRatings.map((rating) => {
     const entry = allMigratedEntries.find((candidate) => candidate.id === rating.entryId);
@@ -847,6 +849,7 @@ function recalculateEvaluationWithStoryline(evaluation: FavoriteEntry, storyline
     storyline,
     gapPenalty: calculateEvaluationDeduction(evaluation),
     overallRating: 0,
+    ratedAt: Date.now(),
   };
   updated.overallRating = calculateOverallRating(updated);
   return updated;
@@ -1277,7 +1280,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...action.payload,
         storyline,
         gapPenalty: calculateEvaluationDeduction(action.payload),
-        overallRating: 0
+        overallRating: 0,
+        ratedAt: action.payload.ratedAt ?? Date.now(),
       };
       updated.overallRating = calculateOverallRating(updated);
       const existing = state.favorites.find(f => f.entryId === updated.entryId);
@@ -1302,7 +1306,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...action.payload,
         storyline,
         gapPenalty: calculateEvaluationDeduction(action.payload),
-        overallRating: 0
+        overallRating: 0,
+        ratedAt: action.payload.ratedAt ?? Date.now(),
       };
       updated.overallRating = calculateOverallRating(updated);
       const existing = state.ratings.find(r => r.entryId === updated.entryId);
@@ -1665,13 +1670,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
     const promotePlannedEntries = () => {
-      dispatch({ type: 'PROMOTE_PLANNED_ENTRIES' });
+      const hasDuePlanned = state.entries.some(
+        (entry) => entry.status === 'PLANNED' && entry.plannedDate && isDateOnlyOnOrBefore(entry.plannedDate),
+      );
+      if (hasDuePlanned) {
+        dispatchWithTracking({ type: 'PROMOTE_PLANNED_ENTRIES' });
+      }
     };
 
     promotePlannedEntries();
     const timer = window.setInterval(promotePlannedEntries, 60_000);
     return () => window.clearInterval(timer);
-  }, [isLoaded, state.entries]);
+  }, [isLoaded, state.entries, dispatchWithTracking]);
 
   // Centralized Achievement Showcase, Collection Personality, Watcher Title, and Milestone observer
   useEffect(() => {

@@ -664,6 +664,7 @@ export default function FavoriteEvaluation({
       rewatchValue,
       gapPenalty: 0,
       overallRating,
+      ratedAt: Date.now(),
     };
 
     if (evaluationType === 'rating') {

@@ -141,6 +141,8 @@ export interface FavoriteEntry {
   flowAndPacing?: boolean;
   gapPenalty: number;
   overallRating: number;
+  /** Timestamp (ms) when the user last saved or updated this rating. */
+  ratedAt?: number;
 }
 
 export interface Top10Entry {
